@@ -1,0 +1,712 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : statypol.sqr                                   ****
+! ***** DATE        : 09/05/95                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** AUTHOR      : Mal Nick                                       ****
+! ***** NOTE        : ’ÔÎÔÈ· ÂÎ·Ù˘Ì ÏÂ ·Ì·ÎıÛÁ ıÔÎÔﬂÔı          ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   9
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   6
+
+#DEFINE   DATEMASK     DD/MM/YY
+#DEFINE   MASK1             999
+#DEFINE   MASK2          999999
+#DEFINE   MASK3  99,999,999,999
+#DEFINE   MASK4        99999.99 
+#DEFINE   MASK5          99,999
+#DEFINE   MASK6     999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+ input $icid     '≈Ù·ÈÒÂﬂ· :'
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ input $itmhma   'tmhma' 
+ input $plhuoss  'plhuos'
+ input $irest    'rest'
+ input $iord     'order'
+ input $idrast   'drasthriothta'
+ input $ipvl     'pvlhths'
+ 
+! input $ienerg   'pvlhths'
+
+ unstring $icid    by '"'  into $filler $xcid   $filler
+ unstring $itmhma  by '"'  into $filler $tmhma  $filler
+ unstring $irest   by '"'  into $filler $rest   $filler
+ unstring $iord    by '"'  into $filler $ord    $filler
+ unstring $ipvl    by '"'  into $filler $pvl    $filler
+ unstring $idrast  by '"'  into $filler $drast  $filler
+
+! unstring $ienerg  by '"'  into $filler $energ  $filler
+ let $cid     = $xcid
+ move $rest   to #rest
+ move $ord    to #ord
+ move $pvl    to #pvl
+
+ execute app_datecnv   $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+ execute app_geteom    $evshm,   $evshm output
+ execute app_floatcnv  $plhuoss, #plhuos output
+ 
+ if $drast = '*'
+    let $SQLCMDDR   = ' '
+ else 
+    let $SQLCMDDR   = ' and c.drast   = ' || $idrast
+    do find_drast
+ end-if
+   
+     if $tmhma = '*'
+        execute app_repmsg ' '                                                  
+        execute app_repmsg ' '                                                  
+        execute app_repmsg ' '                                                  
+        execute app_repmsg '                            œ◊… œÀ¡ ‘¡ ‘Ã«Ã¡‘¡ Ã¡∆…'
+        execute app_repmsg ' '                                                  
+        execute app_repmsg '                             ≈Õ¡ ≈Õ¡  ¡… ”…√¡ ”…√¡'
+        stop
+     end-if 
+    let #tmhma = $tmhma
+ if $tmhma != '*'
+    do find_tmhma
+    let $SQLCMDTMHMA = 'and e.tmhma = '|| $tmhma
+    let $SQLWHTMHMA = ' and b.tmhma = '|| $tmhma
+ end-if
+
+ if $pvl = '*'
+    let $SQLCMDPVL = ''
+ else 
+    let $SQLCMDPVL = 'and d.pvlhths =' || $pvl
+    do find_pvl
+ end-if
+
+! –˘ÎﬁÛÂÈÚ -------------------
+ if #ord = 1
+  let $pord = '–ŸÀ«”≈…” '
+  let $SQLCMDORD1 =  'order by 3 desc'
+ end-if
+
+ do main 
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ 
+begin-select
+
+dateadd(yy, -1 ,$apohm) &prev_per1    () NOP
+dateadd(yy, -1 ,$evshm) &prev_per2    () NOP
+ move &prev_per1 to $prev_hm1
+ move &prev_per2 to $prev_hm2
+
+datepart(yy,$apohm)     &year         () NOP
+ let #year = &year
+ let #prev_year = #year - 1
+
+ move #prev_year to $prev_year 9999
+ let $prev_etos1 = '1 Jan '  || $prev_year
+ let $prev_etos2 = '31 Dec ' || $prev_year
+
+end-select
+
+  let #x = 1   
+
+begin-select LOOPS=100
+a.synal                      &synal            () NOP
+b.epvnymia                   &epvnymia         () NOP
+!  sum(pvl_a)                   &pvl              () NOP
+   
+ let $synal = &synal 
+       let #prev_y   = 0  
+       let #prev_p   = 0  
+
+  let $flag = ' '        
+  let $hm1 = $apohm
+  let $hm2 = $evshm
+  do  prev
+       let #pvl   = #yp
+  
+  let $flag = 'PREV_YEAR'
+  do  prev
+       let #prev_y   = #yp
+  let $flag = 'PREV_PER'
+  do  prev
+      let #prev_p   = #yp
+
+     let   #stot_prev_p = #stot_prev_p + #prev_p 
+     let   #stot_prev_y = #stot_prev_y + #prev_y 
+     let   #stot_pvl    = #stot_pvl    + #pvl    
+    
+  if #plhuos >= #x 
+     if #prev_y = 0
+        let #prev_yo = 1
+     else
+        let #prev_yo = #prev_y
+     end-if
+     let #pos1  = (#prev_p  * 100) / #prev_yo 
+     if #prev_p = 0
+        let #prev_po = 1
+     else
+        let #prev_po = #prev_p
+     end-if
+     let #pos2  = ((#pvl     * 100) / #prev_po ) - 100
+
+     print #x         (, 1, 3) EDIT {MASK1}
+     print &synal     (,+1,10)
+     print &epvnymia  (,+1,40)
+     print #prev_y       (,+1,11) EDIT {MASK6}
+     print #prev_p       (,+1,11) EDIT {MASK6}
+     print #pos1      (,+1, 8) EDIT {MASK4}
+     print '%'        (,  , 1)
+     print #pvl       (,+1,11) EDIT {MASK6}
+     print #pos2      (,+1, 8) EDIT {MASK4}
+     print '%'        (,  , 1)
+
+     let   #tot_prev_y = #tot_prev_y + #prev_y 
+     let   #tot_prev_p = #tot_prev_p + #prev_p 
+     let   #tot_pvl    = #tot_pvl    + #pvl    
+
+     next-listing
+
+     if #x = 1
+        let $which = 'eidh'
+        do which
+     end-if
+   
+     if $which = 'eidh' 
+        do  eidh01
+     end-if 
+   
+     if $which = 'eidhinf' 
+        do  eidhinf01
+     end-if 
+   
+  end-if
+
+  let #x = #x + 1
+
+from  st_whkint01g a, 
+      sy_synal     b, 
+      ap_epaggelma c,
+      sy_synalprog d,
+      wh_pvlomades e
+
+where a.synal       = b.synal 
+AND   a.synal in ('00649', 
+                  '00155', 
+                  '00189', 
+                  '00188', 
+                  '80020', 
+                  '00001', 
+                  '00598',                  
+                  '00893', 
+                  '00722', 
+                  '00723', 
+                  '00212', 
+                  '00679', 
+                  '00679-01',                        
+                  '00679-02', 
+                  '00144', 
+                  '01612', 
+                  '00724', 
+                  '00743', 
+                  '00769',
+                  '01492')
+and   a.pvlomada    = e.pvlomada
+and   a.cid         = $cid
+and   b.synal       = d.synal
+and   c.kvdikos     = b.epaggelma 
+and   d.synal       = b.synal
+and   d.pvlhths < 10
+[$SQLCMDTMHMA]
+[$SQLCMDPVL]
+[$SQLCMDDR]
+[$SQLCMD]
+group by a.synal,b.epvnymia
+ !  order by 3 desc
+end-select
+ 
+  next-listing
+ 
+     let   #l_x         = #x           - #plhuos
+     let   #ltot_prev_y = #stot_prev_y - #tot_prev_y 
+     let   #ltot_prev_p = #stot_prev_p - #tot_prev_p 
+     let   #ltot_pvl    = #stot_pvl    - #tot_pvl    
+
+     print ' '          (, 1,10)
+     print '”’ÕœÀœ : '  (,+1,30)
+!     print '”’Õ/Ã≈Õœ…'  (,+1, 9)
+     print ' '          (,+1, 9)
+!     print #plhuos      (,+1, 3) EDIT {MASK1}
+     print ' '          (,+1, 3)
+     print #tot_prev_y  (,+1,11) EDIT {MASK6}
+     print #tot_prev_p  (,+1,11) EDIT {MASK6}
+     print ' '          (,+1, 8) 
+     print ' '          (,  , 1)
+     print #tot_pvl     (,+1,11) EDIT {MASK6}
+     print ' '          (,+1, 8) 
+     print ' '          (,  , 1)
+
+!  next-listing
+!     print ' '           (, 1,10)
+!     print 'Àœ…–œ… : '   (,+1,30)
+!     print '”’Õ/Ã≈Õœ…'   (,+1, 9)
+!     print #l_x          (,+1, 3) EDIT {MASK1}
+!     print #ltot_prev_y  (,+1,11) EDIT {MASK6}
+!     print #ltot_prev_p  (,+1,11) EDIT {MASK6}
+!     print ' '           (,+1, 8) 
+!     print ' '           (,  , 1)
+!     print #ltot_pvl     (,+1,11) EDIT {MASK6}
+!     print ' '           (,+1, 8) 
+!     print ' '           (,  , 1)
+!
+!  next-listing
+!     print '√≈Õ… ¡ '     (, 1,10)
+!     print '”’ÕœÀ¡ : '   (,+1,30)
+!     print '”’Õ/Ã≈Õœ…'   (,+1, 9)
+!     print #x            (,+1, 3) EDIT {MASK1}
+!     print #stot_prev_y  (,+1,11) EDIT {MASK6}
+!     print #stot_prev_p  (,+1,11) EDIT {MASK6}
+!     print ' '           (,+1, 8) 
+!     print ' '           (,  , 1)
+!     print #stot_pvl     (,+1,11) EDIT {MASK6}
+!     print ' '           (,+1, 8) 
+!     print ' '           (,  , 1)
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure prev
+
+    let #yp   = 0
+
+
+  if $flag = 'PREV_PER'
+     let $hm1  = $prev_hm1
+     let $hm2  = $prev_hm2
+  end-if 
+
+  if $flag = 'PREV_YEAR'
+     let $hm1  = $prev_etos1 
+     let $hm2  = $prev_etos2 
+  end-if
+ 
+begin-select
+a.synal                                    () NOP
+sum(pvl_a)                          &yp    () NOP
+
+  let   #yp = &yp
+
+from st_whkint01g a,wh_pvlomades b
+where a.cid        = $cid
+and   a.synal      = $synal
+and   a.pvlomada   = b.pvlomada
+and   a.hmeromhnia between $hm1  and $hm2
+[$SQLWHTMHMA]
+group by a.synal
+end-select
+
+    let $hm1  = ' '
+    let $hm2  = ' '
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure which
+
+begin-select
+a.kvdinf        () NOP
+
+  let $which = 'eidhinf'
+
+from wh_fkeidhinf a,wh_eidhinf b
+where  a.inf      = b.inf
+and    a.kvdinf   = b.kvdinf
+and    b.cid      = $cid
+and    substring(convert(varchar,a.kvdinf),1,1) = $tmhma
+group by a.kvdinf
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure eidhinf01
+
+ let #pos01        = 0
+ let #prev_y_p     = 0
+ let #prev_p_p     = 0
+ let #tot_pos01    = 0
+ let #tot_prev_y_p = 0
+ let #tot_prev_p_p = 0
+
+begin-select
+d.inf                                &inf01    () NOP
+d.kvdinf                             &kvdinf01 () NOP
+ !  sum(pvl_p)                           &pos01    () NOP
+ !  sum(pvl_a)                           &aji01    () NOP
+
+  let $inf01     = &inf01
+  let $kvdinf01  = &kvdinf01
+  !   let #pos01     = &pos01
+  !   let #aji01     = &aji01
+
+  let $flag = ' '        
+       let $hm1 = $apohm
+       let $hm2 = $evshm
+       do  eidhinf02
+       let #pos01 = #pos02
+       let #aji01 = #aji02
+  let $flag = 'PREV_YEAR'
+       do  eidhinf02
+       let #prev_y_p = #pos02
+       let #prev_y_a = #aji02
+
+  let $flag = 'PREV_PER'
+       do  eidhinf02
+       let #prev_p_p = #pos02
+       let #prev_p_a = #aji02
+
+  if   #pos01    <> 0 or 
+       #prev_y_p <> 0 or
+       #prev_p_p <> 0
+        let #tot_pos01    = #tot_pos01    + #pos01    
+        let #tot_prev_y_p = #tot_prev_y_p + #prev_y_p 
+        let #tot_prev_p_p = #tot_prev_p_p + #prev_p_p 
+
+       print ' '        (, 1, 3) 
+       print $inf01     (,+1,15)
+     do find_perinf
+       print $fk01      (,+1,35)
+       print #prev_y_p  (,+1,11) EDIT {MASK6}
+       print #prev_p_p  (,+1,11) EDIT {MASK6} 
+         if #prev_y_p = 0  
+            let #prev_y_p = 1 
+         end-if
+        let #pos1  = (#prev_p_p  * 100) / #prev_y_p
+       print #pos1      (,+1, 8) EDIT {MASK4}
+       print '%'        (,  , 1)
+       print #pos01     (,+1,11) EDIT {MASK6}
+         if #prev_p_p = 0  
+            let #prev_p_p = 0.0000001
+         end-if
+        let #lala  = #pos01 - #prev_p_p
+        let #pos2  = (#lala      * 100) / #prev_p_p
+       print #pos2      (,+1, 8) EDIT {MASK4}
+       print '%'        (,  , 1)
+     next-listing
+  end-if    
+
+from  st_whkint01g a,wh_eidh b,wh_eidhinf d
+where a.pvlomada   = b.pvlomada
+and   d.kvdikos    = b.kvdikos
+and   a.synal      = $synal
+  !   and   a.hmeromhnia between $apohm and $evshm
+and   a.cid        = $cid
+and   d.cid        = a.cid
+group by d.inf,d.kvdinf
+end-select
+
+       print ' '                (, 1, 3) 
+       print ' '                (,+1,15)
+       print ' ” ’ Õ œ À ¡ : '  (,+1,35)
+       print #tot_prev_y_p      (,+1,11) EDIT {MASK6}
+       print #tot_prev_p_p      (,+1,11) EDIT {MASK6} 
+     if #tot_prev_y_p = 0  
+        let #tot_prev_y_p = 1 
+     end-if
+     let #tot_pos1  = (#tot_prev_p_p  * 100) / #tot_prev_y_p
+       print #tot_pos1          (,+1, 8) EDIT {MASK4}
+       print '%'                (,  , 1)
+       print #tot_pos01         (,+1,11) EDIT {MASK6}
+     if #tot_prev_p_p = 0  
+        let #tot_prev_p_p = 1 
+     end-if
+     let #tot_pos2  = ((#tot_pos01     * 100) / #tot_prev_p_p) - 100
+       print #tot_pos2          (,+1, 8) EDIT {MASK4}
+       print '%'                (,  , 1)
+     next-listing
+     next-listing
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure eidhinf02
+
+    let $hm1  = ' '
+    let $hm2  = ' '
+
+  let #pos02 = 0
+  let #aji02 = 0
+
+  if $flag = 'PREV_PER'
+     let $hm1  = $prev_hm1
+     let $hm2  = $prev_hm2
+  end-if 
+
+  if $flag = 'PREV_YEAR'
+     let $hm1  = $prev_etos1 
+     let $hm2  = $prev_etos2 
+  end-if
+
+begin-select
+d.inf                                &inf02  () NOP
+sum(pvl_p)                           &pos02  () NOP
+sum(pvl_a)                           &aji02  () NOP
+
+  let #pos02 = &pos02
+  let #aji02 = &aji02
+
+from  st_whkint01g a,wh_eidh b,wh_eidhinf d
+where a.pvlomada   = b.pvlomada
+and   d.kvdikos    = b.kvdikos
+and   a.synal      = $synal
+and   a.cid        = $cid
+and   a.hmeromhnia between $hm1 and $hm2
+and   d.cid        = a.cid
+and   d.inf        = $inf01
+group by d.inf
+end-select
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_perinf
+  let #kvdinf01 = $kvdinf01
+begin-select
+e.perigrafh                          &fk01  () NOP
+
+  let $fk01   = &fk01
+
+from wh_fkeidhinf e  
+where  e.inf    = $inf01
+and    e.kvdinf = #kvdinf01
+end-select
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure eidh01
+  
+ let #pos12        = 0
+ let #prev_y_p     = 0
+ let #prev_p_p     = 0
+ let #tot_pos12    = 0
+ let #tot_prev_y_p = 0
+ let #tot_prev_p_p = 0
+   
+begin-select
+b.pvlomada                           &pvl12  () NOP
+!   sum(pvl_p)                           &pos12  () NOP
+!   sum(pvl_a)                           &aji12  () NOP
+
+  let $pvl12 = &pvl12
+  !     let #pos12 = &pos12
+  !     let #aji12 = &aji12
+  
+  let $flag = ' '        
+       let $hm1 = $apohm
+       let $hm2 = $evshm
+       do  eidh02
+       let #pos12 = #pos22
+       let #aji12 = #aji22
+  let $flag = 'PREV_YEAR'
+       do  eidh02
+       let #prev_y_p = #pos22
+       let #prev_y_a = #aji22
+  let $flag = 'PREV_PER'
+       do  eidh02
+       let #prev_p_p = #pos22
+       let #prev_p_a = #aji22
+
+  if #pos12    <> 0 or 
+       #prev_y_p <> 0 or
+       #prev_p_p <> 0
+     let #tot_pos12    = #tot_pos12    + #pos12    
+     let #tot_prev_y_p = #tot_prev_y_p + #prev_y_p 
+     let #tot_prev_p_p = #tot_prev_p_p + #prev_p_p 
+
+       print ' '        (, 1, 3) 
+       print $pvl12     (,+1,15)
+          do find_perpvl
+       print $per12     (,+1,35)
+       print #prev_y_p  (,+1,11) EDIT {MASK6}
+       print #prev_p_p  (,+1,11) EDIT {MASK6} 
+     if #prev_y_p = 0  
+        let #prev_y_p = 1 
+     end-if
+     let #pos1  = (#prev_p_p  * 100) / #prev_y_p
+       print #pos1      (,+1, 8) EDIT {MASK4}
+       print '%'        (,  , 1)
+       print #pos12     (,+1,11) EDIT {MASK6}
+     if #prev_p_p = 0  
+        let #prev_p_p = 0.000000001
+     end-if
+       
+        let #pos2  = ((#pos12 / #prev_p_p ) * 100) -100
+       
+       if #pos12 = 0
+          let #pos2 = -100 * #prev_p_p
+       end-if
+
+       print #pos2      (,+1, 8) EDIT {MASK4}
+       print '%'        (,  , 1)
+     next-listing
+  end-if    
+
+from  st_whkint01g a, wh_pvlomades b
+where a.pvlomada   =       b.pvlomada
+and   a.synal      =       $synal
+  !   and   a.hmeromhnia between $apohm and $evshm
+and   a.cid        =       $cid
+[$SQLWHTMHMA]
+group by b.pvlomada
+end-select
+       print ' '                (, 1, 3) 
+       print ' '                (,+1,15)
+       print ' ” ’ Õ œ À ¡ : '  (,+1,35)
+       print #tot_prev_y_p      (,+1,11) EDIT {MASK6}
+       print #tot_prev_p_p      (,+1,11) EDIT {MASK6} 
+     if #tot_prev_y_p = 0  
+        let #tot_prev_y_p = 1 
+     end-if
+     let #tot_pos1  = (#tot_prev_p_p  * 100) / #tot_prev_y_p
+       print #tot_pos1          (,+1, 8) EDIT {MASK4}
+       print '%'                (,  , 1)
+       print #tot_pos12         (,+1,11) EDIT {MASK6}
+     if #tot_prev_p_p = 0  
+        let #tot_prev_p_p = 1 
+     end-if
+     let #tot_pos2  = ((#tot_pos12     * 100) / #tot_prev_p_p) - 100
+       print #tot_pos2          (,+1, 8) EDIT {MASK4}
+       print '%'                (,  , 1)
+     next-listing
+     next-listing
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure eidh02
+
+    let #pos22 = 0
+    let #aji22 = 0
+
+  if $flag = 'PREV_PER'
+     let $hm1  = $prev_hm1
+     let $hm2  = $prev_hm2
+  end-if 
+
+  if $flag = 'PREV_YEAR'
+     let $hm1  = $prev_etos1 
+     let $hm2  = $prev_etos2 
+  end-if
+
+begin-select
+b.pvlomada                           &pvl22  () NOP
+sum(pvl_p)                           &pos22  () NOP
+sum(pvl_a)                           &aji22  () NOP
+
+  let #pos22 = &pos22
+  let #aji22 = &aji22
+
+from  st_whkint01g a, wh_pvlomades b
+where a.pvlomada   = b.pvlomada
+and   a.synal      = $synal
+and   a.hmeromhnia between $hm1 and $hm2
+and   a.cid        = $cid
+and   b.pvlomada   = $pvl12
+group by b.pvlomada 
+end-select
+
+    let $hm1  = ' '
+    let $hm2  = ' '
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_perpvl
+  
+begin-select
+e.perigrafh                          &per12 () NOP
+
+  let $per12 = &per12
+
+from wh_pvlomades e  
+where  e.pvlomada    = $pvl12
+end-select
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_tmhma
+ move $tmhma to #tmhma
+begin-select
+a.perigrafh     &tmhma_p  () NOP
+
+  let $pr = $pr || ' - ‘Ã«Ã¡ : ' || &tmhma_p
+
+from ap_tmhma a
+where a.kvdikos = #tmhma
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_pvl
+begin-select
+a.perigrafh     &pvlhths_p  () NOP
+
+  let $pr = $pr || ' - –ŸÀ«‘«” : ' || &pvlhths_p
+
+from sy_pvlhtes a
+where a.kvdikos = #pvl
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_drast
+begin-select
+a.perigrafh     &drast_p  () NOP
+
+  let $pr = 'ƒ—¡”‘«—…œ‘«‘¡ : ' || &drast_p
+
+from ap_drast a
+where a.kvdikos = $drast
+end-select
+end-procedure
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  move $evshm to $evshmpr {DATEMASK}
+  let $msg= $pord || ' –≈À¡‘ŸÕ  «Ã≈—œÃ«Õ…¡ ¡–œ : '|| $apohmpr || ' -  ≈Ÿ” : '||$evshmpr
+ 
+  print $msg (3,) center
+  print $pr  (4,) center
+  
+  print ' '           (7, 1, 3)
+  print ' '           ( ,+1,51)
+  print '–ÒÔÁ„ÔıÏÂÌ.' (,+1,11) 
+  print '–ÒÔÁ„ÔıÏÂÌ.' (,+1,11) 
+  print ' '           (,+1, 8) 
+  print ' '           (,  , 1)
+  print '    ‘Ò›˜˘Ì ' (,+1,11) 
+  print ' '           (,+1, 8) 
+  print ' '           (,  , 1)
+
+  print 'A/A'         (8, 1, 3)
+  print '    ” ı Ì · Î Î · Û ¸ Ï Â Ì Ô Ú'   ( ,+1,51)
+  print '     ≈ÙÔÚ  ' (,+1,11) 
+  print '  –ÂÒﬂÔ‰ÔÚ ' (,+1,11) 
+  print ' '           (,+1, 8) 
+  print ' '           (,  , 1)
+  print '   –ÂÒﬂÔ‰ÔÚ' (,+1,11) 
+  print ' '           (,+1, 8) 
+  print ' '           (,  , 1)
+
+end-heading

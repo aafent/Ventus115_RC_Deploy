@@ -1,0 +1,219 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : argelex2.sqr                                   ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : SYNAL                                          ****
+!***** AUTHOR      : ажемтайгс амдяеас                              ****
+!***** NOTE        : --- екевоу аяхяоу глеяас                  ---  ****
+!***********************************************************************
+
+! ***********************************
+! EXEI BUG ле тг вягсг том коцаяиасло
+! ***********************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  4
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   MASK1      999,999,999.99c
+#DEFINE   DATEMASK   DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##tmp (aa int,flag char(1))
+create table ##glpar (parast varchar(10), flag_xp char(1), syntel int)
+insert into ##glpar values ('X','X',1)
+insert into ##glpar values ('P','P',-1)
+end-sql
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ move $L_XRHSH to #xrhsh
+
+ input $ihm_apo 'hmer_apo'
+ input $ihm_evs 'hmer_evs'
+
+ display $ihm_apo 
+ display $ihm_evs
+
+
+ execute app_datecnv  $ihm_apo, $hm_apo output, $hm_apopr output
+ execute app_datecnv  $ihm_evs, $hm_evs output, $hm_evspr output
+
+ display $hm_apo 
+ display $hm_evs
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select -C1
+convert(datetime,a.hmer) &a.hmer   () NOP
+a.hmerologio                       () NOP
+a.parid                            () NOP
+a.aa                               () on-break print=never before=printmas
+                                      save=$aasave          after=printtot
+a.kk                               () NOP
+a.logar                            (,01,08)
+a.synal                            (,+2,05)
+b.perigrafh                        () NOP   
+  if &a.synal = ''
+     print &b.perigrafh            (,+2,35)
+  else
+     do getsynal(&a.synal, $epvnymia)
+     print $epvnymia               (,+2,35)
+  end-if
+a.poso                             () NOP
+  do getposo(&a.kk,&a.poso,#xrevsh,#pistvsh)
+  print #xrevsh                    (,+1,14) edit {MASK1}
+  print #pistvsh                   (,+1,14) edit {MASK1}
+
+  let #tot_xre = #tot_xre  + #xrevsh
+  let #tot_pis = #tot_pis  + #pistvsh
+
+a.fpa                              (,+2,02) edit 99
+  print '.'                        ()
+a.kathgoria                        (,  ,01)
+a.aitia                            (,+2,35)
+a.hmerologio  &lala                (,+1,03)
+
+  next-listing
+
+from sy_grpkin a,gl_logar b
+where a.cid = $cid
+  and a.cid = b.cid
+  and a.logar=b.logar
+  and a.hmer between $hm_apo and $hm_evs
+  and b.xrhsh = #xrhsh
+[$SQLCMD]
+order by a.aa
+[$SQLORD]
+end-select
+
+next-listing
+move 'T' to $time1flag
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal, :$epvnymia)
+  move '' to $epvnymia)
+begin-select
+epvnymia        () NOP
+  move &epvnymia to $epvnymia
+from sy_synal
+where synal = $synal
+end-select
+end-procedure  
+
+! ******************************************************************
+begin-procedure printtot
+
+ print '---------- ----------'    (,58)
+ next-listing
+ print #tot_xre                   (,54,14) edit {MASK1}
+ print #tot_pis                   (,+1,14) edit {MASK1}
+ let #diff = #tot_xre - #tot_pis
+ if #diff <> 0
+    print ' диажояа : '   ()
+    print  #diff                 (,+1,14) edit {MASK1}
+    move $aasave to #aasave
+    do printanal(#aasave)
+ end-if
+ next-listing
+
+end-procedure
+
+begin-procedure printmas
+
+ next-listing
+
+ print &a.aa                       (,01,06) edit 999999
+ print &a.hmer                     (,+7,08) edit {DATEMASK}
+ print &a.hmerologio               (,+4,03) 
+ print &a.parid                    (,+4,10)
+
+begin-select 
+'ап:'            &filler1          (,+3,03)
+a1.apouhkh                         (,+1,02)
+b1.epvnymia                        (,+3,30)
+   next-listing
+from sy_parmas a1, sy_synal b1
+where a1.aa = &a.aa
+  and a1.synal = b1.synal
+end-select
+
+
+ next-listing
+
+ move 0 to #tot_xre
+ move 0 to #tot_pis
+
+end-procedure
+
+begin-procedure printanal(#aa)
+
+next-listing
+next-listing
+
+begin-select
+a.kvdikos                 (,54,02)  edit 99
+b.perigrafh               (,+1,20)
+a.ajia                    (,+1,14)  edit {MASK1}
+a.fpa                     (,+4,02)  edit 99
+a.pososto                 (,+1,05)  edit 99,99c
+
+   next-listing
+
+from sy_partotals a, sy_partotparfk b
+where a.aa = #aa
+  and a.kvdikos=b.kvdikos
+end-select
+
+ next-listing
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getposo($kk,#poso,:#xrevsh,:#pistvsh)
+
+move '' to $flag
+begin-select
+flag_xp          () NOP
+  move &flag_xp to $flag
+from ##glpar
+where parast=$kk
+end-select
+
+move 0 to #xrevsh
+move 0 to #pistvsh
+if $flag = 'X' 
+   move #poso to #xrevsh
+else
+   move #poso to #pistvsh
+end-if
+
+end-procedure
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'йатастасг екецвоу GROUP аяхяым глеяас' (3,) Center
+end-heading

@@ -1,0 +1,164 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : ΠΕΛΑΤΕΣ ΑΤΤΙΚΗΣ ΟΠΤΙΚΟΙ                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     80 
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1          999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $hmeromhnia 'EVS'
+
+  execute app_datecnv $hmeromhnia,$hm output,$hmpr output
+  display $hm 
+     do main
+
+End-Report
+
+! *************************************************************************
+begin-procedure main
+begin-select
+   next-listing
+   next-listing
+ print 'Επωνυμία Καταστήματος :'  (,2,24)
+a.synal   &synal     (,+1,10)
+a.epvnymia           (,+1,40)
+
+   next-listing
+
+ let $synal = &synal
+
+ do find_arm
+
+ do find_odos
+
+from sy_synal a,ap_epaggelma b
+where a.epaggelma = b.kvdikos
+and b.drast = '20001'
+and a.epvnymia not like '%*%'
+and a.synal like '0%'
+order by synal
+end-select
+
+end-procedure                      
+! *************************************************************************
+begin-procedure find_arm
+begin-select
+   next-listing
+ print 'Ονοματ/μο Αρμοδίου    :'  (,2,24)
+a.sxolio     (,+1,40)
+ 
+from sy_synalsxolia a
+where a.kvdinf = 1
+and   a.synal  = $synal
+
+end-select
+end-procedure                      
+! *************************************************************************
+begin-procedure find_odos
+begin-select
+
+   next-listing
+   next-listing
+ print 'Διεύθυνση             :' (,2,24)
+a.dieyuynsh     (,+1,40)
+a.taxkvd        (,+1, 6)
+
+   next-listing
+ next-listing
+ print 'Πόλη                  :' (,2,24)
+a.polh          (,+1,20)
+
+   next-listing
+ next-listing
+ print 'Τηλέφωνο              :' (,2,24)
+a.thl           (,+1,30)
+
+   next-listing
+ next-listing
+ print 'Νομός                 :' (,2,24)
+c.perigrafh     (,+1,40)
+
+   next-listing
+ next-listing
+ print 'Ημερομηνία            : ___/___/_____' (,2,44)
+
+   next-listing
+ next-listing
+ print 'Τύπος Μηχαν/τος       : _______________________________________________________' (,2,78)        
+   next-listing
+ next-listing
+
+ print 'Παλαιότης Μηχαν/τος   : _______________________________________________________' (,2,78)        
+
+   next-listing
+ next-listing
+ print 'Αλλες Πληροφορίες     : _______________________________________________________' (,2,78)
+ next-listing
+ next-listing
+ print '                        _______________________________________________________' (,2,78)
+ next-listing
+ next-listing
+ print '                        _______________________________________________________' (,2,78)
+ next-listing
+ next-listing
+ print '                        _______________________________________________________' (,2,78)
+
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ print '                                  Υπογραφή Συν/τος Ερωτηματολογίου' (,2,78)
+ next-listing
+ next-listing
+ next-listing
+ next-listing
+ print '                                          _________________' (,2,78)
+
+ new-page 
+from sy_synaltopos a,ap_nomos c
+where a.nomos = c.kvdikos
+and   a.synal = $synal
+
+end-select
+end-procedure                      
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'ΕΡΩΤΗΜΑΤΟΛΟΓΙΟ BRIOT'  (5,) Center
+  print '===================='  (6,) Center
+End-Heading              

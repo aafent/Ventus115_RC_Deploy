@@ -1,0 +1,242 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : eyrethr02.sqr                                  ****
+! ***** DATE        : 29/05/95                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** AUTHOR      : Mal Nick                                       ****
+! ***** NOTE        : Ευρετήριο Συναλλασομένων  ( 2 )                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1             99999
+#DEFINE   MASK3                99
+#DEFINE   MASK2     9,999,999,999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ 
+
+ input    $lala 'synal type : '
+ input    $ipvl 'zz.pvlhths'
+ unstring $lala by '"' into $filler1 $synal_type $filer2
+ unstring $ipvl by '"' into $filler1 $pvl $filer2
+
+ 
+ if $pvl = '*' 
+    let $pvlhths = ' ΟΛΟΙ' 
+    let $SQLCMD2 = ''
+ else
+    let $SQLCMD2 = 'and zz.pvlhths like ' || $ipvl
+    let $pvlhths = $pvl
+ end-if
+  
+ 
+
+
+
+  move $synal_type to #synal_type
+
+
+
+ if #synal_type = 1
+    move 'PVLHSEIS'     to $omada
+    move 'ΠΕΛΑΤΕΣ'      to $synal_eidos
+ else
+ if #synal_type = 2
+    move 'AGORES'       to $omada
+    move 'ΠΡΟΜΗΘΕΥΤΕΣ'  to $synal_eidos
+ else
+ if #synal_type = 3
+    move 'AGORES'       to $omada
+    move 'ΠΙΣΤΩΤΕΣ'     to $synal_eidos
+ else
+ if #synal_type = 4
+    move 'PRAKT'        to $omada
+    move 'ΠΡΑΚΤΟΡΕΙΑ'   to $synal_eidos
+ else
+ if #synal_type = 5
+    move 'BANK'         to $omada
+    move 'ΤΡΑΠΕΖΕΣ'     to $synal_eidos
+ else
+    move 99 to #synal_type
+ end-if
+ end-if
+ end-if
+ end-if
+ end-if
+    
+
+!     move 'ΠΛΕΓΑΣ' to $pvlhths
+     do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ 
+begin-select distinct
+z.perigrafh +' '+b.polh          &nomosl (,1,40)   on-break print=change after=lala2 before=lala2
+ ! b.polh                           &nomosp (,1,40)   on-break print=change skiplines=3 after=lala before=lala
+a.synal                           &synal       () NOP               
+b.topos                           &topos       () NOP              
+a.epvnymia                        &epvnymia    () NOP              
+b.thl                             &thl         () NOP              
+a.afm                             &afm         () NOP              
+b.dieyuynsh + " " + b.taxkvd      &dieyu       () NOP   
+! isnull(a.doy_perig,'NULL')        &doy_per     () NOP
+isnull(a.doy,'')                  &doy         () NOP
+isnull(b.nomos, 0)                &nomos       () NOP
+isnull(a.epaggelma,'')            &epaggelma   () NOP
+isnull(zz.pvlhths,'')             &pvlhths     () NOP
+
+ if $pvl = '*' 
+    let $ppvlhths = ' ΟΛΟΙ' 
+ else
+    let $ppvlhths = &pvlhths
+ end-if
+
+  move &pvlhths to $pvlhths
+
+  do getepagg(&epaggelma,$epagg_per,$dras_per)
+ 
+  next-listing
+
+  print &synal                                 (  ,  1, 9)
+  print &epvnymia                              (  , +1,40)
+  print &dieyu                                 (  , +1,32) 
+  print &thl                                   (  , +1,18)
+  print &afm                                   (  , +1, 9)
+  print $epagg_per                             (  , +1,13)  
+
+from  sy_synal a,
+      sy_synaltopos b,
+      sy_synaleidos c,
+      sy_synalprog d,
+      ap_epaggelma e,
+      ap_nomos z,
+      sy_pvlhtes_polh zz
+
+where a.synal            = b.synal 
+and   a.synal            = c.synal
+and   c.eidos            = $omada
+and   a.synal            = d.synal
+and   a.epaggelma        = e.kvdikos  
+and   isnull(b.nomos,0)  = z.kvdikos
+and   zz.polh            = b.polh
+and   zz.pvlhths           is not null
+[$SQLCMD]
+[$SQLCMD2]
+order by  z.perigrafh, b.polh, a.epvnymia, b.dieyuynsh
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure lala
+
+  next-listing
+
+end-procedure
+
+begin-procedure lala2
+   next-listing
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getepagg($epagg,:$epagg_per,:$dras_per)
+   move '' to $epagg_per
+begin-select
+isnull(a.perigrafh,'') &aper    () NOP
+isnull(b.perigrafh,'') &bper    () NOP
+   move &aper to $epagg_per
+   move &bper to $dras_per
+from ap_epaggelma a, ap_drast b
+where a.kvdikos = $epagg and a.drast = b.kvdikos
+end-select
+end-procedure
+
+! ******************************************************************
+
+! begin-procedure getnomos(#nomos,:$nomos_per)
+!   move '' to $nomos_per
+! begin-select
+! isnull(perigrafh,'') &per    () NOP
+!   move &per to $nomos_per
+! from ap_nomos
+! where kvdikos = #nomos
+! end-select
+! end-procedure
+
+! ******************************************************************
+
+begin-procedure getxvra(#xvra,:$xvra_per)
+  move '' to $xvra_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $xvra_per
+from ap_xvra
+where kvdikos = #xvra
+end-select
+end-procedure
+
+! ******************************************************************
+
+! begin-procedure getdoy($doy,:$doy_per)
+!   move '' to $doy_per
+! begin-select
+! isnull(perigrafh,'') &per    () NOP
+!   move &per to $doy_per
+! from  ap_doy
+! where kvdikos = $doy
+! end-select
+! end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='Ε Υ Ρ Ε Τ Η Ρ Ι Ο    Σ Υ Ν Α Λ Λ Α Σ Ο Μ Ε Ν Ω Ν     Γ Ι Α  :  ' || $synal_eidos || ' ( Πωλητής : ' || $ppvlhths || ' ) '
+  print $msg (3,) center
+
+!  print 'Νομός  -  Πόλη '          (5,  1,50)
+!  print ' '                        ( , +1, 2)
+
+  print 'Κωδικός'                  (5,  1, 9)
+  print 'Συναλλασόμενος'           ( , +1,40)
+  print 'Διεύθυνση  -  T.K.'       ( , +1,32)
+  print 'Τηλέφωνο'                 ( , +1,18)
+  print 'Α.Φ.Μ.'                   ( , +1, 9)
+  print 'Επάγγελμα'                ( , +1,15)
+
+!  print 'Α.Φ.Μ.'                   ( , +1,20)
+!  print ' '                        (7,  1, 8)
+!  print ' '                        ( , +1, 2)
+!  print 'Διεύθυνση - Πόλη - Τ.Κ'   ( , +2,40)
+!  print ' '                        ( , +1,15)
+!  print ' '                        ( , +1,25)
+!  print ' '                        ( , +1,20)
+!  print 'Δ.Ο.Υ.'                   ( , +1,20)
+ 
+end-heading

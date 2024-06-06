@@ -1,0 +1,218 @@
+!***********************************************************************
+!***** REPORT      : kathdk.sqr                                     ****
+!***** DATE        : 02/04/1998                                     ****
+!***** APPLICATION : ΠΑΓΙΑ ΣΤΟΙΧΕΙΑ                                 ****
+!***** AUTHOR      : ΤΡΙΠΕΡΙΝΑ ΓΕΩΡΓΙΑ                              ****
+!***** NOTE        : --- Ευρετήριο Κατηγοριών Kινήσεων  ----        ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     141
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+ 
+ move $TAX to $tax
+ input $tax    'taxinomhsh'
+ unstring $tax by '"' into $filler $tax $filler1
+ if $tax='1'
+    let $SQLORD='order by paparkvd'
+ else
+   let $SQLORD='order by perigrafh'
+ end-if
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+begin-select
+a.paparkvd                   (,1,9)    
+a.perigrafh		     (,10,50)	
+a.syntmhsh                   (,61,20)
+a.apparkvd                   (,82,15)
+a.kvd_sysxet                 (,102)
+a.f_ref                     ! (,83,2)
+a.f_setenergo               ! (,85,1)
+a.f_unsetenergo             ! (,88,4)
+a.f_agora                   ! (,93,4)
+a.f_synal                   ! (,99,7)
+a.f_parast                  ! (,108,6)
+a.f_kat                     ! (,125,4)
+a.f_ajiaxp                  ! (,121,6)
+a.f_thetiko                 ! (,128) 
+
+
+ 
+  do start_flags  
+
+  if &a.f_ref >'' 
+     do doc_f_ref 
+  end-if
+   if &a.f_agora > ''
+     do doc_f_agora
+  end-if
+   if &a.f_synal > ''  
+     do doc_f_synal 
+  end-if
+   if &a.f_parast > ''  
+     do doc_f_parast
+   end-if
+ if &a.f_setenergo  > '' 
+    do  doc_f_setenergo  
+ end-if 
+  if &a.f_unsetenergo    > ''  
+    do doc_f_unsetenergo    
+  end-if
+  if &a.f_kat      > ''  
+    do doc_f_kat    
+   if &a.f_ajiaxp   ='X'
+     do doc_f_ajiax
+   end-if
+    if &a.f_ajiaxp      ='P'
+     do doc_f_ajiap
+   end-if
+    if &a.f_thetiko         > '' 
+       do  doc_f_thetiko   
+    end-if 
+      if &a.f_thetiko        = '' 
+       do  doc_f_arnhtiko
+    end-if 
+  end-if
+   next-listing
+from pa_par  a
+where 1=1 
+[$SQLCMD]
+[$SQLORD]
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure start_flags
+begin-document (+1,1)
+ΕΝΔΕΙΞΕΙΣ:
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_ref 
+begin-document (,12)
+Συσχετισμός με άλλη κίνηση, !:&a.f_ref
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_agora
+begin-document (,12)
+Aγορά, !:&a.f_agora
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_synal 
+begin-document (,+1)
+Συναλλασσόμενος, !:&a.f_synal
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_parast
+begin-document (,+1)
+Παραστατικό !:&a.f_parast
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_setenergo  
+begin-document (,12)
+Ενεργό !:&a.f_setenergo 
+end-document
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_unsetenergo   
+begin-document (,12)
+Ανενεργό !:&a.f_unsetenergo  
+end-document
+end-procedure              
+! ******************************************************************************
+begin-procedure doc_f_kat  
+begin-document (,+1)
+Συμβαλλόμενο Yποκατάστημα, !:&a.f_kat     
+end-document
+end-procedure         
+! ******************************************************************************
+begin-procedure doc_f_ajiax     
+begin-document (,+1)
+Η αξία του Σ.Υποκατ. στην Xρέωση με  !:&a.f_ajiaxp  
+end-document
+end-procedure 
+! ******************************************************************************
+begin-procedure doc_f_ajiap
+begin-document (,+1)
+Η αξία του Σ.Υπoκατ. στην Πίστωση με  !:&a.f_ajiaxp  
+end-document
+end-procedure 
+! ******************************************************************************
+begin-procedure doc_f_thetiko        
+begin-document (,+1)
+Θετικό Πρόσημο !:&a.f_thetiko 
+end-document          
+end-procedure
+! ******************************************************************************
+begin-procedure doc_f_arnhtiko        
+begin-document (,+1)
+Aρνητικό Πρόσημο  !:&a.f_thetiko 
+end-document          
+end-procedure
+! *****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'Ευρετήριο Κινήσεων Παγίων' (3,+1) center
+ print 'Κωδικός'                    (6,1,9)
+ print 'Περιγραφή'                  (,10,50)
+ print 'Σύντμηση Περιγραφής'        (,+1,20)
+ print 'Κ.Παραστατικού'             (,+1,15)
+ print 'Συσχετιζόμενη Κίνηση'       (,+1,20) 
+ !print 'Aνα-'                (,+1,4)
+ !print 'Eνε'                 (,+1,3)
+ !print 'Aνε-'                (,+1,5)
+ !print 'Aγορά'               (,+1,5) 
+ !print 'Συναλ'               (,+1,8)
+ !print 'Παραστα'             (,+1,7)
+ !print 'Υποκα'               (,+1,5)
+ !print 'Χρέωση'              (,+1,7)
+ !print 'Πρό-'                 (,+1)
+
+
+ !print 'Κίνησης'             (7,1,9)
+ !print 'Περιγ'               ( ,61,5)
+ !print 'Γ.Λ.'                (,+1,8) 
+ !print 'Κίνηση'              ( ,76,6)
+ !print 'φορά'                (,+1,4)
+ !print 'ργό'                 (,+1,3)
+ !print 'νεργό'               (,+1,8)
+ !print 'λασ/νος'             (,+4,8)
+ !print 'τικο'                (,+1,7)
+ !print 'ταστ.'               (,+1,5)
+ !print 'Πίστωση'             (,+1,7)
+ !print 'σημο'                (,+1)
+      
+
+End-Heading

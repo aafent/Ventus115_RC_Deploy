@@ -1,0 +1,76 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC S.A. SOFLOLENS S.A.                           ****
+! **** REPORT      : pvlomad.sqr                                            ****
+! **** DATE        : 20/03/95                                               ****
+! **** APPLICATION : аПОХГЙЕР                                               ****
+! **** AUTHOR      : лпойиас мийос                      		    ****
+! **** NOTE        : --- еуяетгяио оладым пыкгсгс ---                       ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X         132
+#DEFINE   HEAD-SIZE        6
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        4
+
+#DEFINE   MASK1   99,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ do main
+End-Report
+
+! ******************************************************************************
+
+! се пеяиптысг емеяцопоигсгс тоу wh_eidhmore ха пяепеи ма 
+! акканеи то OUTER JOIN се апко JOIN
+
+begin-procedure main
+move 'a.pvlomada' to $SQLORD
+begin-select  distinct
+a.pvlomada                                  (,01,15)
+a.perigrafh                                 (,+1,40)
+a.monada                                    (,+1, 3)
+b.perigrafh                                 (,+1,20)
+a.tmhma                                     (,+1, 2)
+c.perigrafh                                 (,+1,20)
+
+ next-listing
+
+from  wh_pvlomades a, ap_monades b, ap_tmhma c,wh_eidh d,wh_eidhmore e
+where a.monada   = b.kvdikos
+and   a.tmhma    = c.kvdikos
+and   d.pvlomada = a.pvlomada
+and   e.eidos    =* d.kvdikos
+and   e.cid      = '1'
+and   e.energo   is not null
+[$SQLCMD]
+order by 
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'еуяетгяиом оладым пыкгсгс'  (3,) Center
+  print 'йЫДИЙОР'           (5,01,15)
+  print 'пЕЯИЦЯАЖГ'          (,+1,40)
+  print ' '                  (,+1, 3)
+  print 'лОМэДА лщТЯГСГР'    (,+1,20)
+  print ' '                  (,+1, 2)
+  print 'т Л ч Л А'          (,+1,40)
+end-heading

@@ -1,0 +1,439 @@
+! **********************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                     ****
+! **** REPORT      : mikto31.sqr                                    ****
+! **** DATE        : 06/07/95 - 24/09/96                            ****
+! **** APPLICATION : WH                                             ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                  ****
+! **** NOTE        : κόστος υπολοίπου κατά ομάδα πώλησης            ****
+! **********************************************************************
+
+#DEFINE   PAGE-Y          62 
+#DEFINE   PAGE-X         157
+#DEFINE   HEAD-SIZE        8
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        5
+
+#DEFINE   MASK1       999999    !     999,999
+#DEFINE   MASK2    999999999    ! 999,999,999
+#DEFINE   MASK21    99999999    !  99,999,999
+#DEFINE   MASK3         9999.9  !       9,999.9
+#DEFINE   MASK4       999999    !     999,999
+#DEFINE   MASK5          999.9  !         999.9
+#DEFINE   MASK6        99999    !     999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $icid          'Εταιρεία'
+ input $apohmeromhnia 'ΑΠΟ Ημερομηνια'
+ input $evshmeromhnia 'Εως Ημερομηνια'
+
+ input $print_det     'Εκτυπ. Ειδων  '
+
+ execute app_datecnv $apohmeromhnia, $apohm out, $apohmp out
+ execute app_datecnv $evshmeromhnia, $evshm out, $evshmp out
+ execute app_geteom  $evshm        , $evshm out
+
+ unstring $print_det by '"' into $filler1 $p    $filler1
+ unstring $icid      by '"' into $filler1 $fcid $filler1
+
+ if $fcid = '='
+    execute app_retdefcid $fcid, $fcid out
+ end-if
+
+ move $fcid to $cid
+
+ do main
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main
+ 
+ let #tot_apo_pos       = 0
+ let #tot_ypo_pos       = 0
+ let #tot_pre_ypo_pos   = 0
+ let #tot_pre_mes_tim   = 0
+ let #tot_pre_kos_ypo   = 0
+ let #tot_pre_ako_aji   = 0
+ let #tot_ago_aji       = 0
+ let #tot_pvl_aji       = 0
+ let #tot_kos_ypo       = 0
+ let #tot_kos_pvl       = 0
+ let #tot_mik_ker_aji   = 0
+ let #tot_mik_ker_pos   = 0
+ let #tot_pvl_pos       = 0
+ let #tot_ago_pos       = 0
+ let #tot_ako_aji       = 0
+
+ let #tot_negative      = 0
+ let #total_kostos      = 0
+ 
+ execute app_getxrhsh @cid=$cid,@hmeromhnia=$apohm,@xrhsh_arxh=$xrhsh_a output
+
+ if $xrhsh_a != $apohm
+    do find_pr_hm ($apohm,$prehm)
+    execute app_geteom $prehm, $prehm out
+ else 
+    let $prehm = $apohm
+ end-if
+
+begin-select distinct
+a.pvlomada  &pvlomada   ()         NOP
+a.perigrafh &z          ()         NOP
+
+ move &pvlomada to $pvlomada
+ move &z        to $perigrafh
+
+ do main0
+
+from  wh_pvlomades a,wh_eidh b
+where a.pvlomada = b.pvlomada
+[$SQLCMD]
+order by
+[$SQLORD]
+
+end-select
+
+ if   #tot_pvl_aji     != 0
+ let  #tot_mik_ker_pos  = ( #tot_mik_ker_aji * 100 ) / #tot_pvl_aji    
+ else
+ let  #tot_mik_ker_pos  = 0
+ end-if
+
+ print '=' (,1,{PAGE-X}) fill
+ next-listing
+
+ print ' '                (, 1,20)
+ print 'ΣΥΝΟΛΑ : '        (,+1,15)
+ print #tot_apo_pos       (,+1, 5) edit {MASK6}
+ print #tot_ypo_pos       (,+1, 5) edit {MASK6}
+ print ' '                (,+1, 8) edit {MASK21}
+!print ' '                (,+1, 8) edit {MASK21}
+!print ' '                (,+1, 8) edit {MASK21}
+ print #tot_pvl_pos       (,+1, 8) edit {MASK21}
+ print #tot_ago_pos       (,+1, 8) edit {MASK21}
+ print #tot_pre_ypo_pos   (,+1, 5) edit {MASK6}
+ print ' '                (,+1, 8) edit {MASK21}
+ print #tot_pre_kos_ypo   (,+1, 9) edit {MASK2}
+ print #tot_ago_aji       (,+1, 9) edit {MASK2}
+ print #tot_pvl_aji       (,+1, 9) edit {MASK2}
+ print #tot_kos_ypo       (,+1, 9) edit {MASK2}
+ print #tot_kos_pvl       (,+1, 9) edit {MASK2}
+ print #tot_mik_ker_aji   (,+1, 9) edit {MASK2}
+ print #tot_mik_ker_pos   (,+1, 6) edit {MASK3}
+
+ next-listing
+ print ' '                (, 1,20)
+ print 'ΣΥΝΟΛΑ : '        (,+1,15)
+ print #tot_apo_pos       (,+1, 9) edit {MASK21}
+ print #tot_ypo_pos       (,+1, 9) edit {MASK21}
+ print #tot_pvl_pos       (,+1, 9) edit {MASK21}
+ print #tot_ago_pos       (,+1, 9) edit {MASK21}
+ print #tot_pre_ypo_pos   (,+1, 9) edit {MASK21}
+ next-listing
+ next-listing
+ print ' '                (, 1,20)
+ print 'ΑΡΝΗΤΙΚΑ Μ.Κ.:'   (,+1,15)
+ print #tot_negative      (,+1, 9) edit {MASK2}
+ next-listing
+ next-listing
+ print ' '                (, 1,20)
+ print 'ΚΟΣΤΟΣ ΠΩΛΗΘΕΝ.'  (,+1,15)
+ print #total_kostos      (,+1, 9) edit {MASK2}
+ next-listing
+ next-listing
+ print ' '                (, 1,20)
+ print 'ΑΚΟΣΤΟΛΟΓΙΤΑ : '  (,+1,15)
+ print #tot_ako_aji       (,+1, 9) edit {MASK2}
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_pr_hm ($hm,:$prhm)
+
+begin-select
+dateadd(mm,-1,$hm) &prhm () NOP
+end-select 
+
+  move &prhm to $prhm
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure main0
+ 
+ let #o_apo_pos       = 0     ! ομαδα - απογραφη σε ποσοτητα
+ let #o_ypo_pos       = 0     ! ομαδα - υπολοιπο σε ποσοτητα
+ let #o_mes_tim       = 0     ! ομαδα - μεση τιμη κοστους   
+ let #o_mes_tim_pvl   = 0     ! ομαδα - μεση τιμη πωλησης   
+ let #o_mik_ker_tem   = 0     ! ομαδα - μικτο κερδος / τεμαχιο
+ let #o_pre_ypo_pos   = 0     ! ομαδα - προηγουμενο υπολοιπο σε ποσοτητα
+ let #o_pre_mes_tim   = 0     ! ομαδα - προηγουμενη μεση τιμη κοστους
+ let #o_pre_kos_ypo   = 0     ! ομαδα - προηγπυμενο κοστος υπολοιπου
+ let #o_pre_ako_pos   = 0     ! ομαδα - προηγουμενα ακοστολογιτα σε ποσοτητα
+ let #o_pre_ako_aji   = 0     ! ομαδα - προηγουμενα ακοστολογιτα σε αξια    
+ let #o_ago_aji       = 0     ! ομαδα - αγορες σε αξια      
+ let #o_pvl_aji       = 0     ! ομαδα - πωλησεις σε αξια    
+ let #o_kos_ypo       = 0     ! ομαδα - κοστος υπολοιπου    
+ let #o_kos_pvl       = 0     ! ομαδα - κοστος πωληθεντων    
+ let #o_mik_ker_aji   = 0     ! ομαδα - μικτο κερδος σε αξια
+ let #o_mik_ker_pos   = 0     ! ομαδα - μικτο κερδος σε ποσοστο
+ let #o_pvl_pos       = 0     ! ομαδα - πωλησεις σε ποσοτητα
+ let #o_ago_pos       = 0     ! ομαδα - αγορες σε ποσοτητα  
+ let #o_ako_pos       = 0     ! ομαδα - ακοστολογιτα σε ποσοτητα  
+ let #o_ako_aji       = 0     ! ομαδα - ακοστολογιτα σε αξια      
+
+ let #o_negative      = 0     ! ομαδα - 
+
+ let #eid_cnt         = 0
+ 
+ do dorest
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure dorest
+
+  let #o_pre_apo_pos  = 0
+  let #o_pre_ypo_pos  = 0
+  let #o_pre_ako_pos  = 0
+  let #o_pre_ako_aji  = 0
+  let #o_apo_pos      = 0
+  let #o_apo_aji      = 0
+  let #o_ypo_pos      = 0
+  let #o_ago_pos      = 0
+  let #o_ago_aji      = 0
+  let #o_pvl_pos      = 0
+  let #o_pvl_aji      = 0
+  let #o_ako_pos      = 0
+  let #o_ako_aji      = 0
+  let #o_pre_mes_tim  = 0
+  let #o_pre_kos_ypo  = 0
+  let #o_mes_tim      = 0
+  let #o_kos_ypo      = 0
+  let #o_kos_pvl      = 0
+  let #o_mik_ker_aji  = 0
+  let #o_mik_ker_pos  = 0
+  let #o_mik_ker_tem  = 0
+
+  let #o_negative     = 0
+  
+  execute whp_getmsk5    @eidos       = $pvlomada,
+                         @cid         = $cid,
+                         @hmer        = $prehm,
+                         @msk         = #o_pre_mes_tim     out,
+                         @ypoloipo    = #o_pre_ypo_pos     out,
+                         @pvl_p       = #o_pre_pvl_pos     out,
+                         @pvl_a       = #o_pre_pvl_aji     out,
+                         @ago_p       = #o_pre_ago_pos     out,
+                         @ago_a       = #o_pre_ago_aji     out,
+                         @apo_p       = #o_pre_apo_pos     out,
+                         @apo_a       = #o_pre_apo_aji     out,
+                         @ako_p       = #o_pre_ako_pos     out
+
+  execute whp_getmsk5    @eidos       = $pvlomada,
+                         @cid         = $cid,
+                         @hmer        = $evshm,
+                         @msk         = #o_mes_tim         out,
+                         @ypoloipo    = #o_ypo_pos         out,
+                         @pvl_p       = #o_pvl_pos         out,
+                         @pvl_a       = #o_pvl_aji         out,
+                         @ago_p       = #o_ago_pos         out,
+                         @ago_a       = #o_ago_aji         out,
+                         @apo_p       = #o_apo_pos         out,
+                         @apo_a       = #o_apo_aji         out,
+                         @ako_p       = #o_ako_pos         out
+
+  let #o_mes_tim       = round(#o_mes_tim,0)
+  let #o_pre_mes_tim   = round(#o_pre_mes_tim,0)
+
+  let #kostos          = #o_mes_tim       * #o_pvl_pos  
+  let #total_kostos    = #total_kostos    + #kostos     
+
+  let #o_ako_aji       = #o_mes_tim       * #o_ako_pos  
+  let #tot_ako_aji     = #tot_ako_aji     + #o_ako_aji  
+  let #o_pre_ako_aji   = #o_pre_mes_tim   * #o_pre_ako_pos 
+  let #tot_pre_ako_aji = #tot_pre_ako_aji + #o_pre_ako_aji 
+
+  if $apohm = $prehm                               ! εαν η απο ημ/νια 
+                                                   ! ειναι ιδια με την ημ/νια
+     let #o_pre_kos_ypo = #o_apo_aji               ! απογραφης, προηγουμενο
+     let #o_pre_ypo_pos = #o_apo_pos               ! κοστος υπολοιπου και 
+                                                   ! υπολοιπο ειναι ιδιο με
+  else                                             ! την απογραφη της ομαδας
+
+     let #o_pre_kos_ypo = #o_pre_ypo_pos * #o_pre_mes_tim
+
+     let #o_pvl_aji     = #o_pvl_aji     - #o_pre_pvl_aji     
+     let #o_pvl_pos     = #o_pvl_pos     - #o_pre_pvl_pos     
+     let #o_ago_aji     = #o_ago_aji     - #o_pre_ago_aji     
+     let #o_ago_pos     = #o_ago_pos     - #o_pre_ago_pos     
+
+  end-if
+
+
+! (v) 22.4.96 akostologita bag
+!
+! if  #o_pre_ypo_pos = 0
+! and #o_ago_aji     = 0
+!     let #o_kos_ypo = 0
+! else
+
+  let #o_kos_ypo =  #o_ypo_pos * #o_mes_tim
+
+! 12.9.95 liaros - ladopoulos directive (v)
+  if  #o_pvl_aji != 0
+  let #o_kos_pvl  = (#o_pre_kos_ypo + #o_ago_aji) - #o_kos_ypo
+  else 
+  let #o_kos_pvl  = 0
+  end-if
+! ------------------------------------- (^)
+
+!  check liaros ladopoulos bokias 12.9.95 
+!  oxi mikto se periptvseis mh oloklhrvshs ths ajias
+!  if    #o_kos_pvl     > 0
+
+   let #o_mik_ker_aji =  #o_pvl_aji - #o_kos_pvl
+
+!  else
+!  let #o_mik_ker_aji = 0
+!  end-if
+  
+  if  #o_pvl_pos    != 0
+  let #o_mes_tim_pvl = #o_pvl_aji / #o_pvl_pos    
+  else 
+  let #o_mes_tim_pvl = 0
+  end-if
+
+  if  #o_mes_tim_pvl!= 0
+  let #o_mik_ker_tem = #o_mes_tim_pvl - #o_mes_tim
+  else 
+  let #o_mik_ker_tem = 0
+  end-if
+
+  if #o_pvl_aji     != 0
+  let #o_mik_ker_pos = ( #o_mik_ker_aji * 100 ) / #o_pvl_aji    
+  else
+  let #o_mik_ker_pos = 0
+  end-if
+
+
+
+  let #tot_apo_pos       = #tot_apo_pos     + #o_apo_pos
+  let #tot_ypo_pos       = #tot_ypo_pos     + #o_ypo_pos
+ 
+  let #tot_mes_tim       = #tot_mes_tim     + #o_mes_tim
+  let #tot_mes_tim_pvl   = #tot_mes_tim_pvl + #o_mes_tim_pvl
+  let #tot_mik_ker_tem   = #tot_mik_ker_tem + #o_mik_ker_tem
+
+! let #tot_mes_tim       = 0
+! let #tot_mes_tim_pvl   = 0
+! let #tot_mik_ker_tem   = 0
+ 
+
+  let #tot_pre_ypo_pos   = #tot_pre_ypo_pos + #o_pre_ypo_pos
+  let #tot_pre_kos_ypo   = #tot_pre_kos_ypo + #o_pre_kos_ypo
+  let #tot_ago_aji       = #tot_ago_aji     + #o_ago_aji    
+  let #tot_pvl_aji       = #tot_pvl_aji     + #o_pvl_aji    
+  let #tot_kos_ypo       = #tot_kos_ypo     + #o_kos_ypo
+  let #tot_pvl_pos       = #tot_pvl_pos     + #o_pvl_pos
+  let #tot_ago_pos       = #tot_ago_pos     + #o_ago_pos
+  let #tot_kos_pvl       = #tot_kos_pvl     + #o_kos_pvl
+  let #tot_mik_ker_aji   = #tot_mik_ker_aji + #o_mik_ker_aji
+
+  if #o_mik_ker_aji < 0
+  let #tot_negative      = #tot_negative    + #o_mik_ker_aji   
+  end-if
+
+ if   $p = '1'
+ and
+ (    #o_apo_pos     != 0
+  or  #o_ypo_pos     != 0
+  or  #o_mes_tim     != 0
+  or  #o_mes_tim_pvl != 0
+  or  #o_mik_ker_tem != 0
+  or  #o_pvl_pos     != 0
+  or  #o_ago_pos     != 0
+  or  #o_pre_ypo_pos != 0
+  or  #o_pre_mes_tim != 0
+  or  #o_pre_kos_ypo != 0
+  or  #o_ago_aji     != 0
+  or  #o_pvl_aji     != 0
+  or  #o_kos_ypo     != 0
+  or  #o_kos_pvl     != 0
+  or  #o_mik_ker_aji != 0
+  or  #o_mik_ker_pos != 0)
+
+  print $pvlomada        (, 1,15)
+  print $perigrafh       (,+1,20)
+
+  print #o_apo_pos       (,+1, 5) edit {MASK6}
+  print #o_ypo_pos       (,+1, 5) edit {MASK6}
+
+  print #o_mes_tim       (,+1, 8) edit {MASK21}
+! print #o_mes_tim_pvl   (,+1, 8) edit {MASK21}
+! print #o_mik_ker_tem   (,+1, 8) edit {MASK21}
+  print #o_pvl_pos       (,+1, 8) edit {MASK21}
+  print #o_ago_pos       (,+1, 8) edit {MASK21}
+  print #o_pre_ypo_pos   (,+1, 5) edit {MASK6}
+  print #o_pre_mes_tim   (,+1, 8) edit {MASK21}
+  print #o_pre_kos_ypo   (,+1, 9) edit {MASK2}
+  print #o_ago_aji       (,+1, 9) edit {MASK2}
+  print #o_pvl_aji       (,+1, 9) edit {MASK2}
+  print #o_kos_ypo       (,+1, 9) edit {MASK2}
+  print #o_kos_pvl       (,+1, 9) edit {MASK2}
+  print #o_mik_ker_aji   (,+1, 9) edit {MASK2}
+  print #o_mik_ker_pos   (,+1, 6) edit {MASK3}
+
+  next-listing
+
+ end-if
+
+end-procedure
+
+! ******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ let $mmm = 'ΑΠΟ : ' || $apohmp || '  ΕΩΣ : ' || $evshmp 
+ print 'ΟΙΚΟΝΟΜΙΚΑ ΣΤΟΙΧΕΙΑ ΚΑΤΑ ΟΜ.ΠΩΛΗΣΗΣ (ΑΕ+ΑΠ-ΑΛ)'    (3,)      Center
+ print $mmm                                                (4,)      Center
+ print ' '                                                 (6, 1,15) fill
+ print ' '                                                 (6,+1,20) fill
+ print '|-- TEM --|'                                       (6,+1,)
+ print 'ΜΕΣΗ/ΤΕΜ'                        (6,+1,)
+ print '|------ ΤΕΜ -----|'                        (6,+1,)
+ print '|------ εναρξης -------|'                          (6,+1,)
+ print '|---------------------- περιοδου ----------------------|' (6,+1,)
+ print 'Ομ.Πώλησης'          (7,1,15)
+ print 'Περιγραφη'           (,+1,20)
+ print ' απογρ'              (,+1,05) 
+ print '  υπολ'              (,+1,05) 
+ print ' τιμ-κοσ'            (,+1,08) 
+ print '     πωλ'            (,+1,08) 
+ print '     αγο'            (,+1,08) 
+ print '  υπο'               (,+1,05) 
+ print ' τιμ-κοσ'            (,+1,08) 
+ print '  κοσ-υπο'           (,+1,09) 
+ print '   αγορες'           (,+1,09) 
+ print ' πωλησεις'           (,+1,09) 
+ print '  κοσ-υπο'           (,+1,09) 
+ print '  κοσ-πωλ'           (,+1,09) 
+ print '  μικ-κερ'           (,+1,09) 
+ print ' ποσ %'              (,+1,06)  
+End-Heading

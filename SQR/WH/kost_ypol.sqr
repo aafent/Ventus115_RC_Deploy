@@ -1,0 +1,299 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : –≈À¡‘≈” ¡‘‘… «” œ–‘… œ…                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    163 
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   3
+#DEFINE   FOOT-LINE   2
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1          999
+#DEFINE   MASK2      999,999
+#DEFINE   POSOT      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $hmer '«ÏÂÒÔÏÁÌÈ·'
+
+ execute app_datecnv  $hmer, $hm out, $hmp out
+
+ execute app_getsom   $hm, $apohm out
+ execute app_geteom   $hm, $evshm out
+ execute app_getxrhsh @cid=$cid,@hmeromhnia=$hm ,@xrhsh_arxh=$start_hmxrhsh out
+
+ display $apohm
+ display $evshm
+
+     do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select
+b.pvlomada      &pvl     () NOP
+b.perigrafh     &pvl_per () NOP
+
+  let $pvl = &pvl
+
+     do getmsk
+
+  let #pl_ky = #pl_pos        * #msk
+  let #tot_pvl_a = #tot_pvl_a + #pvl_a
+  let #tot_ago_a = #tot_ago_a + #ago_a
+
+!    vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+     do akostologhta1
+     do akostologhta2
+
+!     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  let #tot_pl_pos    = #tot_pl_pos  + #pl_pos
+  let #tot_pl_ky     = #tot_pl_ky   + #pl_ky
+
+  let #pos           = #pl_pos      - #tim_pos  - #ntim_pos
+  let #ky            = #pl_ky       - #tim_ky   - #ntim_ky
+
+  if      #pl_pos      <> 0 or  #pl_ky       <> 0
+      or  #tim_pos     <> 0 or  #tim_ky      <> 0
+      or  #ntim_pos    <> 0 or  #ntim_ky     <> 0
+      or  #pos         <> 0 or  #ky          <> 0
+      or  #ago_a       <> 0 or  #pvl_a       <> 0
+      
+ 
+  print &pvl                 (, 1,15) 
+  print &pvl_per             (,+1,30) 
+  print #msk                 (,+1,11) edit {MASK3}
+  print #pl_pos              (,+1, 7) edit {POSOT}
+  print #pl_ky               (,+1,11) edit {MASK3}
+  print #tim_pos             (,+1, 7) edit {POSOT}
+  print #tim_ky              (,+1,11) edit {MASK3}
+  print #ntim_pos            (,+1, 7) edit {POSOT}
+  print #ntim_ky             (,+1,11) edit {MASK3}
+  print #pos                 (,+1, 7) edit {POSOT}
+  print #ky                  (,+1,11) edit {MASK3}
+  print #ago_a               (,+1,11) edit {MASK3}
+  print #pvl_a               (,+1,11) edit {MASK3}
+
+    next-listing 
+  end-if
+  if #CURRENT-LINE >= 56  
+        next-listing 
+      let #tot_pos  = #tot_pl_pos - #tot_tim_pos - #tot_ntim_pos
+      let #tot_ky   = #tot_pl_ky  - #tot_tim_ky  - #tot_ntim_ky
+
+      print '           '        (, 1,15)
+      print '”≈  Ã≈‘¡÷œ—¡'       (,+1,30)
+      print ' '                  (,+1,11) edit {MASK3}
+      print #tot_pl_pos          (,+1, 7) edit {POSOT}
+      print #tot_pl_ky           (,+1,11) edit {MASK3}
+      print #tot_tim_pos         (,+1, 7) edit {POSOT}
+      print #tot_tim_ky          (,+1,11) edit {MASK3}
+      print #tot_ntim_pos        (,+1, 7) edit {POSOT}
+      print #tot_ntim_ky         (,+1,11) edit {MASK3}
+      print #tot_pos             (,+1, 7) edit {POSOT}
+      print #tot_ky              (,+1,11) edit {MASK3}
+      print #tot_ago_a           (,+1,11) edit {MASK3}
+      print #tot_pvl_a           (,+1,11) edit {MASK3}
+        new-page
+      print '           '        (, 1,15)
+      print '¡–œ Ã≈‘¡÷œ—¡'       (,+1,30)
+      print ' '                  (,+1,11) edit {MASK3}
+      print #tot_pl_pos          (,+1, 7) edit {POSOT}
+      print #tot_pl_ky           (,+1,11) edit {MASK3}
+      print #tot_tim_pos         (,+1, 7) edit {POSOT}
+      print #tot_tim_ky          (,+1,11) edit {MASK3}
+      print #tot_ntim_pos        (,+1, 7) edit {POSOT}
+      print #tot_ntim_ky         (,+1,11) edit {MASK3}
+      print #tot_pos             (,+1, 7) edit {POSOT}
+      print #tot_ky              (,+1,11) edit {MASK3}
+      print #tot_ago_a           (,+1,11) edit {MASK3}
+      print #tot_pvl_a           (,+1,11) edit {MASK3}
+        next-listing
+        next-listing
+
+  end-if
+
+from  wh_pvlomades b
+where 1=1
+[$SQLCMD]
+!  group by b.pvlomada,b.perigrafh
+end-select
+
+     do total
+
+end-procedure                      
+
+! *************************************************************************
+
+begin-procedure akostologhta1
+  let #tim_ky     =  0
+  let #tim_pos    =  0   
+begin-select
+d.pvlomada      &eidos1 () NOP
+sum(b.posothta) &pos1   () NOP
+
+        let $pvl         = &eidos1
+        let #tim_pos     = &pos1
+        let #tim_ky      = #tim_pos       * #msk
+        let #tot_tim_pos = #tot_tim_pos   + #tim_pos     
+        let #tot_tim_ky  = #tot_tim_ky    + #tim_ky
+
+!  do getmsk
+
+
+from  sy_parsxet a, wh_kin b, wh_kin c, wh_eidh d
+where a.link_aa   = b.aa
+and   a.parkvd    = '13'
+and   d.kvdikos   = b.eidos
+and   a.aa        = c.aa
+and   c.hmeromhnia > $evshm       
+and   b.hmeromhnia between $start_hmxrhsh and $evshm
+and   b.eidos      = c.eidos
+and   b.cid        = '1'
+and   b.cid        = c.cid
+and   c.cid        = '1'
+and   d.pvlomada   = $pvl
+group by d.pvlomada
+end-select
+end-procedure                      
+
+! *************************************************************************
+
+begin-procedure akostologhta2
+  let #ntim_ky     =  0
+  let #ntim_pos    =  0   
+begin-select
+d.pvlomada      &eidos2 () NOP
+sum(b.posothta) &pos2   () NOP
+
+        let $pvl           = &eidos2
+        let #ntim_pos      = &pos2
+        let #ntim_ky       = #ntim_pos      * #msk
+        let #tot_ntim_pos  = #tot_ntim_pos  + #ntim_pos     
+        let #tot_ntim_ky   = #tot_ntim_ky   + #ntim_ky
+
+!  do getmsk
+
+from  wh_eidh d,wh_akostol b
+where d.kvdikos = b.eidos
+and   b.hmeromhnia between $start_hmxrhsh and $evshm
+and   b.cid = '1'
+and   d.pvlomada = $pvl
+group by d.pvlomada
+end-select
+end-procedure                      
+
+! *************************************************************************
+
+begin-procedure getmsk
+  let $cid = '1'
+  let #ago_a = 0
+  let #pvl_a = 0
+  let #ago_p = 0
+  let #pvl_p = 0
+  execute whp_getmsk7 
+                         @cid         = $cid, 
+                         @eidos       = $pvl,
+                         @hmer        = $evshm,  
+                         @msk         = #msk    out,
+                         @ypoloipo    = #pl_pos out,
+                         @pvl_p       = #pvl_p  out,
+                         @pvl_a       = #pvl_a  out,
+                         @ago_p       = #ago_p  out,
+                         @ago_a       = #ago_a  out 
+
+  let #msk = round(#msk,0)
+
+end-procedure                      
+
+! *************************************************************************
+
+begin-procedure total
+
+  next-listing
+
+  let #tot_pos = #tot_pl_pos - #tot_tim_pos - #tot_ntim_pos
+  let #tot_ky  = #tot_pl_ky  - #tot_tim_ky  - #tot_ntim_ky
+
+      print '  ”’ÕœÀ¡   '        (, 1,15)
+      print ' '                  (,+1,30)
+      print ' '                  (,+1,11) 
+      print #tot_pl_pos          (,+1, 7) edit {POSOT}
+      print #tot_pl_ky           (,+1,11) edit {MASK3}
+      print #tot_tim_pos         (,+1, 7) edit {POSOT}
+      print #tot_tim_ky          (,+1,11) edit {MASK3}
+      print #tot_ntim_pos        (,+1, 7) edit {POSOT}
+      print #tot_ntim_ky         (,+1,11) edit {MASK3}
+      print #tot_pos             (,+1, 7) edit {POSOT}
+      print #tot_ky              (,+1,11) edit {MASK3}
+      print #tot_ago_a           (,+1,11) edit {MASK3}
+      print #tot_pvl_a           (,+1,11) edit {MASK3}
+end-procedure                      
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+  
+
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = ' ¸ÛÙÔÚ ’ÔÎÔﬂÔı ÏÂ ' || '«ÏÂÒÔÏÁÌﬂ· ' || $evshm
+  print $msg                    (3,) Center
+  
+  print ' '                                            (5, 1,15) 
+  print ' '                                            ( ,+1,30) 
+  print ' '                                            ( ,+1,12) 
+  print ' '                                            ( ,+1,19) 
+  print '--------- ¡   œ ” ‘ œ À œ √ « ‘ ¡ ---------'  ( ,+1,39) 
+
+  print ' '                                            (6, 1,15) 
+  print ' '                                            ( ,+1,30) 
+  print ' '                                            ( ,+1,12) 
+  print '--- –À¡”Ã¡‘… œ --- '                          ( ,+1,19) 
+  print '-- ‘…ÃœÀœ√«Ã≈Õ¡ -- '                          ( ,+1,19) 
+  print '- Ã« ‘…ÃœÀœ√«Ã≈Õ¡ -'                          ( ,+1,19) 
+  print '--- –—¡√Ã¡‘… œ --- '                          ( ,+1,19) 
+  print '------ ¡ Œ … ¡  -------'                      ( ,+1,23) 
+
+  print 'œÏ. –˛ÎÁÛÁÚ'                                  (7, 1,15) 
+  print '–ÂÒÈ„Ò·ˆﬁ  '                                  ( ,+1,30) 
+  print '     Ã.”. .'                                  ( ,+1,11) 
+  print '    ‘›Ï'                                      ( ,+1, 7) 
+  print '       ¡Óﬂ·'                                  ( ,+1,11) 
+  print '    ‘›Ï'                                      ( ,+1, 7) 
+  print '       ¡Óﬂ·'                                  ( ,+1,11) 
+  print '    ‘›Ï'                                      ( ,+1, 7) 
+  print '       ¡Óﬂ·'                                  ( ,+1,11) 
+  print '    ‘›Ï'                                      ( ,+1, 7) 
+  print '       ¡Óﬂ·'                                  ( ,+1,11) 
+  print '     ¡„ÔÒ›Ú'                                  ( ,+1,11) 
+  print '   –˘ÎﬁÛÂÈÚ'                                  ( ,+1,11) 
+
+End-Heading              

@@ -1,0 +1,4 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2005-06-08 **/
+select suser_name(uid),* from gl_kin_hist where logar='59541510'
+order by hmer_e

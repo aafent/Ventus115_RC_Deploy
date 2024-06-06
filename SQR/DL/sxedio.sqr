@@ -1,0 +1,71 @@
+!***********************************************************************
+!***** REPORT      : sxedio.sqr                                     ****
+!***** DATE        : 12/04/93                                       ****
+!***** APPLICATION : цемийг коцистийг                               ****
+!***** NOTE        : --- коцистийо сведио цем. коц.    ----         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99,999,999,999
+#DEFINE   MASK2     999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $kathg  'йАТГЦОЯъА: '
+ unstring $kathg by '"' into $filler $kathg $filler
+ do main
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+next-listing
+begin-select
+a.ka              (,1,8)
+a.perigrafh       (,+1,60)
+a.epipedo         (,+1,10)
+a.pre_ka          (,+1,8)
+b.perigrafh       (,+1,40)
+
+   next-listing
+
+from dl_katbl a, dl_katblfk b
+where a.kathgoria=$kathg 
+and b.kathgoria = $kathg
+and a.pre_ka*=b.ka
+order by a.ka
+end-select
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'йатастасг дглосиоу коцистийоу сведиоу' (2,+1) center
+ print 'йыдийос'          (5,1,8)
+ print 'пеяицяажг'        (,+1,59)
+ print 'епипедо'          (,+1,07)
+ print 'амыт.епипедо'     (,+1,12)
+ print 'пеяицяажг'        (,+1,40)
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{DL	1	1	486	sxedio	rs	X	01},TITLE{дГЛЭСИО кОЦИСТИЙЭ сВщДИО}
+!	PARCOUNT{1}
+!	PAR1{1=еНОДА, 2=еСОДА	DUMP	1	=	char(1)		X}
+!REPORTHELP{F}
+!</pcalib>

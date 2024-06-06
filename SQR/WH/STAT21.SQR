@@ -1,0 +1,270 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : stat21.sqr                                             ****
+! **** DATE        : 23/07/96                                               ****
+! **** APPLICATION : ¡–œ»« ≈”- –ŸÀ«”≈…”                                     ****
+! **** AUTHOR      : Ã–œ …¡” Õ… œ”                                          ****
+! **** NOTE        : –ŸÀ«”≈…” ¡Õ¡ «Ã≈—¡  ¡… ≈…ƒœ” –¡—¡”‘¡‘… œ’              ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    107 
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK2              9,999
+#DEFINE   MASK3         99,999,999
+#DEFINE   MASK4            999,999.99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+  
+ input $ietaireia '≈Ù·ÈÒÂﬂ·             : '
+ input $hmnia     '¡¸ «ÏÂÒÔÏÁÌﬂ·       : '
+   
+ execute app_datecnv   $hmnia, $hm output, $hmpr output
+       
+ unstring $ietaireia by '"' into $filler8 $cid     $filler7
+
+ 
+ if $cid = '='
+    execute app_retdefcid $cid,$cid out
+ end-if
+
+   let #S_KVD    =  2 
+   let #S_PER    = 20
+   let #STEP     =  2
+
+   do main
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main
+
+begin-select
+c.tmhma                        &kvd_tm  () on-break print=never 
+                                                    after=synola
+                                                    level=1
+   let #tmhma = &kvd_tm
+   do find_tmhma
+   !   a.perigrafh                    &per_tm  () NOP
+b.parkvd                       &parkvd  () NOP
+e.perigrafh                    &per_par () NOP
+d.skopos                       &skopos  () NOP
+
+  let $parkvd = &parkvd
+  let #skopos = &skopos
+
+  do find_skopos
+
+e.f_eis                        &f_eis   () NOP
+e.f_eja                        &f_eja   () NOP
+
+  do find_count
+
+sum(b.posothta*e.syntel_p)     &pos     () NOP
+sum(b.ajia*e.syntel_a)         &ajia    () NOP
+
+ if #s_pos = 0 
+    print &kvd_tm   (, 1,    #S_KVD)
+    print $per_tm   (,+1,    #S_PER)
+ else
+    print ' '       (, 1,    #S_KVD)
+    print ' '       (,+1,    #S_PER)
+ end-if
+
+ print &parkvd   (,+#STEP,#S_KVD)
+ print &per_par  (,+1,    #S_PER)
+ print &skopos   (,+#STEP,#S_KVD)
+
+
+ print $per_sko  (,+1,    #S_PER)
+ print #count    (,+#STEP,10    ) EDIT {MASK3}
+  
+  let #pos     = 0
+  let #ajia    = 0
+
+  if &f_eis    ='X'
+    let #pos   = &pos  * -1
+    let #ajia  = &ajia * -1
+  end-if
+
+  if &f_eja   ='X'
+    let #pos  = &pos 
+    let #ajia = &ajia 
+  end-if
+
+ print #pos      (,+1,10) EDIT {MASK3}
+ print #ajia     (,+1,10) EDIT {MASK3}
+
+ let #s_pos  = #s_pos  + #pos
+ let #s_ajia = #s_ajia + #ajia
+ let #s_cnt  = #s_cnt  + #count
+
+ next-listing
+
+from  wh_kin b, wh_eidh01 c, sy_parmas d, ap_par e,ap_omadapar zz
+where b.hmeromhnia = $hm
+and   b.cid        = $cid
+and   b.aa         = d.aa
+and   e.parkvd     = b.parkvd
+and   b.eidos      = c.eidos
+and   zz.parkvd    = e.parkvd 
+and   zz.omada     = 'PVLHSEIS'
+
+! from  wh_kin b, wh_eidh01 c, sy_parmas d, ap_par e
+! where b.hmeromhnia = $hm
+! and   b.cid        = $cid
+! and   b.aa         = d.aa
+! and   e.parkvd     = b.parkvd
+! and   b.eidos      = c.eidos
+! 
+! and   exists (select zz.parkvd from ap_omadapar zz
+              ! where  zz.parkvd = e.parkvd and zz.omada = 'PVLHSEIS')
+
+group by c.tmhma,b.parkvd,e.perigrafh,d.skopos,e.f_eis,e.f_eja
+order by c.tmhma,b.parkvd,d.skopos
+end-select
+
+ print ' '                  (, 1,    #S_KVD)
+ print ' '                  (,+1,    #S_PER)
+ print ' '                  (,+#STEP,#S_KVD)
+ print ' '                  (,+1,    #S_PER)
+ print ' '                  (,+#STEP,#S_KVD)
+ print ' '                  (,+1,    #S_PER)
+ print '=========='         (,+#STEP,10    )
+ print '=========='         (,+1    ,10    )
+ print '=========='         (,+1    ,10    )
+ next-listing
+ print ' '                  (, 1,    #S_KVD)
+ print '√ ≈ Õ …   ¡   '     (,+1,    #S_PER)
+ print ' '                  (,+#STEP,#S_KVD)
+ print '” ’ Õ œ À ¡   '     (,+1    ,#S_PER)
+ print ' '                  (,+#STEP,#S_KVD)
+ print ' '                  (,+1,    #S_PER)
+ print #ss_cnt              (,+#STEP,10    ) EDIT {MASK3} 
+ print #ss_pos              (,+1    ,10    ) EDIT {MASK3} 
+ print #ss_ajia             (,+1    ,10    ) EDIT {MASK3}
+ next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_tmhma 
+begin-select
+a.perigrafh                    &per_tm  () NOP
+    let $per_tm = &per_tm
+from ap_tmhma a
+where a.kvdikos = #tmhma
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure synola 
+
+   if #s_pos <> #pos  
+      print ' '                  (, 1,    #S_KVD)
+      print '” ’ Õ œ À ¡  '      (,+1,    #S_PER)
+      print ' '                  (,+#STEP,#S_KVD)
+      print ' '                  (,+1,    #S_PER)
+      print ' '                  (,+#STEP,#S_KVD)
+      print ' '                  (,+1,    #S_PER)
+      print #s_cnt               (,+#STEP,10    ) EDIT {MASK3} 
+      print #s_pos               (,+1    ,10    ) EDIT {MASK3} 
+      print #s_ajia              (,+1    ,10    ) EDIT {MASK3}
+      next-listing
+      next-listing
+   end-if
+      let #ss_pos  = #ss_pos  + #s_pos
+      let #ss_ajia = #ss_ajia + #s_ajia
+      let #ss_cnt  = #ss_cnt  + #s_cnt  
+      let #s_pos   = 0
+      let #s_ajia  = 0
+      let #s_cnt   = 0
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_count 
+
+   let #count = 0
+   if #skopos = 0
+       let $SQLDD = ' and   d.skopos     is null '
+   else
+       let $skopos = #skopos
+       let $SQLDD  = ' and   d.skopos   =  '  || $skopos
+   end-if
+
+begin-select
+count(distinct b.aa )     &count      () NOP
+
+   let #count = &count
+
+from  wh_kin b, wh_eidh01 c,sy_parmas d
+where b.hmeromhnia = $hm
+and   b.cid        = $cid
+and   b.parkvd     = $parkvd
+and   c.tmhma      = #tmhma
+and   b.eidos      = c.eidos
+and   d.aa         = b.aa   
+and   d.cid        = $cid
+[$SQLDD]
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_skopos
+
+   let $per_sko = ' '
+
+begin-select
+a.perigrafh &per_sko () NOP
+
+   let $per_sko = &per_sko
+
+from sy_skopos a
+where a.kvdikos = #skopos
+end-select
+end-procedure
+
+! ==============================================================================
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ let   $msg  = '  …Õ«”≈…” ‘Ã«Ã¡‘ŸÕ ¡Õ¡ –¡—¡”‘¡‘… œ Í ” œ–œ ƒ…¡ …Õ«”«” ' 
+ print $msg (2,+1) center
+ let   $msg  = ' Ã≈ «Ã≈—œÃ«Õ…¡ : ' || $hmpr 
+ print $msg (3,+1) center
+
+       ! 123456789012345678901234567890
+       let #S_GRP = #S_KVD + #S_PER + 1
+
+ print '‘  Ã  «  Ã  ¡        '      (5,     1,#S_GRP)
+ print '– ¡ — ¡ ” ‘ ¡ ‘ …   œ'      ( ,+#STEP,#S_GRP)
+ print '”   œ – œ ”          '      ( ,+#STEP,#S_GRP)
+ print '¡Ò.–·Ò·ÛÙ.'                 ( ,+#STEP,    10)
+ print '  –ÔÛ¸ÙÁÙ·'                 ( ,    +1,    10)
+ print '      ¡Óﬂ·'                 ( ,    +1,    10)
+
+end-Heading

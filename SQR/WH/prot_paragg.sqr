@@ -1,0 +1,471 @@
+!***********************************************************************
+!***** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                 ****
+!***** REPORT      : prot_paragg.sqr                                ****
+!***** DATE        : 25/07/96                                       ****
+!***** APPLICATION : warehouse                                      ****
+!***** AUTHOR      : JOHN K R - MANOS TSID 
+!***** NOTE        : Πρόταση προς παραγγελία                        ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y         62
+#DEFINE   PAGE-X        132
+#DEFINE   HEAD-SIZE       7
+#DEFINE   FOOT-SIZE       1
+#DEFINE   HEAD-LINE       4
+
+#DEFINE   EIDOS       99999
+#DEFINE   MASK1    9999,999
+#DEFINE   MASK2          99
+#DEFINE   MASK3    99999.99
+#DEFINE   MASK5       9,999
+#DEFINE   MASK6 999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $icid     'Εταιρεία'
+ input $imhn_kal 'Μήνες κάλυψης'
+ input $imhn_el  'Μήνες ελέγχου'
+ input $ipos_auj 'Ποσοστό αύξησης'
+ input $imstock  'Ποσοστό αύξησης'
+
+
+ unstring $icid     by '"' into $filler1 $cid     $filler2
+ unstring $imhn_kal by '"' into $filler1 $mhn_kal $filler2
+ unstring $imhn_el  by '"' into $filler1 $mhn_el  $filler2
+ unstring $ipos_auj by '"' into $filler1 $pos_auj $filler2
+ unstring $imstock  by '"' into $filler1 $mstock  $filler2
+
+ if $cid = '='
+    execute app_retdefcid $cid , $cid output
+ end-if
+
+ let #mhn_kal = $mhn_kal
+ let #mhn_el  = $mhn_el
+ let #pos_auj = $pos_auj
+
+ if $mstock   = 'Ν' or $mstock = 'N' or
+    $mstock   = 'n' or $mstock = 'ν'
+    let $mstock = 'Y'
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+  let #tmp_mhn_el  = #mhn_el * -1
+  let $tmp_mhn_el  = #tmp_mhn_el
+
+  let $hm_back     = ''
+  let $hm_back1    = ''
+  let $pre_hm_back = ''
+  let $pre_hm_back1= ''
+  let #suma        = 0
+
+begin-select    
+dateadd(mm,convert(float,$tmp_mhn_el),getdate())    &hm_back  () NOP 
+dateadd(mm,                        -1,getdate())    &hm_back1 () NOP 
+
+      let $hm_back  = &hm_back
+      let $hm_back1 = &hm_back1
+
+end-select
+    
+ execute app_geteom  $hm_back , $hm_back   out     ! get End of Month
+ execute app_geteom  $hm_back1, $hm_back1  out     ! get End of Month
+
+
+if $pos_auj = '='
+   do find_pre
+end-if
+
+  
+begin-select
+b.pvlomada  &pvlomada () NOP
+b.kvdikos   &kvd      () NOP
+
+  let $pvlomada = &pvlomada
+  let $lala = '1'
+      if $pvlomada != $prev_pvlomada and $prev_pvlomada != ''
+         do lala
+      end-if
+
+  let $kvd = &kvd 
+
+  let #pol     = 0
+  let #gen_pol = 0
+
+  let $hm_1 = $hm_back
+  let $hm_2 = $hm_back1
+
+  do gethm
+
+  do diafora
+
+  do kint1
+
+  let #pol  = #gen_pol
+
+  do kint2
+
+  let #tmp=#mhn_el
+  if  #hm_diff <= 0 
+  let #pol_mhn  = round(#pol / #tmp,0)
+  else
+  let #tmp=#tmp-#hm_diff
+  if #tmp != 0
+     let #pol_mhn= round(#pol/#tmp,0)
+  else
+     let #pol_mhn= round(#pol/   1,0)
+  end-if
+  end-if
+
+  if $pos_auj = '='
+     do find_pos
+  end-if
+
+  let #prot   = round((((#pol_mhn * #pos_auj) / 100 ) + #pol_mhn) * #mhn_kal,0)
+  let #tel_prot =    #prot - #ypoloipo
+ 
+  let $perigr = ''
+  do get_perigr
+  do get_minstock
+
+  print $kvd                     (, 1,15)
+  print $perigr                  (,+1,40)
+  print #pol                     (,+1, 8) edit {MASK1}
+  print #pol_mhn                 (,+1, 8) edit {MASK1}
+  print #tmp                     (,+1, 8) edit {MASK1}
+  print #pos_auj                 (,+1, 8) edit {MASK5}
+  print #mhn_kal                 (,+1, 8) edit {MASK3}
+  print #ypoloipo                (,+1, 8) edit {MASK1}
+  print #minstock                (,+1, 8) edit {MASK1}
+  let #tel_prot = #tel_prot + #minstock
+  if #tel_prot <= 0  
+     let #tel_prot = 0
+  end-if
+  let  #suma = #suma   + #tel_prot
+   let #tsuma = #tsuma + #tel_prot
+
+  print #tel_prot                (,+1, 8) edit {MASK1}
+
+  next-listing
+  let $prev_pvlomada = $pvlomada
+
+
+from wh_pvlomades a, wh_eidh b, wh_eidhmore c
+where a.pvlomada =      b.pvlomada
+and   b.kvdikos  =      c.eidos
+and   c.energo   is not null
+and   c.cid      =      $cid
+[$SQLCMD]
+order by a.pvlomada,b.ord,b.kvdikos
+end-select
+  let $lala = '2'
+         do lala
+
+  next-listing
+
+   print ' '                                 (, 1,15)  fill
+   print 'Γενικό Σύνολο Προτεινόμενων Ποσοτήτων '   (,+1,40)
+   print ' '                                 (,+1, 8)     
+   print ' '                                 (,+1, 8) 
+   print ' '                                 (,+1, 8)     
+   print ' '                                 (,+1, 8) 
+   print ' '                                 (,+1, 8)     
+   print ' '                                 (,+1, 8) 
+   print ' '                                 (,+1, 8) 
+   
+   print #tsuma                       	     (,+1, 8) edit {MASK1}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure get_minstock    
+
+   let #minstock = 0
+
+begin-select
+a.minstock  &minstock () NOP
+
+   if  $mstock = 'Y'
+      let #minstock = &minstock
+   else
+      let #minstock = 0
+   end-if
+
+from wh_eidhmore a
+where a.cid   = $cid
+and   a.eidos = $kvd
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure lala    
+
+   print ' '                                 (, 1,15)  fill
+   print 'Σύνολο Προτεινόμενων Ποσοτήτων '   (,+1,40)
+   print ' '                                 (,+1, 8)     
+   print ' '                                 (,+1, 8) 
+   
+   print ' '                                 (,+1, 8)
+   print ' '                                 (,+1, 8)
+   print ' '                                 (,+1, 8)
+   print ' '                                 (,+1, 8)
+   print ' '                                 (,+1, 8)
+
+   print #suma                       	     (,+1, 8) edit {MASK1}
+   let #suma = 0
+  if $lala = '1' and $cid = '1'
+  !  new-page
+  end-if
+  next-listing
+  next-listing
+   
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_pre
+
+begin-select    
+dateadd(yy,                        -1,$hm_back )    &pre_hm_back  () NOP 
+dateadd(yy,                        -1,$hm_back1)    &pre_hm_back1 () NOP 
+
+      let $pre_hm_back  = &pre_hm_back
+      let $pre_hm_back1 = &pre_hm_back1
+
+end-select
+
+end-procedure
+
+! ******************************************************************
+ 
+begin-procedure gethm
+
+begin-select
+min(convert(datetime,hmeromhnia)) &hm_pr () NOP
+
+  let $hm_pr = &hm_pr
+
+from  wh_kint1
+where eidos = $kvd
+and   cid   = $cid
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure diafora
+
+begin-select
+datediff(mm,$hm_1,$hm_pr) &hm_diff () NOP
+  let #hm_diff=&hm_diff
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure kint1
+
+begin-select
+sum(b.pvl_p) &pol () NOP 
+
+  let #gen_pol = &pol 
+
+from wh_kint1 b
+where b.eidos = $kvd
+and b.cid     = $cid                       
+and b.hmeromhnia between $hm_1 and $hm_2
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure kint2
+
+  let #ypoloipo=0
+
+  execute whp_getmsk6    @cid         = $cid ,
+                         @eidos       = $kvd ,
+                         @ypoloipo    = #ypoloipo out
+  display $cid noline
+  display ' '  noline
+  display $kvd noline
+  display ' '  noline
+  display #ypoloipo
+
+! begin-select
+! sum(a.ypoloipo) &ypoloipo () NOP
+! 
+!    let #ypoloipo = &ypoloipo
+! 
+! from wh_kint2 a
+! where a.eidos = $kvd
+! and   a.cid   = $cid
+! end-select
+
+end-procedure 
+
+! ******************************************************************
+
+begin-procedure find_pos
+  let $hm1=$hm_pr
+  let $hm2=$pre_hm_back1
+  do findbigger
+  let #diafora1=#diafora
+
+  let $hm2=$hm_pr      
+  let $hm1=$pre_hm_back
+  do findbigger
+  let #diafora2=#diafora
+
+  display $kvd      noline
+  display ' '       noline
+  display #diafora1 noline
+  display ' '       noline
+  display #diafora2
+  
+  if #diafora1 >= 0 and #diafora2 >= 0         ! 1st kin in previous year period
+     let $hm_1=$pre_hm_back
+     let $hm_2=$pre_hm_back1
+     do diafora
+     do kint1
+     let #tmp2=#mhn_el-#hm_diff
+     let #prev_pol_mhn= round(#gen_pol/#tmp2,0)
+     if #prev_pol_mhn=0 and #pol_mhn=0 
+        let #pos_auj=0
+     end-if
+     if #prev_pol_mhn=0 and #pol_mhn>0
+        let #pos_auj=100
+     end-if
+     if #prev_pol_mhn>0 and #pol_mhn>=0
+        let #pos_auj=round(((#pol_mhn*100)/#prev_pol_mhn)-100,0)
+     end-if
+ 
+  else                                          ! 
+     let $hm2=$pre_hm_back
+     let $hm1=$hm_pr
+     do findbigger   
+     
+     display #diafora 
+     
+     if #diafora > 0
+        let $hm_1 = $pre_hm_back
+        let $hm_2 = $pre_hm_back1
+        do kint1
+        let #tmp2         = #mhn_el
+        let #prev_pol_mhn = round(#gen_pol/#tmp2,0)
+
+        display #mhn_el    noline
+        display ' '        noline
+        display #gen_pol   noline
+        display ' '        noline
+        display #pol_mhn   noline
+        display ' '        noline
+        display #prev_pol_mhn     
+
+        if  #prev_pol_mhn = 0 
+        and #pol_mhn      = 0 
+            let #pos_auj  = 0
+        end-if
+        if  #prev_pol_mhn = 0 
+        and #pol_mhn      > 0
+            let #pos_auj=100
+        end-if
+        if  #prev_pol_mhn >  0 
+        and #pol_mhn      >= 0
+           let #pos_auj=round(((#pol_mhn*100)/#prev_pol_mhn)-100,0)
+        end-if
+ 
+     else 
+       let $hm2=$hm_pr
+       let $hm1=$pre_hm_back1
+       do findbigger
+       if #diafora>0
+          let #prev_pol_mhn=0
+          let #pos_auj=0
+       end-if
+    end-if
+ end-if
+end-procedure 
+
+! ******************************************************************
+
+begin-procedure get_perigr
+
+begin-select
+b.perigrafh  &perigr () NOP
+
+  let $perigr = &perigr
+
+from wh_eidh b
+where b.kvdikos = $kvd
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure findbigger
+begin-select
+datediff(mm,$hm1,$hm2) &diafora () NOP
+   let #diafora=&diafora
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+
+   let $msg = 'ΠΡΟΤΑΣΗ ΠΡΟΣ ΑΝΑΠΑΡΑΓΓΕΛΙΑ' 
+  
+   print $msg                     (2,,)      center
+
+   print 'Κωδικός'                (5, 1,15)
+   print 'Περιγραφή'              ( ,+1,40)
+   print '  Σύνολο'                ( ,+1, 8)     
+   print '  M.O   '                ( ,+1, 8)
+   print ' Μήνες  '                ( ,+1, 8)
+   print ' Ποσοστό'                ( ,+1, 8)
+   print ' Μήνες  '                ( ,+1, 8)
+   print '        '                ( ,+1, 8)
+   print 'Ελάχιστο'                ( ,+1, 8) 
+   print 'Προτειν.'                ( ,+1, 8)
+
+   print 'Είδους      '           (6, 1,15)
+   print 'Είδους      '           ( ,+1,40)
+       !  1234567890
+   print 'Πωλήσεων'               ( ,+1, 8)     
+   print 'Πωλήσεων'               ( ,+1, 8)
+   print ' Ελέγχου'               ( ,+1, 8)
+   print ' Αύξησης'                ( ,+1, 8)
+   print ' Κάλυψης'                ( ,+1, 8)
+   print 'Υπόλοιπo'               ( ,+1, 8)
+   print '  Στοκ  '               ( ,+1, 8) 
+   print 'Ποσότητα'               ( ,+1, 8)
+
+end-heading

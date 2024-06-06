@@ -1,0 +1,244 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : eggr.sqr              + -- -- -- -- -- -- -    ****
+! ***** DATE        : 09/06/93              |LAST UPDATE 17/03/94    ****
+! ***** APPLICATION : synalages             |                        ****
+! ***** AUTHOR      : ¡÷≈Õ‘¡ «” ¡Õƒ—≈¡”     |Ã–œ …¡” Õ… œ”           ****
+! ***** NOTE        :  ·Ù·ÛÙ·ÛÁ ÂÎ›„˜Ôı Í·Ù·˜˛ÒÁÛÁÚ Â„„Ò·ˆ˛Ì         ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     60
+#DEFINE   PAGE-X    136
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1             99999
+#DEFINE   MASK2     9,999,999,999
+#DEFINE   MASK4         9,999,999
+#DEFINE   MASK3                99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $ieidos 'eidos eggrafvn '
+ unstring $ieidos by '"' into $filler $seidos $filler
+
+ if $seidos = '*'
+   move 'and id >= ' to $RECIDCMD
+   move 0 to #rec_id
+ else
+    move 'and id = '  to $RECIDCMD
+    execute app_floatcnv  $ieidos, #rec_id output
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 0 to #total_x
+ move 0 to #total_p
+begin-select 
+convert(datetime,a.hmer_e) &hmerbreak  () on-break print=never 
+                                                   after=new_hmer level=1
+a.id                       &recid      () on-break print=never
+                                                   after=new_id   level=1
+convert(datetime,a.hmer_e) &a.hmerom   (,01,05) edit {SMALLDATE}
+a.aa                                   (,+1,05) edit {MASK1}
+a.logar                                ()       NOP
+a.xp                                   ()       NOP
+a.synal                                ()       NOP
+
+  do makelogform ($cid,&a.synal,&a.logar,$logar_pr,$logper)
+  print $logar_pr                      (,+1,16)
+  print $logper                        (,+1,40)
+
+a.prakt                                (,+1,05)
+a.xrevsh                               ()       NOP
+a.pistvsh                              ()       NOP
+  if &a.xp = '◊'
+     move 'X'       to $xp
+     move &a.xrevsh to #xr_ajia
+     move 0         to #pi_ajia
+  else           
+     move 'P'        to $xp
+     move &a.pistvsh to #pi_ajia
+     move 0          to #xr_ajia
+  end-if
+  let #total_x = #total_x + #xr_ajia
+  let #total_p = #total_p + #pi_ajia
+  print #xr_ajia                      (,+1,13) edit {MASK2}
+  print #pi_ajia                      (,  ,13) edit {MASK2}
+isnull(a.fpa_pos,0)                   (,+3,02) edit {MASK3}
+  print '%'                           (,,1) 
+a.kathgoria                           (,+1,01)
+a.ajia_fpa                            (,+1,09) edit {MASK4}
+  if &a.xp = '◊'
+     let #total_x = #total_x + &a.ajia_fpa
+  else           
+     let #total_p = #total_p + &a.ajia_fpa
+  end-if
+a.parkvd                              ()       NOP
+a.seira                               ()       NOP
+a.parno                               ()       NOP
+
+  move &a.parno to $sxetiko
+  let $sxetiko = &a.parkvd||' '||&a.seira||' '||$sxetiko
+  print $sxetiko                      (,+1,12)
+
+  next-listing
+  do get_ref_aruro ($cid, &a.aa, $aruro)
+  print $aruro                        (,13,16)
+a.aitia                               (,30,40)
+  next-listing
+
+from sy_eggr a
+where cid = $cid
+[$RECIDCMD] #rec_id
+[$SQLCMD]
+order by a.hmer_e, a.id,  a.aa, a.seira, a.parno
+end-select
+
+   next-listing need=4
+
+   print $L_X2                    (,77,13) fill
+   print $L_X2                    (,91,13) fill
+
+   next-listing
+
+   ! 
+   ! let #total_x = #total_x + 1000
+   ! to create diafora for test only
+
+   let #diff = #total_x - #total_p
+   print '”’ÕœÀ¡ :'                (,30,08)
+   print #total_x                  (,77,13) edit {MASK2}
+   print #total_p                  (,91,13) edit {MASK2}
+   next-listing
+   if #diff <> 0
+     let #dif_col = ceil ( 77 + ((91 - 77) / 2) )
+     print 'ƒ…¡÷œ—¡ :'            (,30)
+ display #diff
+     print #diff                  (,#dif_col,13) edit {MASK2}
+   end-if
+  
+ next-listing
+end-procedure
+
+! ******************************************************************
+
+begin-procedure new_hmer
+   next-listing
+   print '-  - ' (,1,{PAGE-X}) fill
+   next-listing
+end-procedure
+
+begin-procedure new_id
+   next-listing
+   print '.  . ' (,1,{PAGE-X}) fill
+   next-listing
+end-procedure
+
+! ******************************************************************
+
+begin-procedure makelogform($cid,$synal,$inlogar,:$outlogar,:$logper)
+
+if $synal = ''
+  execute glp_logfrm @in_logar=$inlogar, @out_logar=$outlogar output
+  do getlog ($cid, $inlogar, $logper)
+else
+  let $outlogar = $inlogar||'/'||$synal
+  do getsynal ($synal,$logper)
+end-if
+end-procedure
+
+begin-procedure getlog($cid,$inlogar,:$logper)
+  move '' to $logper
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $logper
+from gl_logar
+where logar=$inlogar
+  and cid=$cid
+end-select
+end-procedure
+
+begin-procedure getsynal($synal,:$epvnymia)
+  move '' to $epvnymia
+begin-select
+epvnymia     () NOP
+  move &epvnymia to $epvnymia
+from sy_synal
+where synal=$synal
+end-select
+end-procedure
+
+begin-procedure get_ref_aruro($cid,#aa,:$aruro)
+  move '' to $aruro
+begin-select
+aruro     () NOP
+  move &aruro to $aruro
+from gl_ref
+where aa        = #aa
+and   subsystem = 'SY'
+and   cid       = $cid
+end-select
+end-procedure
+
+! *****************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg=' ¡‘¡”‘¡”« ≈À≈√◊œ’ '
+  if #rec_id = 0
+     let $msg=$msg||' ‘œ’ ”’ÕœÀœ’ ‘ŸÕ ≈√√—¡÷ŸÕ'
+  else
+  if #rec_id = 1
+     let $msg=$msg||' √—¡ÃÃ¡‘…ŸÕ ≈…”–—¡Œ«”'
+  else
+  if #rec_id = 2
+     let $msg=$msg||' ≈Õ‘¡ÀÃ¡‘ŸÕ –À«—ŸÃ«”'
+  else
+  if #rec_id = 3
+     let $msg=$msg||' ”’Ãÿ«÷…”‘… ŸÕ ≈√√—¡÷ŸÕ'
+  else
+  if #rec_id = 4
+     let $msg=$msg||' ≈√√—¡÷ŸÕ …”œÀœ√…”Ãœ’'
+  else
+     let $msg=$msg||' ¡√ÕŸ”‘œ ≈…ƒœ” ≈√√—¡÷ŸÕ'
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  print $msg (3,) center
+  print '«Ï.≈Ì.'                     (5,01,05)
+  print '‘·ıÙ.'                      ( ,+1,05)
+  print 'ÀÔ„·ÒÈ·ÛÏ¸Ú'                ( ,+1,16)
+  print '‘ ﬂ Ù Î Ô Ú  /  ¡ È Ù ﬂ ·'  ( ,+1,40)
+  print '–Ò·ÍÙ'                      ( ,+1,05)
+  print '       ◊Ò›˘ÛÁ'              ( ,+1,13)
+  print '      –ﬂÛÙ˘ÛÁ'              ( ,  ,13)
+  print '÷–A'                        ( ,+3,03)
+  print 'K'                          ( ,+1,01)
+  print '¡Óﬂ· ÷–¡'                   ( ,+1,09)
+  print '”˜ÂÙÈÍ¸'                    ( ,+1,12)
+
+end-heading

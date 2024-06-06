@@ -1,0 +1,589 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : hmerol.sqr                                     ****
+!***** DATE        : 01/06/94                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ажемтайгс амдяеас                              ****
+!***** NOTE        : еЙТЩПЫСГ гЛЕЯОКОЦъОУ  пЫКГСЕЫМ                 ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   MASK1A   	99,999,999.99c
+#DEFINE   MASK2A   	  9999,999.99c
+#DEFINE   MASK3               0000000
+#DEFINE   MASK4		        00000
+#DEFINE   MASK3A       99,999,999.99c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+ ! position 0 --> current stoixeio
+ ! position 1 --> pvlhseis   athhnas
+ ! position 2 --> epistrofes athhnas
+ ! position 3 --> pvlhseis   thesalonikhs
+ ! position 4 --> epistrofes thesalonikhs
+ ! position 5 --> pvlhseis   synolo
+ ! position 6 --> epistrofes synolo
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+
+ move $L_CID to $cid
+ move 99 to #xrhsh
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute -C1 app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute -C1 app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+
+ create-array name=ajies size=1 field=kau_ajia:number:7
+                                field=ekpt:number:7
+                                field=sysk:number:7
+                                field=diaf:number:7
+                                field=kyd:number:7
+                                field=fpa:number:7
+                                field=total:number:7
+
+ do findxrhsh($cid,$apohm,#xrhsh)
+ do apo_metafora
+ do main
+ do se_metafora
+
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure findxrhsh($cid,$hmer,:#xrhsh)
+
+move 0 to #xrhsh
+
+begin-select
+xrhsh 
+   move &xrhsh to #xrhsh
+from ap_xrhsh
+where cid = $cid
+  and $hmer between xrhsh_arxh and xrhsh_telos
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main
+display 'CID :' noline
+display $cid
+move 0 to #recs
+move 0 to #total_lines
+
+begin-select -C1
+a.hmer_e    &last_hmer 			      () nop
+convert(char(8),a.hmer_e,3) &a.hmer_e         () NOP
+  print &a.hmer_e                             () 
+                         On-Break print  =  Never
+                         Level  = 1
+                         save   = $day
+                         after  = print_day_totals
+
+a.aa                                            () nop
+c.stoixeio                                      () nop
+a.parkvd					() nop
+  
+  do getdata(&a.aa, &a.parkvd, $plhr, #pvlhs, #ekpt, #kauarh, #fpa1, #fpa2, #loipa)
+
+a.seira                                         () nop
+a.parno                                         () nop
+a.synal                                         () nop
+
+  do get_flagaa(&a.aa,$flag)
+  if $flag <> 'X'
+	  do print_line
+  end-if
+
+from sy_parmas a, ap_omadapar b, ap_par c
+where a.parkvd  = b.parkvd
+  and a.parkvd  = c.parkvd
+  and b.parkvd  = c.parkvd
+  and a.parno   > 0
+  and c.stoixeio in ('01','02','03','99')
+  and b.omada   = 'PVLHSEIS'
+  and a.cid     = $cid
+  and a.hmer_e between $apohm and $evshm
+[$SQLCMD]
+order by a.hmer_e, a.parkvd, a.seira, a.parno
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_line
+
+  add 1 to #total_lines
+  if #total_lines = 1
+      do print_apo_metafora
+  end-if
+
+  do set_flagaa (&a.aa,&a.parkvd,&a.seira,&a.parno)
+
+  add 1 to #recs
+  add 1 to #mhxar
+
+  print #mhxar                                  (,01,07) 	edit {MASK3}
+
+  !print &a.parkvd				(,+1,03)
+  move &a.parkvd to $parkvd
+  do find_ele_parkvd
+  print $ele_parkvd                             (,+1,03)
+
+
+  print &a.seira                                (,+1,03)
+  print &a.parno                                (,+1,05) 	edit {MASK4}
+  print '255'					(,+1,03)
+  print &a.synal                                (,  ,10) 
+  print 'X'					(,+3,01)
+  print $plhr					(,+3,01)
+  if &c.stoixeio = '03'
+	print 'п'				(,+3,01)
+  else
+	print 'T'				(,+3,01)
+  end-if
+  print	#pvlhs					(,+2,13) 	edit {MASK1A}
+  print	#ekpt					(,+2,11) 	edit {MASK2A}
+  print	#kauarh					(,+2,13) 	edit {MASK1A}
+  print	#fpa1					(,+2,11) 	edit {MASK2A}
+  print	#fpa2					(,+2,11) 	edit {MASK2A}
+  print	#loipa					(,+2,11) 	edit {MASK2A}
+
+  let #s1_pvlhs 	= #s1_pvlhs  + #pvlhs
+  let #s1_ekpt	 	= #s1_ekpt   + #ekpt
+  let #s1_kauarh 	= #s1_kauarh + #kauarh
+  let #s1_fpa1 		= #s1_fpa1   + #fpa1
+  let #s1_fpa2	 	= #s1_fpa2   + #fpa2
+  let #s1_loipa	 	= #s1_loipa  + #loipa
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure set_flagaa (#aa,$parkvd,$seira,#parno)
+
+ execute -C2 syp_aaflag @FE='SQL', @aa=#aa, @job='S', @flag_no = 1, @flag_val = 'X', 
+			@parkvd=$parkvd, @seira=$seira, @parno=#parno
+
+end-procedure
+
+begin-procedure get_flagaa (#aa,:$flag)
+
+ move '' to $flag
+ execute -C2 syp_aaflag @FE='SQL', @aa=#aa, @job='G', @flag_no = 1, @flag_val = $flag output
+! display 'FLAG ' 
+! display #aa
+! display $flag
+ 
+end-procedure
+
+
+! ******************************************************************
+
+begin-procedure apo_metafora 
+
+  move 0 to #s2_pvlhs
+  move 0 to #s2_ekpt
+  move 0 to #s2_kauarh
+  move 0 to #s2_fpa1
+  move 0 to #s2_fpa2
+  move 0 to #s2_loipa
+
+  move 1 to #last_inx
+  move 0 to #mhxar
+  move 0 to #recs
+
+!
+! (v) Find last inx 
+!
+move -999 to #read_inx
+begin-select -C1
+max(met1.inx)  &met1.inx	() nop
+   move &met1.inx to #read_inx
+from sy_buf1 met1
+where met1.cid   = $cid
+  and met1.xrhsh = #xrhsh
+  and met1.id= 'ELHMERPVL1'
+end-select
+
+!
+! (v) Find last values
+!
+begin-select -C1
+met.id          () nop
+met.inx         () nop
+met.n1		() nop
+met.n2		() nop
+met.n3		() nop
+met.n4		() nop
+met.n5		() nop
+met.n6		() nop
+met.n9          () nop
+met.d2          () nop
+convert(varchar(10),met.d2,112) &hm1 () nop
+convert(varchar(10),convert(datetime,$apohm),112) &hma () nop
+convert(varchar(10),convert(datetime,$evshm),112) &hmb () nop
+
+	move &met.n1  to #s2_pvlhs
+	move &met.n2  to #s2_ekpt
+	move &met.n3  to #s2_kauarh
+	move &met.n4  to #s2_fpa1
+	move &met.n5  to #s2_fpa2
+	move &met.n6  to #s2_loipa
+	move &met.n9  to #mhxar
+	move &met.d2  to $apohm
+	move &met.inx to #last_inx
+
+	display 'FIND ID INTO BUF1 : ' noline
+        display &met.id  noline
+        display '/'      noline
+	display &met.inx 
+	
+
+from sy_buf1 met
+where met.cid   = $cid
+  and met.xrhsh = #xrhsh
+  and met.id    = 'ELHMERPVL1'
+  and met.inx   = #read_inx
+end-select
+
+
+
+  display 'APO HM : ' noline
+  display $apohm 
+  display 'LAST INX : ' noline
+  display #last_inx
+
+  display '----'
+  display &hm1
+  display &hma
+  display &hmb
+  display '----'
+
+  if &hm1 >= &hma or &hm1 >= &hmb
+        next-listing
+	print 'пяепеи ма цимеи епамейтупысг тоу глеяокоциоу' () center
+	next-listing
+	stop quiet
+  end-if
+
+end-procedure
+
+begin-procedure print_apo_metafora
+  print 'пяогцOYMENA пяоодеутийа сумока'	(,09,39)
+  print	#s2_pvlhs				(,+2,13) 	edit {MASK1A}
+  print	#s2_ekpt				(,+2,11) 	edit {MASK2A}
+  print	#s2_kauarh				(,+2,13) 	edit {MASK1A}
+  print	#s2_fpa1				(,+2,11) 	edit {MASK2A}
+  print	#s2_fpa2				(,+2,11) 	edit {MASK2A}
+  print	#s2_loipa				(,+2,11) 	edit {MASK2A}
+
+  next-listing
+  next-listing
+
+end-procedure
+
+
+! ******************************************************************
+
+begin-procedure se_metafora
+
+  if #recs > 0 
+	do do_se_metafora
+  end-if
+
+end-procedure 
+
+begin-procedure do_se_metafora
+
+ add 1 to #last_inx
+
+ move &last_hmer to $evshm
+ move &a.hmer_e  to $evshmpr
+
+ let $s='глеяокоцио пыкгсеым еыс '||$evshmpr
+
+begin-sql -C1
+ insert into sy_buf1 (cid,xrhsh,id, inx, title, d1,d2,d3, n1,n2,n3,n4,n5,n6,n9)
+ values ($cid,#xrhsh,'ELHMERPVL1',#last_inx, $s ,$apohm, $evshm, getdate(), #s2_pvlhs, #s2_ekpt, #s2_kauarh, 
+                                         #s2_fpa1, #s2_fpa2,  #s2_loipa, #mhxar )
+end-sql
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getdata(#aa, $parkvd, :$plhr, :#pvlhs, :#ekpt, :#kauarh, :#fpa1, :#fpa2, :#loipa)
+
+  move '' to $plhr
+  move 0  to #pvlhs
+  move 0  to #ekpt
+  move 0  to #kauarh
+  move 0  to #fpa1
+  move 0  to #fpa2
+  move 0  to #loipa
+
+  move 0  to #syntel
+
+! TROPOS PLHRVMHS
+
+  move 'п' to $plhr
+
+begin-select
+p.f_xrevsh			() NOP
+p.f_pistvsh			() NOP
+p.syntel_xp			() NOP
+   move &p.syntel_xp to #syntel
+from ap_par p
+where parkvd = $parkvd
+end-select
+
+    
+
+! display $parkvd 
+! display #syntel 
+
+begin-select
+t.aa				() NOP
+t.kvdikos			() NOP
+t.ajia				() NOP
+t.fpa				() NOP
+
+    ! display &t.ajia
+    if &t.kvdikos = 1
+       let #kauarh = #kauarh + &t.ajia
+    end-if
+
+    if &t.kvdikos = 4
+       if (&t.fpa = 8) or (&t.fpa = 6)
+          let #fpa1 = #fpa1 + &t.ajia
+       else
+          let #fpa2 = #fpa2 + &t.ajia
+       end-if
+    end-if
+
+from sy_partotals t
+where t.aa = #aa
+end-select
+
+    let #pvlhs = #kauarh + #fpa1 + #fpa2
+
+    let #pvlhs = #pvlhs  * #syntel
+    let #ekpt  = #ekpt   * #syntel
+    let #kauarh= #kauarh * #syntel
+    let #fpa1  = #fpa1   * #syntel
+    let #fpa2  = #fpa2   * #syntel
+    let #loipa = #loipa  * #syntel
+
+end-procedure
+
+! ******************************************************************
+!begin-procedure print_se_metafora
+  ! print $ep1                                  (, 05,39)
+    ! get #k_ajia  from met_totx(1)
+    ! get #ekpt    from met_totx(2)
+    ! get #aj_sysk from met_totx(8)
+    ! get #aj_diaf from met_totx(3)
+    ! get #kyd     from met_totx(7)
+    ! get #fpa     from met_totx(4)
+    ! get #tmp     from met_totx(9)
+    ! let #fpa = #fpa + #tmp
+    ! get #tmp     from met_totx(10)
+    ! let #fpa = #fpa + #tmp
+    ! get #plhr    from met_totx(6)
+  ! print #k_ajia                                 (, 50,11) edit {MASK3A}
+  ! print #ekpt                                   (,+01,11) edit {MASK3A}
+  ! print #aj_sysk                                (,+01,11) edit {MASK3A}
+  ! print #aj_diaf                                (,+01,11) edit {MASK3A}
+  ! print #kyd                                    (,+01,11) edit {MASK3A}
+  ! print #fpa                                    (,+01,11) edit {MASK3A}
+  ! print #plhr                                   (,+01,11) edit {MASK3A}
+  ! next-listing
+  ! print $ep2                                  (, 05,39)
+    ! get #k_ajia  from met_totp(1)
+    ! get #ekpt    from met_totp(2)
+    ! get #aj_sysk from met_totp(8)
+    ! get #aj_diaf from day_totp(3)
+    ! get #kyd     from met_totp(7)
+    ! get #fpa     from met_totp(4)
+    ! get #tmp     from met_totp(9)
+    ! let #fpa = #fpa + #tmp
+    ! get #tmp     from met_totp(10)
+    ! let #fpa = #fpa + #tmp
+    ! get #plhr    from met_totp(6)
+  ! print #k_ajia                                 (, 50,11) edit {MASK3A} 
+  ! print #ekpt                                   (,+01,11) edit {MASK3A}
+  ! print #aj_sysk                                (,+01,11) edit {MASK3A}
+  ! print #aj_diaf                                (,+01,11) edit {MASK3A}
+  ! print #kyd                                    (,+01,11) edit {MASK3A}
+  ! print #fpa                                    (,+01,11) edit {MASK3A}
+  ! print #plhr                                   (,+01,11) edit {MASK3A}
+  ! next-listing
+  ! next-listing
+! end-procedure
+
+! ******************************************************************
+! ******************************************************************
+begin-procedure total_print
+
+    get #kau_ajia     from ajies(0) kau_ajia(#i)
+    get #ekpt         from ajies(0) ekpt(#i)
+    get #sysk         from ajies(0) sysk(#i)
+    get #diaf         from ajies(0) diaf(#i)
+    get #kyd          from ajies(0) kyd(#i)
+    get #fpa          from ajies(0) fpa(#i)
+    get #total        from ajies(0) total(#i)
+
+    print #kau_ajia                               (, 50,11) edit {MASK3A} 
+    print #ekpt                                   (,+01,11) edit {MASK3A}
+    print #sysk                                   (,+01,11) edit {MASK3A}
+    print #diaf                                   (,+01,11) edit {MASK3A}
+    print #kyd                                    (,+01,11) edit {MASK3A}
+    print #fpa                                    (,+01,11) edit {MASK3A}
+    print #total                                  (,+01,11) edit {MASK3A}
+
+    put 0 into ajies(0) kau_ajia(#i)
+    put 0 into ajies(0) ekpt(#i)
+    put 0 into ajies(0) sysk(#i)
+    put 0 into ajies(0) diaf(#i)
+    put 0 into ajies(0) kyd(#i)
+    put 0 into ajies(0) fpa(#i)
+    put 0 into ajies(0) total(#i)
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_day_totals
+  if #recs > 0 
+	do do_print_day_totals
+  end-if
+end-procedure
+
+begin-procedure do_print_day_totals
+
+  next-listing	need=5
+  print '*'					(,01,{PAGE-X})	fill
+  next-listing
+
+  print 'пяогцOYMENA пяоодеутийа сумока'	(,09,39)
+  print	#s2_pvlhs				(,+2,13) 	edit {MASK1A}
+  print	#s2_ekpt				(,+2,11) 	edit {MASK2A}
+  print	#s2_kauarh				(,+2,13) 	edit {MASK1A}
+  print	#s2_fpa1				(,+2,11) 	edit {MASK2A}
+  print	#s2_fpa2				(,+2,11) 	edit {MASK2A}
+  print	#s2_loipa				(,+2,11) 	edit {MASK2A}
+
+  next-listing
+  
+  print 'йимгсг   г л е я а с'			(,09,39)
+  print	#s1_pvlhs				(,+2,13) 	edit {MASK1A}
+  print	#s1_ekpt				(,+2,11) 	edit {MASK2A}
+  print	#s1_kauarh				(,+2,13) 	edit {MASK1A}
+  print	#s1_fpa1				(,+2,11) 	edit {MASK2A}
+  print	#s1_fpa2				(,+2,11) 	edit {MASK2A}
+  print	#s1_loipa				(,+2,11) 	edit {MASK2A}
+
+  next-listing
+
+  let #s2_pvlhs 	= #s2_pvlhs  + #s1_pvlhs
+  let #s2_ekpt	 	= #s2_ekpt   + #s1_ekpt
+  let #s2_kauarh 	= #s2_kauarh + #s1_kauarh
+  let #s2_fpa1 		= #s2_fpa1   + #s1_fpa1
+  let #s2_fpa2	 	= #s2_fpa2   + #s1_fpa2
+  let #s2_loipa	 	= #s2_loipa  + #s1_loipa
+
+  move 0 to #s1_pvlhs
+  move 0 to #s1_ekpt
+  move 0 to #s1_kauarh
+  move 0 to #s1_fpa1
+  move 0 to #s1_fpa2
+  move 0 to #s1_loipa
+
+  print 'м е а   пяоодеутийа сумока'	(,09,39)
+
+  print	#s2_pvlhs				(,+2,13) 	edit {MASK1A}
+  print	#s2_ekpt				(,+2,11) 	edit {MASK2A}
+  print	#s2_kauarh				(,+2,13) 	edit {MASK1A}
+  print	#s2_fpa1				(,+2,11) 	edit {MASK2A}
+  print	#s2_fpa2				(,+2,11) 	edit {MASK2A}
+  print	#s2_loipa				(,+2,11) 	edit {MASK2A}
+
+  next-listing
+  print '*'					(,01,{PAGE-X})	fill
+
+  new-page
+
+end-procedure
+
+! ******************************************************************
+! ***** FIND_ELE_PARKVD
+begin-procedure find_ele_parkvd
+ 
+ move '620' to $ele_parkvd
+ if $parkvd='524' 
+    move '630' to $ele_parkvd
+ end-if
+ if $parkvd='526' 
+    move '630' to $ele_parkvd
+ end-if
+ if $parkvd='527' 
+    move '630' to $ele_parkvd
+ end-if
+ if $parkvd='528' 
+    move '630' to $ele_parkvd
+ end-if
+
+ move $parkvd to $ele_parkvd
+
+end-procedure 
+! ******************************************************************
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+  
+  #INCLUDE "{$L_GDATA}/sqr/HEAD03.inc"
+  let $msg = 'глеяокоцио  пыкгсеым'||' ['||$day||']'
+
+  !let $msg = '                 тгс '||' ['||$day||']'
+
+  print  $msg                   (3,60,35)
+
+  print 'а/а'                   (5,01,07)
+  print 'паяастатийо'           ( ,+1,13)
+  print 'пекатгс'               ( ,+1,13)
+  print 'в/к л/п т/п'           ( ,+2,11)
+  print ' сумоко аниас'         ( ,+1,13)
+  print '    ейптысг'           ( ,+2,11)
+  print '  йахаяг аниа'         ( ,+2,13)
+  print '   ж.п.а. а'           ( ,+2,11)
+  print '   ж.п.а. б'           ( ,+2,11)
+  print 'коип. епиб.'           ( ,+2,11)
+
+end-heading

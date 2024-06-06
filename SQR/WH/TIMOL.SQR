@@ -1,0 +1,556 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : parast01.sqr                                   ****
+!***** DATE        : 08/03/97   -   24/11/97                        ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHNNIE  & Modified by ADR,Voula     ****
+!***** NOTE        : ≈ÍÙ˝˘ÛÁ ·Ò·ÛÙ·ÙÈÍ˛Ì                          ****
+!***** CUSTOMER    : ≈À¡…œ’—√… «				    ****			
+!***********************************************************************
+
+#DEFINE   PAGE-Y     66
+#DEFINE   PAGE-X    200
+#DEFINE   HEAD-SIZE   1
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   1
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+#DEFINE   MASK1N    9,999,999,999c
+#DEFINE   MASK3N    999999
+#DEFINE   MASK5N    00000
+#DEFINE   MASK6N    99
+
+#define   MASK1P          999c
+#DEFINE   MASK7P    999,999.9c
+#define   MASK6P         9999c
+                                               
+#DEFINE   MASK1A    99,999,999.99c
+#DEFINE   MASK2A     999999999.99c
+#define   MASK3A      99999999.99c
+#DEFINE   MASK8A         99999.99c
+#define   MASK4A          9999.99c
+#define   MASK5A       9999999.99c
+#define   MASK7A          9999.99c
+#DEFINE   MASK8A         99999.99c
+#DEFINE   MASK9A      99999999.99c
+
+
+
+Begin-Setup
+#IFNDEF debugR 
+  ASK    $L_GDATA   'GDATA '
+  #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+#ELSE
+  PAGE-SIZE {PAGE-Y} {PAGE-X}
+#ENDIF
+End-Setup
+
+Begin-Report
+#IFNDEF debugR 
+  #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+  move $L_CID to $cid
+#ENDIF
+
+ input $inp_aa  '¡/¡ –¡—¡”‘¡‘… œ’ '
+
+#IFNDEF debugR 
+  execute -C1 app_floatcnv   $inp_aa, #aa output
+#ELSE
+  move $inp_aa to #aa
+#ENDIF
+ 
+ 
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure IsLianikh($parkvd,:$flag_lianikh)
+
+let $flag_lianikh='F'
+
+begin-select
+a.stoixeio ()
+
+ if &a.stoixeio='05' 
+   let $flag_lianikh='T'
+ end-if
+
+from ap_par a
+where parkvd=$parkvd
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main
+
+position (3,1)
+move 09  to #col1
+move 69  to #col2
+
+ execute -C1 syp_timretmas
+ @aa          =#aa,
+ @cid         =$cid         out,
+ @tim_seira   =$tim_seira   out,
+ @tim_parno   =#tim_parno   out,
+ @parkvd      =$parkvd      out,
+ @seira       =$seira       out,
+ @parno       =#parno       out,
+ @synal       =$synal       out,
+ @hmer_e      =$hmer_e      out,
+ @topos_synal =$topos_synal out,
+ @topos       =#topos       out,
+ @skopos      =#skopos      out,
+ @tropos_plhr =#tropos_plhr out,
+ @prakt       =$prakt       out,
+ @apouhkh     =$apouhkh     out,
+ @note        =$note        out,
+ @parkvd_txt  =$parkvd_txt  out
+ 
+  do getstoix ($synal, 0, $epvnymia, $dieyuynsh, $polh, $afm, $doy, $thlef, $epaggelma)
+  do getplhr  (#tropos_plhr, $plhr_perigrafh)
+  do IsLianikh($parkvd,$flag_lianikh)
+
+ ! move $dieyuynsh to $p_dieyuynsh
+  !move $polh      to $p_polh  
+
+  if $synal <> $topos_synal or
+     #topos <> 0
+     do      getstoix ($topos_synal, #topos, $parad_epvnymia, $p_dieyuynsh, $p_polh, $f1, $f1, $f1, $f1)
+  else
+     move $dieyuynsh to $p_dieyuynsh
+     move $polh      to $p_polh
+  end-if
+
+  move '≈ƒ—¡ Ã¡”' 	to $a_perigrafh
+  move '–—œ” –ŸÀ«”«' 	to $s_perigrafh
+
+  print $parkvd_txt                 (,30,30)
+  display $parkvd_txt
+ 
+     next-listing
+     next-listing
+     next-listing
+
+  do find_ele_parkvd	
+  print $ele_parkvd		     (,34,03)	
+  !print $parkvd                     (,34,03)
+
+  print $seira                      (,+1,03)
+  print #parno                      (,+1,05) edit {MASK5N}
+  print $hmer_e                     (,+12,8) edit {DATEMASK} 
+  print $apouhkh		    (,+6,03)
+
+     next-listing
+     next-listing
+     next-listing
+
+  print $epvnymia                   (,10,30)
+     next-listing
+  print $dieyuynsh                  (,10,30)
+     next-listing
+
+  
+  print $polh                       (,10,30)
+  print $plhr_perigrafh             (,43)
+     next-listing
+  print $epaggelma                  (,10,16)
+  print $thlef                      (,+5,09)
+     next-listing
+  print $afm                        (,10,15)
+  print 'ƒœ’:'			    (,+1)	
+  print $doy                        (,,20)
+
+
+  print '‘œ–œ” –¡—¡ƒœ”«”:'          (,43)
+  if    $p_dieyuynsh <> $dieyuynsh
+         print $p_dieyuynsh         (,+1)
+         print $p_polh              (,+1)
+  else
+         print '« ≈ƒ—¡ ‘œ’ –≈À¡‘«'  (,+1)
+  end-if
+
+  next-listing
+
+  if $synal <> $topos_synal
+ 	print $parad_epvnymia (,43)
+  end-if
+
+
+
+  let $s_kvdikos = '255'||$synal||' ¡—.¡ƒ.:'		! na mpei o ariumos adeias
+  print $s_kvdikos		    (,10,30)
+
+  next-listing
+  print 'XXXXXXXX'                                (+1,26,)
+
+  if $flag_lianikh = 'F'  !voula
+   print 'X/ …¬Ÿ‘…¡ –œ”œ‘«‘¡    ‘…Ã«    ¡»¡—« ¡Œ…¡' (,42,)
+  else
+   print 'X/ …¬Ÿ‘…¡ –œ”œ‘«‘¡    ‘…Ã«          ¡Œ…¡' (,42,)
+  end-if
+
+  position (2,1)
+
+  do printlines($flag_lianikh,#aa, #tot_posothta, #tot_ajia, #tot_ekpajia, #k_baros, #m_baros)
+  do gettot(#aa, #fpa_k1, #fpa_p1, #fpa_a1, #fpa_k2, #fpa_p2, #fpa_a2, #epibar_a, #epibar_fpa) 
+  
+  position (33,1) 
+  
+  print $note			    (,10,30)  
+
+  next-listing
+  next-listing
+
+
+  do getsxet(#aa, $sxet)
+  print '–¡—¡√√.: '                 (,1)
+  print $sxet                       (,,12)
+
+  print '”’Õ. ¡».¡Œ…¡'              (,+2)
+  print 'À.≈Œœƒ¡'                   (,+1)
+
+  print '÷–¡:'                      (,+2)
+  print #fpa_p1                     () edit {MASK6N}
+  print '%'                         ()
+
+  print '÷–¡:'                      (,+2)
+  print #fpa_p2                     () edit {MASK6N}
+  print '%'                         ()
+  
+  print '‘≈À… « ¡Œ…¡'               (,+5,12)
+  print '    ƒ—◊.'  	            (,+1)
+  next-listing
+
+  print 'Ã.¬¡—œ”:'		    (,1)
+  print #m_baros	            (,10)  edit {MASK7P}
+  print 'KGR'			    (,+1)
+
+  
+
+  print    #tot_ajia            (,+1,11)    edit {MASK9A}
+  print    #fpa_a1              (,+11,8)    edit {MASK8A}
+  print    #fpa_a2              (,+01,7)    edit {MASK8A}
+
+  let #plhr = #tot_ajia + #fpa_a1 + #fpa_a2
+
+  print    #plhr                (,+1,12)    edit {MASK9A}
+  let #tmp=round( #plhr * 340.75 , 2)
+  print    #tmp                 (,+1,13)    edit {MASK1N}
+
+  next-listing
+  next-listing
+  next-listing
+
+  display 'cid:' noline
+  display $cid noline
+  display 'synal:' noline
+  display $synal
+
+  do getypoloipo($cid,$synal,$hmer_e,#ypoloipo,#xrevsh,#pistvsh)
+ ! print '’¸ÎÔÈÔ ÀÔ„/ÛÏÔ˝ Û·Ú : ' (1,27)
+ ! print #ypoloipo     () edit {MASK1A}
+ ! let #tmp=round( #ypoloipo / 340.75 , 2)
+ ! print '(≈’—Ÿ:'       (,+1)
+ ! print #tmp           ()
+  print ')'            (1,27)
+
+
+  next-listing
+  next-listing
+  next-listing
+
+  do print-msgs (#aa, $extra_note)
+  
+  print '#'                         (,15)
+  print $parkvd                     (,,)
+  print ' / '                       (,,)
+  print #aa                         (,,)     edit {MASK3N}
+  print '#'                         (,,)
+
+
+
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printlines ($flag_lianikh,#aa, :#tot_posothta, :#tot_ajia, :#tot_ekp, :#k_baros, :#m_baros)
+
+move 0 to #tot_ajia     
+move 0 to #tot_posothta
+move 0 to #tot_ekp
+move 0 to #k_baros
+move 0 to #m_baros
+
+move 1 to #lns
+move 1 to #laa
+move 'F' to $flag_new_page
+
+   next-listing
+
+begin-select -C1
+
+  if $flag_new_page = 'T'
+     new-page 19
+     position (18,1)
+     !   next-listing
+     move 'F' to $flag_new_page
+     ! print '¡–œ Ã≈‘¡÷œ—¡ :'               (+1,31,22)
+     ! print #tot_ekp                       (,091)  edit 99999
+     ! print #tot_posothta                  (,101)  edit 999999
+     ! print #tot_ajia                      (,125)  edit 99,999,999,999
+     move 1 to #lns
+  end-if
+
+  ! print #laa                               (+2,4,3)     edit 999
+
+a.eidos                                    (+1,1,08)
+b.perigrafh                                (,+1,35) 
+a.temaxia				   () NOP
+a.sysk					   () NOP
+a.posothta				   () NOP
+a.timh					   () NOP
+a.ajia                                     () NOP
+a.ekp_p					   () NOP
+a.ekp_d					   () NOP
+a.fpa					   () NOP
+a.ajia_fpa                                 () NOP
+a.k_baros                                  () NOP
+a.m_baros                                  () NOP
+a.aux_code                                 () NOP
+c.perigrafh          &idiokthths           () NOP
+ 
+  display 'FLAG LIANIKH : ' noline
+  display $flag_lianikh
+  move &a.ajia to #ajia
+  move &a.ajia to #print_ajia
+  if $flag_lianikh = 'T'
+     add &a.ajia_fpa to #print_ajia
+  end-if
+
+  if &a.aux_code <> '000'
+     let $msg = &idiokthths
+
+     if (&a.ekp_p <> 0) or (&a.ekp_d <> 0)
+        let #ekp_ajia = (&a.posothta * &a.timh) - #ajia
+        let #ekp_drx  = #ekp_ajia / &a.posothta
+        let #ekp_timh = &a.timh - #ekp_drx
+        move #ekp_drx to $ekp_str {MASK5A}
+        let $msg =$msg|| '≈ –.' || $ekp_str || 'EUR.x.‘…Ã«”'
+    end-if
+
+     print $msg                            (+1,10,35)
+     print &a.sysk                         (,+1,3) 	edit {MASK1P}
+     print &a.posothta                     (,+1,09)  	edit {MASK7P}
+     print &a.timh			   (,+1,07)     edit {MASK7A}
+     print #print_ajia                     (,+1,11)     edit {MASK3A}
+  else
+     if (&a.ekp_p <> 0) or (&a.ekp_d <> 0)
+        print &a.timh			   (,+16,07)     edit {MASK7A}
+
+        let #ekp_ajia = (&a.posothta * &a.timh) - #ajia
+        let #ekp_drx  = #ekp_ajia / &a.posothta
+        let #ekp_timh = &a.timh - #ekp_drx
+
+        move #ekp_drx to $ekp_str {MASK5A}
+        let $ekp_str = '≈ –‘Ÿ”« ≈–… ‘…Ã«” ' || $ekp_str || ' EUR'
+ 
+        print $ekp_str                     (+1,10,35)
+        print &a.sysk                      (,+1,4) 	edit {MASK6P}
+        print &a.posothta                  (,+1,09)  	edit {MASK7P}
+        print #ekp_timh			   (,+1,07)     edit {MASK4A}
+        print #print_ajia                  (,+1,11)     edit {MASK5A}
+     else
+        print &a.sysk                      (,+1,4) 	edit {MASK6P}
+        print &a.posothta                  (,+1,09)  	edit {MASK7P}
+        print &a.timh			   (,+1,08)     edit {MASK8A}
+        print #print_ajia                  (,+1,11)     edit {MASK5A}
+        print ''                           (+1,09,35)
+
+     end-if
+  end-if	
+
+  let #tot_ajia		= #tot_ajia + #ajia
+  let #tot_posothta		= #tot_posothta + &a.posothta
+  let #k_baros		= #k_baros + (&a.posothta * &a.k_baros)
+  let #m_baros		= #m_baros + (&a.posothta * &a.m_baros)
+  
+  let #laa = #laa + 1
+  let #lns = #lns + 1
+
+  if #lns > 13
+     ! print '”≈ Ã≈‘¡÷œ—¡ :'                (+1,31,22)
+     ! print #tot_ekp                       (,091)  edit 99999
+     ! print #tot_posothta                  (,101)  edit 999999
+     ! print #tot_ajia                      (,125)  edit 99,999,999,999
+     move 'T' to $flag_new_page
+  end-if
+
+from sy_pardet a, wh_eidh b, wh_fkeidhinf c
+where a.aa     = #aa 
+and a.eidos    = b.kvdikos
+and a.aux_code = c.inf
+and c.kvdinf   = 999
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print-msgs (#aa, :$extra_note)
+
+move '' to $msg
+move '' to $extra_note
+begin-select
+a.msg_ids () nop
+  move &a.msg_ids to $msg
+from sy_parmas a
+where a.aa = #aa
+end-select
+
+move 1 to #inx
+move 0 to #len
+let #len = length($msg)
+while  #inx <= #len
+	let $c1=substr($msg, #inx , 1)
+	if $c1 = '/' 
+		add 1 to #inx
+		let $extra_note = substr ($msg, #inx , 50)
+		break
+	end-if
+	do write_msg ( $c1 )
+	add 1 to #inx
+end-while
+
+end-procedure
+
+begin-procedure write_msg ( $msgid )
+
+begin-select
+c.note                    (,25) ! 15 -> 25 CA
+ 	next-listing
+from sy_par_msg c
+where c.msg_id = $msgid
+order by c.inx
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure gettot(#aa,:#fpa_k1,:#fpa_p1,:#fpa_a1,:#fpa_k2,:#fpa_p2,:#fpa_a2,:#epibar_a,:#epibar_fpa)   
+
+ execute -C1 syp_timrettot @aa       = #aa,
+                       @fpa_p1   = #fpa_p1 out,
+                       @fpa_k1   = #fpa_k1 out,
+                       @fpa_a1   = #fpa_a1 out,
+                       @fpa_p2   = #fpa_p2 out,
+                       @fpa_k2   = #fpa_k2 out,
+                       @fpa_a2   = #fpa_a2 out,
+                       @epibar_a   = #epibar_a   out,
+                       @epibar_fpa = #epibar_fpa out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsxet(#aa,:$sxet)
+
+ move '' to $sxet 
+ execute -C1 syp_timretsxe @aa=#aa, @sxet = $sxet out
+ 
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getplhr(#tropos, :$p_perigrafh)
+move '' to $p_perigrafh
+begin-select
+p.perigrafh	() NOP
+	move &p.perigrafh to $p_perigrafh
+from sy_troposplhr p
+where kvdikos = #tropos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix($synal,#topos,:$epvnymia,:$dieyuynsh,:$polh,:$afm,:$doy,:$thlef,:$epaggelma)
+
+move ' ' to $epvnymia
+move ' ' to $dieyuynsh
+move ' ' to $epaggelma
+move ' ' to $afm
+move ' ' to $doy
+move ' ' to $thlef
+
+if $synal <> ''
+
+   execute -C1 syp_timgetsyn @synal = $synal,
+                      @topos = #topos,
+                      @epvnymia = $epvnymia out,
+                      @dieyuynsh = $dieyuynsh out,
+                      @polh = $polh out,
+                      @afm = $afm out,
+                      @doy = $doy out,
+                      @thlef = $thlef out,
+                      @epaggelma = $epaggelma out,
+                      @taxkvd    = $taxkvd out
+
+   let $polh = $taxkvd || ' ' || $polh
+end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getypoloipo($cid,$synal,$hmer,:#ypoloipo,:#xrevsh,:#pistvsh)
+
+ move 0 to #ypoloipo
+display $cid
+display $hmer
+display #xrevsh
+display #pistvsh
+display #ypoloipo
+display $synal
+
+ execute -C1 syp_getglypol @cid      = $cid,
+                           @hmer     = $hmer,
+                           @xrevsh   = #xrevsh       output,
+                           @pistvsh  = #pistvsh      output,
+                           @ypoloipo = #ypoloipo     output,
+                           @synal    = $synal
+
+
+end-procedure
+
+! ******************************************************************
+! ***** FIND_ELE_PARKVD
+begin-procedure find_ele_parkvd
+ !move '620' to $ele_parkvd
+ !if $parkvd='524' 
+ !   move '630' to $ele_parkvd
+ !end-if
+ !if $parkvd='526' 
+ !   move '630' to $ele_parkvd
+ !end-if
+ !if $parkvd='527' 
+ !   move '630' to $ele_parkvd
+ !end-if
+ !if $parkvd='528' 
+ !   move '630' to $ele_parkvd
+ !end-if
+ move $parkvd to $ele_parkvd
+end-procedure 
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+end-footing
+
+begin-heading {HEAD-SIZE}
+end-heading
+
+

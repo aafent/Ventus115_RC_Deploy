@@ -1,0 +1,302 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : analkau.sqr                                    ****
+!***** DATE        : 1/09/99                                        ****
+!***** APPLICATION : аПОХчЙЕР                                       ****
+!***** AUTHOR      : лэМТГ тЯАЗТОЯэЙГ                               ****
+!***** NOTE        : аМАКУТИЙЭ йАХОКИЙЭ аПОХчЙГР                    ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    60
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  10
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1A    9999,999,999.99c
+#DEFINE   MASK1P    999,999,999,999c
+#DEFINE   MASK2A    9999,999.99c
+#DEFINE   MASK2P    999,999,999c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $apohmer  'глеяолгмиа апо'
+ input $evshmer  'глеяолгмиа еыс'
+execute app_datecnv   $apohmer, $apohm output, $apohmpr output
+execute app_datecnv   $evshmer, $evshm output, $evshmpr output
+ 
+move 0 to  #s_eis_p
+move 0 to  #s_eis_a
+move 0 to  #s_eja_p
+move 0 to  #s_eja_a
+move 0 to #ypol
+do main
+ 
+End-Report
+
+! *************************************************************************
+begin-procedure main
+
+do find_xrhsh
+begin-select                                                      
+convert(datetime,a.hmeromhnia)   &hmeromhnia		() nop
+a.eidos                 &eidos  ()             on-break level=1 print=never
+						before=print_eidos after=print_synola
+b.perigrafh             &perigrafh			() nop
+a.parkvd                &parkvd				() nop
+a.parno                 &parno				() nop
+a.aitia                 &aitia				() nop
+(isnull(a.posothta,0)*c.syntel_p)    &posothta		() nop
+(isnull(a.ajia,0)*c.syntel_a)        &ajia		() nop
+c.f_eis      						() nop
+c.f_eja      						() nop
+c.syntel_a						() nop
+	!c.syntmhsh 						() nop
+ 
+    do find_timi
+
+    move 0 to #a_eja
+    move 0 to #a_eis
+    move 0 to #p_eja
+    move 0 to #p_eis
+    if &c.f_eis = 'X' 
+       move &ajia     to #a_eis
+       move &posothta to #p_eis
+    end-if
+    if &c.f_eja = 'X'
+       move &ajia     to #a_eja
+       move &posothta to #p_eja
+    end-if
+
+    display &parkvd noline
+    display '   ' noline
+    display &c.syntel_a noline
+    display ')(' noline
+    display &c.f_eis noline
+    display '][' noline
+    display &c.f_eja noline
+    display #p_eis noline
+    display '}{' noline
+    display #p_eja noline
+    display 'POS : ' noline
+    display &posothta
+    
+
+    let #s_eis_p=#s_eis_p + #p_eis
+    let #s_eis_a=#s_eis_a + #a_eis
+    let #s_eja_p=#s_eja_p + #p_eja
+    let #s_eja_a=#s_eja_a + #a_eja
+
+    let #ms_eis_p=#ms_eis_p + #p_eis
+    let #ms_eis_a=#ms_eis_a + #a_eis
+    let #ms_eja_p=#ms_eja_p + #p_eja
+    let #ms_eja_a=#ms_eja_a + #a_eja
+
+    let #ypol = #ypol + #p_eis - #p_eja
+
+    do print_kin
+
+from wh_kin a, wh_eidh b,ap_par c
+where a.eidos=b.kvdikos
+  and a.parkvd  = c.parkvd
+  and a.hmeromhnia  between $apohm and $evshm 
+
+[$SQLCMD]
+order by a.eidos,a.hmeromhnia
+end-select
+end-procedure
+!***************************************************************************************
+begin-procedure print_synola
+     let #s_ypol = #s_eis_p - #s_eja_p
+     print 'сумоко еисацыцгс посотгтас пеяиодоу' (+1,46,50)
+     print #ms_eis_p                     	 (,+1,15) edit {MASK1P}
+     print 'сумоко еисацыцгс аниас пеяиодоу'     (+1,46,50)
+     print #ms_eis_a                     	 (,+1,15) edit {MASK1A}
+     print 'сумоко енацыцгс посотгтас пеяиодоу'  (+1,46,50)
+     print #ms_eja_p                    	 (,+1,15) edit {MASK1P}
+     print 'сумоко енацыцгс аниас пеяиодоу'      (+1,46,50) 
+     print #ms_eja_a                     	 (,+1,15) edit {MASK1A}
+
+
+     print 'сумоко еисацыцгс посотгтас' (+1,46,50)
+     print #s_eis_p                     (,+1,15) edit {MASK1P}
+     print 'сумоко еисацыцгс аниас'     (+1,46,50)
+     print #s_eis_a                     (,+1,15) edit {MASK1A}
+     print 'сумоко енацыцгс посотгтас'  (+1,46,50)
+     print #s_eja_p                     (,+1,15) edit {MASK1P}
+     print 'сумоко енацыцгс аниас'      (+1,46,50) 
+     print #s_eja_a                     (,+1,15) edit {MASK1A}
+     print 'упокоипо посотгтас'         (+1,46,50)
+     print #s_ypol                      (,+1,+1,) edit {MASK1P}
+     print ''   (+5)
+   move 0 to #s_ypol
+   move 0 to #s_eis_p
+   move 0 to #s_eis_a
+   move 0 to #s_eja_p
+   move 0 to #s_eja_a
+   move 0 to #ms_eis_p
+   move 0 to #ms_eis_a
+   move 0 to #ms_eja_p
+   move 0 to #ms_eja_a
+end-procedure
+! ******************************************************************
+begin-procedure find_xrhsh
+Begin-Select
+x.xrhsh				() NOP
+x.xrhsh_arxh			() NOP
+   	move &x.xrhsh      to #xrhsh
+	move &x.xrhsh_arxh to $xrhsh_arxh
+from ap_xrhsh x
+where cid = $cid
+and $apohm between xrhsh_arxh and xrhsh_telos
+End-Select
+end-procedure
+! ******************************************************************
+
+begin-procedure find_pre_eis
+begin-select
+sum(isnull(c.posothta,0)*e.syntel_p)    &pre_pos_eis
+sum(isnull(c.ajia,0)*e.syntel_a)        &pre_aj_eis
+
+
+from wh_kin c,ap_omadapar d,ap_par e
+where c.hmeromhnia >= $xrhsh_arxh and c.hmeromhnia <$apohm and c.eidos=&eidos and 
+e.parkvd=c.parkvd and d.parkvd=c.parkvd and d.omada='AGORES' and d.parkvd=e.parkvd 
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure find_pre_ej
+begin-select
+sum(isnull(c.posothta,0)*e.syntel_p)    &pre_pos_ej
+sum(isnull(c.ajia,0)*e.syntel_a)        &pre_aj_ej
+ show &pre_pos_ej
+ show $xrhsh_arxh     
+   
+from wh_kin c,ap_omadapar d,ap_par e
+where c.hmeromhnia >= $xrhsh_arxh and c.hmeromhnia < $apohm and c.eidos=&eidos and  
+e.parkvd=c.parkvd and d.parkvd=c.parkvd and d.omada='PVLHSEIS' and d.parkvd=e.parkvd 
+end-select
+end-procedure
+! ******************************************************************
+
+begin-procedure print_eidos
+print &eidos                  (+1,10,10)
+print &perigrafh              (,+1,20)
+print 'пяоуцоулемг йимгсг'     (+1,10,18)
+     do find_pre_eis
+     do find_pre_ej
+     do print_pre_kin
+end-procedure
+
+!*************************************************************
+begin-procedure print_pre_kin
+
+print &pre_pos_eis            (,57,11) edit {MASK2P}
+print &pre_aj_eis             (,+3,15) edit {MASK1A}
+print &pre_pos_ej             (,+2,11) edit {MASK2P}
+print &pre_aj_ej              (,+1,15) edit {MASK1A}
+ let #p_ypol = &pre_pos_eis - &pre_pos_ej
+print #p_ypol    (,+1,11) edit {MASK2P}
+
+let #s_eis_p=&pre_pos_eis
+let #s_eis_a=&pre_aj_eis
+let #s_eja_p=&pre_pos_ej
+let #s_eja_a=&pre_aj_ej
+let #ypol=#p_ypol
+
+
+end-procedure
+! ******************************************************************
+begin-procedure print_kin
+
+print &parkvd          (+1,1,3)
+print &parno           (,+1,6)
+print &hmeromhnia      (,+1,9)  edit {DATEMASK}
+print &aitia           (,+1,25)
+print &timh            (,+1,11) edit  {MASK2A}
+print #p_eis           (,+1,11) edit  {MASK2P}
+print #a_eis           (,+1,15) edit  {MASK1A}
+print #p_eja           (,+1,11) edit  {MASK2P}
+print #a_eja           (,+1,15) edit  {MASK1A}
+print #ypol            (,+1,11) edit  {MASK2P}
+
+end-procedure
+! ******************************************************************
+
+begin-procedure find_timi
+begin-select
+t.timh                 &timh
+from wh_timokat t
+where &eidos=t.eidos and t.tim=1
+end-select
+end-procedure
+
+! *******************************************************************
+begin-procedure eja
+begin-select
+(isnull(c.posothta,0)*e.syntel_p)    &pos_ej
+(isnull(c.ajia,0)*e.syntel_a)        &aj_ej
+e.syntmhsh
+
+from wh_kin c,ap_omadapar d,ap_par e
+where c.hmeromhnia=&hmeromhnia and c.eidos=&eidos and &parno=c.parno and 
+e.parkvd=c.parkvd and d.parkvd=c.parkvd and d.omada='PVLHSEIS' and d.parkvd=e.parkvd and c.parkvd=&parkvd
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure eis
+begin-select
+(isnull(c.posothta,0)*e.syntel_p)    &pos_eis
+(isnull(c.ajia,0)*e.syntel_a)        &aj_eis
+
+from wh_kin c,ap_omadapar d,ap_par e
+where c.hmeromhnia=&hmeromhnia and c.eidos=&eidos and &parno=c.parno and 
+e.parkvd=c.parkvd and d.parkvd=c.parkvd and d.omada='AGORES' and d.parkvd=e.parkvd and c.parkvd=&parkvd
+end-select
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+! ******************************************************************
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='амакутийо йахокийо апохгйгс апо ' || $apohmpr || ' еыс ' || $evshmpr
+
+  print $msg (5,) center
+  print '-'                                      (+1,1,132) fill
+  print $perigrafh                               (+1,1,20)
+  print 'еисацыцес'                              (,+50,10)
+  print 'енацыцес'                               (,+20,10)
+  print 'упокоипо'                               (,+9,10)
+  print 'й.й'                                    (+1,1,3)
+  print 'пая/йо'                                 (,+1,6)
+  print 'гл/миа'                                 (,+1,9)
+  print 'аитиокоциа'                             (,+5,25)
+  print 'тилг'                                   (,+3,11)
+  print 'посотгта'                               (,+1,11)
+  print 'аниа'                                   (,+3,12)
+  print 'посотгта'                               (,+1,11)
+  print 'аниа'                                   (,+4,11)
+  print 'посотгта'                               (,+1,11)
+end-heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	3	10	118	analkau	rs	X	01},TITLE{йАХОКИЙЭ аПОХчЙГР}
+!	PARCOUNT{3}
+!	PAR1{гЛЕЯОЛГМъА	DUMP	2	BETWEEN	datetime		X}
+!	PAR2{еъДОР	a.eidos	2	BETWEEN	varchar		}
+!	PAR3{аПОХчЙГ	apouhkh	1	=	varchar		X}
+!REPORTHELP{F}
+!</pcalib>

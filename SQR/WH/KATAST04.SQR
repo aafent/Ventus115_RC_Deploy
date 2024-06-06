@@ -1,0 +1,776 @@
+! *************************************************************************
+! ***** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                   ****
+! ***** REPORT      : katast04.sqr                                     ****
+! ***** DATE        : 07/06/95 - 21/06/95 - 18/02/97                   ****
+! ***** APPLICATION : ÁÐÏÈÇÊÅÓ                                         ****
+! ***** AUTHOR      : ÁÖÅÍÔÁÊÇÓ ÁÍÄÑÅÁÓ - ÌÐÏÊÉÁÓ ÍÉÊÏÓ                ****
+! ***** NOTE        : ÊáôÜóôáóç Âéâëéïõ Áðïèçêçò êáôá ëïãáñ.ÁíáëõôéêÞò ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y                62
+#DEFINE   PAGE-X               138
+#DEFINE   HEAD-SIZE             11
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+#DEFINE   DATEMASK        DD/MM/YY
+
+#DEFINE   MASKQ        999,999,999
+#DEFINE   MASKA      9,999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID  to $cid
+ 
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+
+ execute app_datecnv  $ihm_apo, $apohm out, $apohmpr out
+ execute app_datecnv  $ihm_evs, $evshm out, $evshmpr out
+
+ execute app_getxrhsh @cid          = $cid, 
+                      @hmeromhnia   = $evshm, 
+                      @xrhsh_arxh   = $x_arxh    out, 
+                      @xrhsh_telos  = $x_telos   out,
+                      @hm_apografhs = $hm_apogr  out
+
+ !execute app_geteom $hm_apogr, $hm_apogr out
+
+ do main
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main
+
+  do clear_var
+
+  let #page = 1
+
+begin-select 
+cc.logar                &logar                  () NOP
+   print &logar                                 ()
+            On-Break print = Never
+		  Save     = $logar
+		  Level    = 1
+                  After    = print_pvlomada
+sum(a.pvl_p) &pvl_qt                           () NOP
+sum(a.pvl_a) &pvl_aj                           () NOP
+sum(a.ago_p) &ago_qt                           () NOP
+sum(a.ago_a) &ago_aj                           () NOP
+sum(a.gen_p) &gen_qt                           () NOP
+
+! 30.8.95 oxi k.ladosum(a.gen_a) &gen_aj       () NOP
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let #cur_pvl_qt = #cur_pvl_qt + &pvl_qt
+  let #cur_pvl_aj = #cur_pvl_aj + &pvl_aj
+  let #cur_ago_qt = #cur_ago_qt + &ago_qt
+  let #cur_ago_aj = #cur_ago_aj + &ago_aj
+  let #cur_gen_qt = #cur_gen_qt + &gen_qt
+
+! 30.8.95 oxi k.lado  let #cur_gen_aj = #cur_gen_aj + &gen_aj
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+from      wh_kint1 a, wh_eidhmore bb, gl_logar cc
+where     a.cid          = $cid				
+and       a.cid          = bb.cid
+and       a.cid          = cc.cid
+and       a.eidos        = bb.eidos
+and       bb.logar       = cc.logar
+and       a.hmeromhnia   between $apohm and $evshm
+[$SQLCMD]
+group by  cc.logar
+end-select
+
+    do synola_apouhkhs
+    do addgen_totals
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_pvlomada
+  
+begin-select 
+sum(a.apo_p) &apo_qt                                    () NOP
+sum(a.apo_a) &apo_aj                                    () NOP
+
+  let #apo_qt     = #apo_qt     + &apo_qt
+  let #apo_aj     = #apo_aj     + &apo_aj
+
+from      wh_kint1 a, wh_eidhmore b
+where     a.cid          = $cid				
+and       a.cid          = b.cid			
+and       a.hmeromhnia   = $hm_apogr
+and       b.logar        = $logar
+and       a.eidos        = b.eidos  
+end-select
+
+begin-select 
+sum(a.pvl_p) &pre_pvl_qt                                () NOP
+sum(a.pvl_a) &pre_pvl_aj                                () NOP
+sum(a.ago_p) &pre_ago_qt                                () NOP
+sum(a.ago_a) &pre_ago_aj                                () NOP
+sum(a.gen_p) &pre_gen_qt                                () NOP
+
+! 30.8.95 oxi k.ladosum(a.gen_a) &pre_gen_aj            () NOP
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let #pre_pvl_qt = #pre_pvl_qt + &pre_pvl_qt
+  let #pre_pvl_aj = #pre_pvl_aj + &pre_pvl_aj
+  let #pre_ago_qt = #pre_ago_qt + &pre_ago_qt
+  let #pre_ago_aj = #pre_ago_aj + &pre_ago_aj
+  let #pre_gen_qt = #pre_gen_qt + &pre_gen_qt
+
+! 30.8.95 oxi k.lado  let #pre_gen_aj = #pre_gen_aj + &pre_gen_aj
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+from      wh_kint1 a, wh_eidhmore b
+where     a.cid          = $cid				
+and       a.cid          = b.cid			
+and       a.eidos        = b.eidos  
+and       a.hmeromhnia  >= $x_arxh
+and       a.hmeromhnia  <  $apohm
+and       b.logar        = $logar
+end-select
+
+  move $logar to $logar
+  move '' to $perigrafh
+
+begin-select
+perigrafh                                      () NOP
+
+    move &perigrafh to $perigrafh
+
+from  gl_logar
+where logar    = $logar
+and   cid      = $cid
+end-select
+
+  let  #pre_eis_qt  = #pre_ago_qt
+  let  #pre_eis_aj  = #pre_ago_aj
+  let  #pre_eja_qt  = #pre_pvl_qt - #pre_gen_qt
+  let  #pre_eja_aj  = #pre_pvl_aj ! 30.8.95 oxi k.lado- #pre_gen_aj
+                                  ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let  #cur_eis_qt  = #cur_ago_qt
+  let  #cur_eis_aj  = #cur_ago_aj
+  let  #cur_eja_qt  = #cur_pvl_qt - #cur_gen_qt
+  let  #cur_eja_aj  = #cur_pvl_aj ! 30.8.95 oxi k.lado- #cur_gen_aj
+                                  ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let #pre_ypo_qt   = #apo_qt+#pre_eis_qt-(#pre_eja_qt)
+  let     #ypo_qt   = #apo_qt+#pre_eis_qt+ #cur_eis_qt-(#pre_eja_qt+#cur_eja_qt)
+      
+  if #ypo_qt < 0
+     move #ypo_qt to $negative_pos 99            
+     let $negative = '   Ï ëïãáñéáóìüò ÁíáëõôéêÞò ' || $logar || ' Ý÷åé õðüëïéðï ' || $negative_pos
+     display $logar
+     execute app_repmsg $negative
+     execute app_repmsg '                                                      '
+     execute app_repmsg '            ******************************************'
+     execute app_repmsg '            * ÐÑÏÓÏ×Ç ÁÑÍÇÔÉÊÏ ÕÐÏËÏÉÐÏ ÓÔÇÍ ÁÐÏÈÇÊÇ *'
+     execute app_repmsg '            ******************************************'
+     execute app_repmsg '                                                      '
+     execute app_repmsg '                       ÅÐÉÊÏÉÍÙÍÇÓÔÅ ÁÌÅÓÙÓ           '
+     execute app_repmsg '                    ÌÅ ÔÏ ÔÌÇÌÁ ÌÇ×ÁÍÏÃÑÁÖÇÓÇÓ        '
+     execute app_repmsg '                    --------------------------        '
+     stop
+  end-if 
+
+! let #ypo_aj = #apo_aj+#pre_eis_aj+#cur_eis_aj +  - (#pre_eja_aj+#cur_eja_aj)
+
+  print $logar              ( ,01,40)
+
+  print #apo_qt             (,+01,13) edit {MASKA}
+  let   #s_apo_qt = #s_apo_qt + #apo_qt
+
+  print #pre_eis_qt         (,+01,13) edit {MASKA}
+  print #pre_eja_qt         (,+01,13) edit {MASKA}
+  print #pre_ypo_qt         (,+01,13) edit {MASKA}
+  let   #s_pre_eis_qt = #s_pre_eis_qt + #pre_eis_qt
+  let   #s_pre_eja_qt = #s_pre_eja_qt + #pre_eja_qt
+  let   #s_pre_ypo_qt = #s_pre_ypo_qt + #pre_ypo_qt
+
+  print #cur_eis_qt         (,+01,13) edit {MASKA}
+  print #cur_eja_qt         (,+01,13) edit {MASKA}
+  print #ypo_qt             (,+01,13) edit {MASKA}
+  let   #cur_ypo_qt   = #ypo_qt
+  let   #s_cur_eis_qt = #s_cur_eis_qt + #cur_eis_qt
+  let   #s_cur_eja_qt = #s_cur_eja_qt + #cur_eja_qt
+  let   #s_cur_ypo_qt = #s_cur_ypo_qt + #cur_ypo_qt
+  
+  next-listing
+   let #page = #page + 3
+  print $perigrafh          (, 01,40)
+
+  print #apo_aj             (,+01,13) edit {MASKA}
+  let   #s_apo_aj     = #s_apo_aj + #apo_aj
+
+  print #pre_eis_aj         (,+01,13) edit {MASKA}
+  print #pre_eja_aj         (,+01,13) edit {MASKA}
+  let   #s_pre_eis_aj = #s_pre_eis_aj + #pre_eis_aj
+  let   #s_pre_eja_aj = #s_pre_eja_aj + #pre_eja_aj
+  print ' '                 (,+01,13)
+
+  print #cur_eis_aj         (,+01,13) edit {MASKA}
+  print #cur_eja_aj         (,+01,13) edit {MASKA}
+  let   #s_cur_eis_aj = #s_cur_eis_aj + #cur_eis_aj
+  let   #s_cur_eja_aj = #s_cur_eja_aj + #cur_eja_aj
+
+! print #ypo_aj             (,+01,13) edit {MASKA}
+
+  next-listing
+  print '- '                (,01,{PAGE-X}) fill
+  next-listing need = 2
+
+  do add_totals 
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure add_totals
+  let #tot_apo_qt = #tot_apo_qt  + #apo_qt
+  let #tot_apo_aj = #tot_apo_aj  + #apo_aj
+
+  let #tot_pre_eis_qt = #tot_pre_eis_qt  + #pre_eis_qt
+  let #tot_pre_eis_aj = #tot_pre_eis_aj  + #pre_eis_aj
+  let #tot_pre_eja_qt = #tot_pre_eja_qt  + #pre_eja_qt
+  let #tot_pre_eja_aj = #tot_pre_eja_aj  + #pre_eja_aj
+
+  let #tot_cur_eis_qt = #tot_cur_eis_qt  + #cur_eis_qt
+  let #tot_cur_eis_aj = #tot_cur_eis_aj  + #cur_eis_aj
+  let #tot_cur_eja_qt = #tot_cur_eja_qt  + #cur_eja_qt
+  let #tot_cur_eja_aj = #tot_cur_eja_aj  + #cur_eja_aj
+   
+  if #page >=46 
+     print 'ÓÅ  ÌÅÔÁÖÏÑÁ : '   ( ,01,40)
+     print #s_apo_qt           (,+01,13) edit {MASKA}
+     print #s_pre_eis_qt       (,+01,13) edit {MASKA}
+     print #s_pre_eja_qt       (,+01,13) edit {MASKA}
+     print #s_pre_ypo_qt       (,+01,13) edit {MASKA}
+     print #s_cur_eis_qt       (,+01,13) edit {MASKA}
+     print #s_cur_eja_qt       (,+01,13) edit {MASKA}
+     print #s_cur_ypo_qt       (,+01,13) edit {MASKA}
+        next-listing
+     print ' '                 (, 01,40)
+     print #s_apo_aj           (,+01,13) edit {MASKA}
+     print #s_pre_eis_aj       (,+01,13) edit {MASKA}
+     print #s_pre_eja_aj       (,+01,13) edit {MASKA}
+     print ' '                 (,+01,13)
+     print #s_cur_eis_aj       (,+01,13) edit {MASKA}
+     print #s_cur_eja_aj       (,+01,13) edit {MASKA}
+        next-listing
+     print '- '                (,01,{PAGE-X}) fill
+        new-page
+
+     print 'ÁÐÏ ÌÅÔÁÖÏÑÁ : '   ( ,01,40)
+     print #s_apo_qt           (,+01,13) edit {MASKA}
+     print #s_pre_eis_qt       (,+01,13) edit {MASKA}
+     print #s_pre_eja_qt       (,+01,13) edit {MASKA}
+     print #s_pre_ypo_qt       (,+01,13) edit {MASKA}
+     print #s_cur_eis_qt       (,+01,13) edit {MASKA}
+     print #s_cur_eja_qt       (,+01,13) edit {MASKA}
+     print #s_cur_ypo_qt       (,+01,13) edit {MASKA}
+        next-listing
+     print ' '                 (, 01,40)
+     print #s_apo_aj           (,+01,13) edit {MASKA}
+     print #s_pre_eis_aj       (,+01,13) edit {MASKA}
+     print #s_pre_eja_aj       (,+01,13) edit {MASKA}
+     print ' '                 (,+01,13)
+     print #s_cur_eis_aj       (,+01,13) edit {MASKA}
+     print #s_cur_eja_aj       (,+01,13) edit {MASKA}
+        next-listing
+     print '- '                (,01,{PAGE-X}) fill
+        let #page = 4
+  end-if 
+
+  do clear_var
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure clear_var
+
+  move 0 to #apo_qt
+  move 0 to #apo_aj
+
+  move 0 to #pre_pvl_qt
+  move 0 to #pre_pvl_aj
+  move 0 to #pre_ago_qt 
+  move 0 to #pre_ago_aj 
+  move 0 to #pre_gen_qt 
+  move 0 to #pre_gen_aj 
+
+  move 0 to #cur_pvl_qt
+  move 0 to #cur_pvl_aj
+  move 0 to #cur_ago_qt 
+  move 0 to #cur_ago_aj 
+  move 0 to #cur_gen_qt 
+  move 0 to #cur_gen_aj 
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure synola_apouhkhs
+
+   let #r_apo_qt = 0
+   let #r_apo_aj = 0
+   let #r_pvl_qt = 0
+   let #r_pvl_aj = 0
+   let #r_ago_qt = 0
+   let #r_ago_aj = 0
+   let #r_gen_qt = 0
+
+begin-select 
+
+bb.logar   &bb.pvlomada           () NOP
+
+ 
+sum(a.apo_p) &r_apo_qt            () NOP
+sum(a.apo_a) &r_apo_aj            () NOP
+sum(a.pvl_p) &r_pvl_qt            () NOP
+sum(a.pvl_a) &r_pvl_aj            () NOP
+sum(a.ago_p) &r_ago_qt            () NOP
+sum(a.ago_a) &r_ago_aj            () NOP
+sum(a.gen_p) &r_gen_qt            () NOP
+
+! 30.8.95 oxi k.lado sum(a.gen_p) &r_gen_aj            () NOP
+! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+   let #r_apo_qt = #r_apo_qt + &r_apo_qt
+   let #r_apo_aj = #r_apo_aj + &r_apo_aj
+   let #r_pvl_qt = #r_pvl_qt + &r_pvl_qt
+   let #r_pvl_aj = #r_pvl_aj + &r_pvl_aj
+   let #r_ago_qt = #r_ago_qt + &r_ago_qt
+   let #r_ago_aj = #r_ago_aj + &r_ago_aj
+   let #r_gen_qt = #r_gen_qt + &r_gen_qt
+
+from      wh_kint1 a, wh_eidhmore bb
+where     a.cid          = $cid				
+and       a.cid          = bb.cid			
+and       a.eidos        = bb.eidos   
+and       a.hmeromhnia  >= $x_arxh
+and       a.hmeromhnia  <  $apohm
+and       not exists     ( select 1          from wh_kint1 c, wh_eidhmore d
+                           where  c.hmeromhnia between $apohm and $evshm
+                           and    c.eidos    = d.eidos
+                           and    d.eidos    = bb.eidos   
+                           and    c.cid      = $cid 
+                           and    c.cid      = d.cid)
+
+and       not exists     ( select e.eidos from sy_spceidh e
+                           where  a.eidos = e.eidos
+                           and    e.cid   = $cid)
+
+! 13.10.95 and       not exists  ( select c.eidos from wh_kint1 c
+! 13.10.95                         where  c.hmeromhnia between $apohm and $evshm
+! 13.10.95                         and    a.eidos   = c.eidos
+! 13.10.95                         and    c.cid     = $cid)
+
+
+[$SQLCMD]
+group by bb.logar
+end-select
+
+
+ ! ---------------------------------- Óõíïëá    Êéíçèåíôùí (v)
+  let $msg = 'Ó ý í ï ë á'
+
+  let   #pre_ypo_qt = #tot_apo_qt + #tot_pre_eis_qt - (#tot_pre_eja_qt)
+  let   #ypo_qt = #tot_apo_qt + #tot_pre_eis_qt + #tot_cur_eis_qt - (#tot_pre_eja_qt + #tot_cur_eja_qt)
+! let   #ypo_aj = #tot_apo_aj + #tot_pre_eis_aj + #tot_cur_eis_aj +                                   - (#tot_pre_eja_aj + #tot_cur_eja_aj)
+  next-listing
+  print $msg                         ( ,01,40)
+
+  print #tot_apo_qt                  (,+01,13) edit {MASKA}
+
+  print #tot_pre_eis_qt              (,+01,13) edit {MASKA}
+  print #tot_pre_eja_qt              (,+01,13) edit {MASKA}
+  print     #pre_ypo_qt              (,+01,13) edit {MASKA}
+
+  print #tot_cur_eis_qt              (,+01,13) edit {MASKA}
+  print #tot_cur_eja_qt              (,+01,13) edit {MASKA}
+
+  print #ypo_qt                      (,+01,13) edit {MASKA}
+
+  next-listing
+
+  let $msg = '   ÊéíçèÝíôùí Åéäþí'
+  print $msg                         ( ,01,40)
+
+  print #tot_apo_aj                  (,+01,13) edit {MASKA}
+
+  print #tot_pre_eis_aj              (,+01,13) edit {MASKA}
+  print #tot_pre_eja_aj              (,+01,13) edit {MASKA}
+  print ' '                          (,+01,13)
+
+  print #tot_cur_eis_aj              (,+01,13) edit {MASKA}
+  print #tot_cur_eja_aj              (,+01,13) edit {MASKA}
+
+! print #ypo_aj                      (,+01,13) edit {MASKA}
+
+  next-listing
+ ! ---------------------------------- Óõíïëá    Êéíçèåíôùí (^)
+  
+ ! ---------------------------------- Óõíïëá Ìç Êéíçèåíôùí (v)
+  let  #r_eis_qt  = #r_ago_qt
+  let  #r_eis_aj  = #r_ago_aj
+  let  #r_eja_qt  = #r_pvl_qt - #r_gen_qt
+  let  #r_eja_aj  = #r_pvl_aj ! 30.8.95 oxi k.lado- #r_gen_aj
+                              ! ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  let #ypo_qt = #r_apo_qt + #r_eis_qt - (#r_eja_qt)
+! let #ypo_aj = #r_apo_aj + #r_eis_aj - (#r_eja_aj)
+
+  let $msg = 'Ó ý í ï ë á'
+  next-listing
+  print $msg              ( ,01,40)
+
+  print #r_apo_qt         (,+01,13) edit {MASKA}
+
+  print #r_eis_qt         (,+01,13) edit {MASKA}
+  print #r_eja_qt         (,+01,13) edit {MASKA}
+  print   #ypo_qt         (,+01,13) edit {MASKA}
+
+  print ' '               (,+01,13)
+  print ' '               (,+01,13)
+
+  print #ypo_qt           (,+01,13) edit {MASKA}
+
+  next-listing
+
+
+  let $msg = 'Ìç ÊéíçèÝíôùí Åéäþí'
+  print $msg              ( ,01,40)
+
+  print #r_apo_aj         (,+01,13) edit {MASKA}
+
+  print #r_eis_aj         (,+01,13) edit {MASKA}
+  print #r_eja_aj         (,+01,13) edit {MASKA}
+  print ' '               (,+01,13)
+
+  print ' '               (,+01,13)
+  print ' '               (,+01,13)
+
+! print #ypo_aj           (,+01,13) edit {MASKA}
+
+  next-listing
+! -= - =-= - =- =- =- =- = -= -= -= -= - 13.10.95
+! original print outs
+! 
+!   let  #r_eis_qt  = &r_ago_qt
+!   let  #r_eis_aj  = &r_ago_aj
+!   let  #r_eja_qt  = &r_pvl_qt - &r_gen_qt
+!   let  #r_eja_aj  = &r_pvl_aj ! 30.8.95 oxi k.lado- &r_gen_aj
+! 
+!   let #ypo_qt = &r_apo_qt + #r_eis_qt - (#r_eja_qt)
+! ! let #ypo_aj = &r_apo_aj + #r_eis_aj - (#r_eja_aj)
+! 
+!   let $msg = 'Ó ý í ï ë á'
+!   next-listing
+!   print $msg              ( ,01,40)
+! 
+!   print &r_apo_qt         (,+01,13) edit {MASKA}
+! 
+!   print #r_eis_qt         (,+01,13) edit {MASKA}
+!   print #r_eja_qt         (,+01,13) edit {MASKA}
+!   print   #ypo_qt         (,+01,13) edit {MASKA}
+! 
+!   print ' '               (,+01,13)
+!   print ' '               (,+01,13)
+! 
+!   print #ypo_qt           (,+01,13) edit {MASKA}
+! 
+!   next-listing
+! 
+! 
+!   let $msg = 'Ìç ÊéíçèÝíôùí Åéäþí'
+!   print $msg              ( ,01,40)
+! 
+!   print &r_apo_aj         (,+01,13) edit {MASKA}
+! 
+!   print #r_eis_aj         (,+01,13) edit {MASKA}
+!   print #r_eja_aj         (,+01,13) edit {MASKA}
+!   print ' '               (,+01,13)
+! 
+!   print ' '               (,+01,13)
+!   print ' '               (,+01,13)
+! 
+! ! print #ypo_aj           (,+01,13) edit {MASKA}
+! 
+!   next-listing
+! -= - =-= - =- =- =- =- = -= -= -= -= - 13.10.95
+ ! ---------------------------------- Óõíïëá Ìç Êéíçèåíôùí (^)
+
+ ! ---------------------------------- Óõíïëá Áðïèçêçò      (v)
+  let  #t_apo_qt  = #r_apo_qt + #tot_apo_qt
+  let  #t_apo_aj  = #r_apo_aj + #tot_apo_aj
+  let  #t_eis_qt  = #r_eis_qt + #tot_pre_eis_qt
+  let  #t_eis_aj  = #r_eis_aj + #tot_pre_eis_aj
+  let  #t_eja_qt  = #r_eja_qt + #tot_pre_eja_qt
+  let  #t_eja_aj  = #r_eja_aj + #tot_pre_eja_aj
+
+  let #t_ypo_qt = (#t_apo_qt + #t_eis_qt) - (#t_eja_qt)
+  let   #ypo_qt = (#t_apo_qt + #t_eis_qt + #tot_cur_eis_qt) - (#t_eja_qt + #tot_cur_eja_qt)
+! let  #ypo_aj = (#t_apo_aj + #t_eis_aj + #tot_cur_eis_aj            ) - (#t_eja_aj + #tot_cur_eja_aj)
+
+  let $msg = 'Ó ý í ï ë á'
+  next-listing
+  print $msg              ( ,01,40)
+
+  print #t_apo_qt         (,+01,13) edit {MASKA}
+
+  print #t_eis_qt         (,+01,13) edit {MASKA}
+  print #t_eja_qt         (,+01,13) edit {MASKA}
+  print #t_ypo_qt         (,+01,13) edit {MASKA}
+
+  print #tot_cur_eis_qt   (,+01,13) edit {MASKA}
+  print #tot_cur_eja_qt   (,+01,13) edit {MASKA}
+
+  print #ypo_qt           (,+01,13) edit {MASKA}
+
+  next-listing
+
+
+  let $msg = '              Åéäþí'
+  print $msg              ( ,01,40)
+
+  print #t_apo_aj         (,+01,13) edit {MASKA}
+
+  print #t_eis_aj         (,+01,13) edit {MASKA}
+  print #t_eja_aj         (,+01,13) edit {MASKA}
+  print ' '               (,+01,13)
+
+  print #tot_cur_eis_aj   (,+01,13) edit {MASKA}
+  print #tot_cur_eja_aj   (,+01,13) edit {MASKA}
+
+! print #ypo_aj           (,+01,13) edit {MASKA}
+
+  next-listing
+ ! ---------------------------------- Óõíïëá Áðïèçêçò      (^)
+
+  do addgen_totals
+
+  let #tot_apo_qt = 0
+  let #tot_apo_aj = 0
+
+  let #tot_pre_eis_qt = 0
+  let #tot_pre_eis_aj = 0
+  let #tot_pre_eja_qt = 0
+  let #tot_pre_eja_aj = 0
+
+  let #tot_cur_eis_qt = 0
+  let #tot_cur_eis_aj = 0
+  let #tot_cur_eja_qt = 0
+  let #tot_cur_eja_aj = 0
+
+  new-page
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure addgen_totals
+
+  let #rtot_apo_qt     = #rtot_apo_qt      + &r_apo_qt
+  let #rtot_apo_aj     = #rtot_apo_aj      + &r_apo_aj
+
+  let #rtot_eis_qt     = #rtot_eis_qt      + #r_eis_qt
+  let #rtot_eis_aj     = #rtot_eis_aj      + #r_eis_aj
+  let #rtot_eja_qt     = #rtot_eja_qt      + #r_eja_qt
+  let #rtot_eja_aj     = #rtot_eja_aj      + #r_eja_aj
+
+
+  let #gtot_apo_qt     = #gtot_apo_qt      + #tot_apo_qt
+  let #gtot_apo_aj     = #gtot_apo_aj      + #tot_apo_aj
+
+  let #gtot_pre_eis_qt = #gtot_pre_eis_qt  + #tot_pre_eis_qt
+  let #gtot_pre_eis_aj = #gtot_pre_eis_aj  + #tot_pre_eis_aj
+  let #gtot_pre_eja_qt = #gtot_pre_eja_qt  + #tot_pre_eja_qt
+  let #gtot_pre_eja_aj = #gtot_pre_eja_aj  + #tot_pre_eja_aj
+
+  let #gtot_cur_eis_qt = #gtot_cur_eis_qt  + #tot_cur_eis_qt
+  let #gtot_cur_eis_aj = #gtot_cur_eis_aj  + #tot_cur_eis_aj
+  let #gtot_cur_eja_qt = #gtot_cur_eja_qt  + #tot_cur_eja_qt
+  let #gtot_cur_eja_aj = #gtot_cur_eja_aj  + #tot_cur_eja_aj
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_synola
+
+  next-listing
+
+  let $msg = 'Ã Å Í É Ê Á   Ó Õ Í Ï Ë Á'
+
+  let   #pre_ypo_qt = #gtot_apo_qt + #gtot_pre_eis_qt - (#gtot_pre_eja_qt)
+  let   #ypo_qt = #gtot_apo_qt + #gtot_pre_eis_qt + #gtot_cur_eis_qt - (#gtot_pre_eja_qt + #gtot_cur_eja_qt)
+! let   #ypo_aj = #gtot_apo_aj + #gtot_pre_eis_aj + #gtot_cur_eis_aj                                       - (#gtot_pre_eja_aj + #gtot_cur_eja_aj)
+  print $msg                          ( ,01,40)
+
+  print #gtot_apo_qt                  (,+01,13) edit {MASKA}
+
+  print #gtot_pre_eis_qt              (,+01,13) edit {MASKA}
+  print #gtot_pre_eja_qt              (,+01,13) edit {MASKA}
+  print      #pre_ypo_qt              (,+01,13) edit {MASKA}
+
+  print #gtot_cur_eis_qt              (,+01,13) edit {MASKA}
+  print #gtot_cur_eja_qt              (,+01,13) edit {MASKA}
+
+  print #ypo_qt                       (,+01,13) edit {MASKA}
+
+
+  let $msg = '   ÊÉÍÇÈÅÍÔÙÍ ÅÉÄÙÍ'          
+  next-listing
+  print $msg                          ( ,01,40)
+
+  print #gtot_apo_aj                  (,+01,13) edit {MASKA}
+
+  print #gtot_pre_eis_aj              (,+01,13) edit {MASKA}
+  print #gtot_pre_eja_aj              (,+01,13) edit {MASKA}
+  print ' '                           (,+01,13)
+
+  print #gtot_cur_eis_aj              (,+01,13) edit {MASKA}
+  print #gtot_cur_eja_aj              (,+01,13) edit {MASKA}
+
+! print #ypo_aj                       (,+01,13) edit {MASKA}
+
+
+  next-listing
+
+  let   #ypo_qt = #rtot_apo_qt + #rtot_eis_qt - (#rtot_eja_qt)
+! let   #ypo_aj = #rtot_apo_aj + #rtot_eis_aj - (#rtot_eja_aj)
+
+  let $msg = 'Ã Å Í É Ê Á   Ó Õ Í Ï Ë Á'
+  next-listing
+  print $msg                          ( ,01,40)
+
+  print #rtot_apo_qt                  (,+01,13) edit {MASKA}
+
+  print #rtot_eis_qt              (,+01,13) edit {MASKA}
+  print #rtot_eja_qt              (,+01,13) edit {MASKA}
+  print #ypo_qt                   (,+01,13) edit {MASKA}
+
+  print ' '                           (,+01,13) edit {MASKA}
+  print ' '                           (,+01,13) edit {MASKA}
+  print #ypo_qt                       (,+01,13) edit {MASKA}
+
+
+  next-listing
+  let $msg = 'ÌÇ ÊÉÍÇÈÅÍÔÙÍ ÅÉÄÙÍ'          
+  print $msg                          ( ,01,40)
+
+  print #rtot_apo_aj                  (,+01,13) edit {MASKA}
+
+  print #rtot_eis_aj              (,+01,13) edit {MASKA}
+  print #rtot_eja_aj              (,+01,13) edit {MASKA}
+  print ' '                           (,+01,13) edit {MASKA}
+
+  print ' '                           (,+01,13) edit {MASKA}
+  print ' '                           (,+01,13) edit {MASKA}
+
+! print #ypo_aj                       (,+01,13) edit {MASKA}
+
+
+  next-listing
+  let $msg = 'Ã Å Í É Ê Á   Ó Õ Í Ï Ë Á'          
+  let #tt_apo_qt = #rtot_apo_qt + #gtot_apo_qt
+  let #tt_apo_aj = #rtot_apo_aj + #gtot_apo_aj
+  let #tt_eis_qt = #rtot_eis_qt + #gtot_pre_eis_qt
+  let #tt_eis_aj = #rtot_eis_aj + #gtot_pre_eis_aj
+  let #tt_eja_qt = #rtot_eja_qt + #gtot_pre_eja_qt
+  let #tt_eja_aj = #rtot_eja_aj + #gtot_pre_eja_aj
+
+  let #tt_ypo_qt = #tt_apo_qt + #tt_eis_qt - (#tt_eja_qt)
+  let    #ypo_qt = #tt_apo_qt + #tt_eis_qt + #gtot_cur_eis_qt - (#tt_eja_qt + #gtot_cur_eja_qt)
+! let    #ypo_aj = #tt_apo_aj + #tt_eis_aj + #gtot_cur_eis_aj                                 - (#tt_eja_aj + #gtot_cur_eja_aj)
+  next-listing
+  print $msg                          ( ,01,40)
+
+  print #tt_apo_qt              (,+01,13) edit {MASKA}
+
+  print #tt_eis_qt              (,+01,13) edit {MASKA}
+  print #tt_eja_qt              (,+01,13) edit {MASKA}
+  print #tt_ypo_qt              (,+01,13) edit {MASKA}
+
+  print #gtot_cur_eis_qt        (,+01,13) edit {MASKA}
+  print #gtot_cur_eja_qt        (,+01,13) edit {MASKA}
+
+  print #ypo_qt                 (,+01,13) edit {MASKA}
+
+  next-listing
+  let   $msg = '========================================'
+  print $msg                          ( ,01,40)
+
+  print #tt_apo_aj              (,+01,13) edit {MASKA}
+
+  print #tt_eis_aj              (,+01,13) edit {MASKA}
+  print #tt_eja_aj              (,+01,13) edit {MASKA}
+  print ' '                     (,+01,13)
+
+  print #gtot_cur_eis_aj        (,+01,13) edit {MASKA}
+  print #gtot_cur_eja_aj        (,+01,13) edit {MASKA}
+
+! print #ypo_aj                 (,+01,13) edit {MASKA}
+
+end-procedure
+
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let $epk2='Aðï '||$apohmpr||' åùò '||$evshmpr
+
+! print 'ÌÇÍÉÁÉÁ ÊÁÔÁÓÔÁÓÇ ÂÉÂËÉÏÕ ÁÐÏÈÇÊÇÓ'            (2,01,  ) Center
+  print  $epk2                                          (5,01,  ) Center
+
+  print ' '                                             (7,01,40) ! ðåñéãñ.
+  print ' '                                             ( ,+1,13) ! áðïã.ðïóïô.
+  print '|-------- Ðñïçãïýìåíç Ðåñßïäïò ---------|'     (,+1,)
+  print '|-------- Ðåñßïäïò -------|'                   (,+1,)
+
+  print 'Å ì ð ï ñ å õ ì á ô á'                   (8,01,40)
+  print '     ÁÐÏÃÑÁÖÇ'                           (,+01,13)
+  print '     ÅÉÓÁÃÙÃÇ'                           (,+01,13)
+  print '      ÅÎÁÃÙÃÇ'                           (,+01,13)
+  print '     ÕÐÏËÏÉÐÏ'                           (,+01,13)
+  print '     ÅÉÓÁÃÙÃÇ'                           (,+01,13)
+  print '      ÅÎÁÃÙÃÇ'                           (,+01,13)
+  print '     ÕÐÏËÏÉÐÏ'                           (,+01,13)
+ 
+  print 'Êùäéêüò'                                 (9,01,40)
+  print '     Ðïóüôçôá'                           (,+01,13) ! Áðïãñ.
+  print '     Ðïóüôçôá'                           (,+01,13) ! Ðñïçã. åéó.
+  print '     Ðïóüôçôá'                           (,+01,13) !   "    åîá.
+  print '     Ðïóüôçôá'                           (,+01,13) !   "    õðï.
+  print '     Ðïóüôçôá'                           (,+01,13) ! Ðåñéïä.åéó.
+  print '     Ðïóüôçôá'                           (,+01,13) !   "    åîá.
+  print '     Ðïóüôçôá'                           (,+01,13) ! Õðüë.
+
+  print 'ÐåñéãñáöÞ'                              (10,01,40) 
+  print '         Áîéá'                           (,+01,13) !   "
+  print '         Áîéá'                           (,+01,13) !   "     "
+  print '         Áîéá'                           (,+01,13) !   "     "
+  print ' '                                       (,+01,13)
+  print '         Áîéá'                           (,+01,13) !   "     "
+  print '         Áîéá'                           (,+01,13) !   "     "
+
+end-heading

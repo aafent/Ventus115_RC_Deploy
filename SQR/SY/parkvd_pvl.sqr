@@ -1,0 +1,227 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : hmerpvl.sqr                                            ****
+! **** DATE        : 13/04/95                                               ****
+! **** MODIFICATION: Μουτσόπουλος Αλέξανδρος 16/06/2000			    ****
+! **** APPLICATION : ΣΥΝΑΛΛΑΣΟΜΕΝΟΙ - ΠΩΛΗΣΕΙΣ                              ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                          ****
+! **** NOTE        : ΠΑΡΑΣΤΑΤΙΚΑ / ΕΙΔΗ ΑΝΑ ΠΕΛΑΤΗ                          ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               132
+#DEFINE   HEAD-SIZE              5
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+
+#DEFINE   MASK2            999,999
+#DEFINE   MASK3        999,999,999
+#DEFINE   MASK4                 99
+#DEFINE   MASK5          999999999
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   DATEMASK2       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ 
+ input $hmerapo 'ΑΠΟ ΗΜ/ΝΙΑ : '
+ input $hmerevs 'ΕΩΣ ΗΜ/ΝΙΑ : '
+ input $etaireia 'ETAIREIA   : '
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ unstring $etaireia by '"' into $filler1 $cid $filler2
+
+ Do Main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+Begin-Select distinct
+   next-listing
+a.synal        &synal      (, 1,15)
+a.epvnymia     &epvnymia   (,+1,40)
+b.dieyuynsh    &die        (,+1,25)
+b.polh         &polh       (,+1,15)
+b.thl          &thl        (,+1,15)
+
+
+ next-listing
+ let $synal = &synal
+ let $epvnymia = &epvnymia
+
+ next-listing
+ do find_kinhseis
+ 
+ new-page
+
+from sy_synal a,sy_synaltopos b, wh_kin c
+where a.synal = b.synal
+and   b.topos = 0
+and   c.synal = a.synal
+and   c.hmeromhnia between $hmer_apo and $hmer_evs
+and   c.cid   = $cid
+[$SQLCMD]
+order by a.epvnymia
+
+End-Select
+End-procedure
+
+! ******************************************************************************
+Begin-Procedure find_kinhseis
+ 
+ let #cnt = 1
+    
+  do find_kinhseis_eidos
+
+   next-listing need=3 
+ 
+ let #cnt = 1
+
+  do find_kinhseis_pvlomada
+
+End-procedure
+! ******************************************************************************
+Begin-Procedure find_kinhseis_eidos
+show $synal
+show $cid
+show $hmer_apo
+show $hmer_evs
+Begin-Select 
+     if #cnt = 1
+      print  ' Ημ/νια'       (, 1, 8)
+      print  'Παραστατικό'   (,+3,23)
+      print  'Σειρά/Αριθμός' (,+1,15)
+      print  'Είδος '        (,+3,50)
+      print  'Ποσότητα'      (,+1,15)
+      next-listing
+      print  '-'             (, 1, 8) fill
+      print  '-'             (,+3,23) fill
+      print  '-'             (,+1,15) fill
+      print  '-'             (,+3,50) fill
+      print  '-'             (,+1,15) fill
+      next-listing
+    end-if
+convert(datetime,a.hmeromhnia)           (, 1,8)  EDIT {DATEMASK}
+a.parkvd    &parkvd    (,+3, 2)
+   let $parkvd = &parkvd
+   do find_parkvd
+
+convert(varchar,a.seira)        &seira    () NOP    !  (,+1,10)
+convert(varchar,a.parno)        &parno    () NOP    !  (,+1,10)
+   let $sp = &seira || '/' || &parno
+   print $sp   (,+1,15)
+a.eidos     &eidos     (,+3,15)
+   let $eidos  = &eidos
+   do find_eidos
+sum(a.posothta)        (,+1,15) EDIT {MASK2}
+   show $eidos
+   
+   next-listing
+   let #cnt = #cnt + 1
+
+from   wh_kin a
+where  a.hmeromhnia between $hmer_apo and $hmer_evs
+and    a.synal = $synal
+and    a.cid   = $cid
+group by a.hmeromhnia,a.parkvd,a.seira,a.parno,a.eidos
+order by a.parkvd,a.hmeromhnia,a.seira,a.parno,a.eidos
+End-Select
+End-procedure
+! ******************************************************************************
+Begin-Procedure find_kinhseis_pvlomada
+Begin-select
+    if #cnt = 1
+      print  '       '       (, 1, 8)
+      print  'Παραστατικό'   (,+3,23)
+      print  '             ' (,+1,17)
+      print  'Ομάδα Πώλησης' (,+1,50)
+      print  'Ποσότητα'      (,+1,15)
+      next-listing
+      print  '       '       (, 1, 8)
+      print  '-'             (,+3,23) fill
+      print  '             ' (,+1,17)
+      print  '-'             (,+1,50) fill
+      print  '-'             (,+1,15) fill
+      next-listing
+    end-if
+   print ' ' (,1,8)
+a.parkvd    &parkvd2    (,+3,2 )
+   let $parkvd = &parkvd2
+   do find_parkvd
+      print  '             ' (,+1,17)
+b.inf     &pvlomada          (,+1,15)
+   let $pvlomada  = &pvlomada
+   do find_pvlomada
+sum(a.posothta)      &p2  (,+1,15) EDIT {MASK2}
+
+   next-listing
+   let #cnt = #cnt + 1
+
+from   wh_kin a,wh_eidhinf b
+where  a.hmeromhnia between $hmer_apo and $hmer_evs
+and    a.synal = $synal
+and    a.cid   = $cid
+and    a.eidos = b.kvdikos
+and    b.kvdinf = 106
+group by a.parkvd,b.inf               
+order by b.inf,a.parkvd                               
+End-select
+End-procedure
+! ******************************************************************************
+Begin-Procedure find_parkvd
+Begin-select
+a.perigrafh     &1   (,+1,20)
+from ap_par a
+where a.parkvd = $parkvd
+End-select
+End-procedure
+! ******************************************************************************
+Begin-Procedure find_eidos
+Begin-select
+a.perigrafh     &2   (,+1,30)
+from wh_eidh a
+where a.kvdikos = $eidos
+End-select
+End-procedure
+! ******************************************************************************
+Begin-Procedure find_pvlomada
+Begin-select
+a.perigrafh     &3   (,+1,30)
+from wh_fkeidhinf a
+where a.inf  = $pvlomada and kvdinf=106
+End-select
+End-procedure
+! ******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+
+
+  print '                   ' (3,) Center
+  let $hmer_str='ΑΠΟ : ' || $hmerapopr || '  ΕΩΣ : ' || $hmerevspr
+  print $hmer_str             (4,) center
+
+  print '     '                                 (6, 1, 5) 
+End-Heading              
+

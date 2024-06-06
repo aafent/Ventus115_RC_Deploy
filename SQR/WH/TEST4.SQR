@@ -1,0 +1,385 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 7/1/97                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    146
+#DEFINE   HEAD-SIZE   4
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2   9,999.9999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK6      999999
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql
+end-sql
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $icid        'Εταιρεία      '
+ input $apo_hm      'Από Ημερόμηνια'
+ input $evs_hm      'Εως Ημερόμηνια'
+ input $iprotypo_aa 'Προτυπο #aa από τον wh_parmas παραστατικού 90 ΑΠΟΓΡΑΦΗΣ'
+ input $apouhkh     'Αποθήκη '
+
+ unstring $icid        by '"' into $fill1 $cid        $fill1
+ unstring $iprotypo_aa by '"' into $fill1 $protypo_aa $fill1
+ unstring $evsypoloi   by '"' into $fill1 $evsypol    $fill1
+
+ execute app_datecnv $apo_hm  , $apo_hm2   output, $apohmpr output
+ execute app_datecnv $evs_hm  , $evs_hm2   output, $evshmpr output
+
+ move $L_CID to $cid
+
+ if $apouhkh != '*'
+    let $SQLAPOUHKH = ' and apouhkh = ' || $apouhkh
+ end-if
+
+ let $ID = 'GEN'
+ let $ihmer_apogr = '"1/1/97"'
+
+ execute app_datecnv $ihmer_apogr  , $hmer_apogr   output, $hmer_apogrpr output
+
+
+!  do find_apogr_pos
+
+!  do find_apogr_msk
+
+!  do find_prev_apogr
+
+  do ins_tmpkin
+
+  do ins_kin
+
+  do upd_kint2
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure find_prev_apogr
+
+  print  'Deleted'    (, 1,7)
+  print  '  #aa  '    (,+1,7)
+  next-listing
+
+begin-select distinct
+a.aa  &delaa () NOP
+
+  let #delaa = &delaa
+  print #delaa (,1, 6) EDIT {MASK6}
+  next-listing
+
+  do delkin
+
+
+from wh_kin a
+where  a.cid = $cid
+and    a.hmeromhnia = $hmer_apogr
+and    a.aa > 190000
+[$SQLAPOUHKH]
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure delkin
+
+             execute whp_delkin #delaa 
+
+end-procedure
+
+! *************************************************************************
+begin-procedure find_apogr_pos
+
+    print 'Εταιρεία'    (, 1,10)
+    print 'Αποθήκη'     (,+1,10)
+    print 'Είδος'       (,+1,15)
+    print '   Απογραφή' (,+1,11) 
+    print '     Αγορές' (,+1,11) 
+    print 'Διακινήσεις' (,+1,11) 
+    print '     Γενικά' (,+1,11) 
+    print '   Πωλήσεις' (,+1,11) 
+    print 'Τελ.Απογραφ' (,+1,11) 
+    next-listing
+
+
+begin-sql
+delete from wh_apogr2 where hmer=$hmer_apogr and cid=$cid [$SQLAPOUHKH]
+end-sql
+
+begin-select
+a.cid                &pos_cid     () NOP
+a.apouhkh            &pos_apouhkh () NOP
+a.eidos              &pos_eidos   () NOP
+sum(isnull(apo_p,0)) &apo_p       () NOP
+sum(isnull(ago_p,0)) &ago_p       () NOP
+sum(isnull(dia_p,0)) &dia_p       () NOP
+sum(isnull(gen_p,0)) &gen_p       () NOP
+sum(isnull(pvl_p,0)) &pvl_p       () NOP
+
+    let $pos_cid     = &pos_cid
+    let $pos_apouhkh = &pos_apouhkh
+    let $pos_eidos   = &pos_eidos
+    let #apo_p       = &apo_p
+    let #ago_p       = &ago_p
+    let #dia_p       = &dia_p
+    let #gen_p       = &gen_p
+    let #pvl_p       = &pvl_p
+    let #posothta    = #apo_p + #ago_p + #dia_p + #gen_p - #pvl_p
+    let #posothta    = floor (#posothta)
+    print $pos_cid     (, 1,10)
+    print $pos_apouhkh (,+1,10)
+    print $pos_eidos   (,+1,15)
+    print #apo_p       (,+1,11) EDIT {MASK3}
+    print #ago_p       (,+1,11) EDIT {MASK3}
+    print #dia_p       (,+1,11) EDIT {MASK3}
+    print #gen_p       (,+1,11) EDIT {MASK3}
+    print #pvl_p       (,+1,11) EDIT {MASK3}
+    print #posothta    (,+1,11) EDIT {MASK3}
+
+    next-listing
+
+      !   if #posothta != 0
+       do ins_pos
+      !   end-if
+
+from wh_kint1 a
+where a.cid = $cid
+and   a.hmeromhnia between $apo_hm2 and $evs_hm2
+  
+   !  and   a.eidos like '1BL%'
+[$SQLAPOUHKH]
+group by a.cid,a.apouhkh,a.eidos
+order by a.cid,a.apouhkh,a.eidos
+  
+end-select
+   print '-' (,1,{PAGE-X}) fill
+   next-listing
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_pos
+begin-sql
+insert into wh_apogr2(cid,hmer,apouhkh,eidos,posothta,msk,old_msk)
+values($pos_cid,$hmer_apogr,$pos_apouhkh,$pos_eidos,#posothta,0,0)
+end-sql
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_apogr_msk
+begin-select
+a.pvlomada  &msk_pvlomada () NOP
+
+  let $msk_pvlomada = &msk_pvlomada
+  do find_msk
+
+from wh_eidh a,wh_apogr2 b
+where a.kvdikos = b.eidos
+and   b.cid     = $cid
+group by a.pvlomada
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_msk
+
+    let #msk = 0
+
+      execute whp_getmsk5 @cid=$cid, @eidos=$msk_pvlomada, @hmer=$evs_hm2, @msk=#msk out
+   let #old_msk = #msk
+
+begin-select distinct
+b.msk      &msk_ori () NOP
+   let #msk = &msk_ori
+from wh_eidh a,wh_apogr3 b
+where a.kvdikos  = b.eidos
+and   b.cid      = $cid
+and   a.pvlomada = $msk_pvlomada
+and   b.msk      <> b.old_msk
+end-select
+
+begin-sql
+update wh_apogr2 set msk=#msk, old_msk=#old_msk
+from wh_eidh a,wh_apogr2 b
+where a.kvdikos  = b.eidos
+and   b.cid      = $cid
+and   a.pvlomada = $msk_pvlomada
+end-sql
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_tmpkin
+  
+begin-select
+a.cid      &tmpkin_cid      () NOP
+a.eidos    &tmpkin_eidos    () NOP
+a.apouhkh  &tmpkin_apouhkh  () NOP
+a.posothta &tmpkin_posothta () NOP
+a.msk      &tmpkin_msk      () NOP
+  
+   if $tmpkin_apouhkh  <> &tmpkin_apouhkh  
+      do find_apogr_aa 
+   end-if
+
+   let #tmpkin_aa       = #newaa           
+   let $tmpkin_cid      = &tmpkin_cid      
+   let $tmpkin_eidos    = &tmpkin_eidos    
+   let $tmpkin_apouhkh  = &tmpkin_apouhkh  
+   let #tmpkin_posothta = &tmpkin_posothta      
+   let #tmpkin_msk      = round(&tmpkin_msk,0)
+   let #tmpkin_ajia     = #tmpkin_posothta * round(&tmpkin_msk,0)
+
+   do ins_tmpkin_details
+
+from   wh_apogr2 a
+where  a.cid     =  $cid
+[$SQLAPOUHKH]
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_tmpkin_details
+begin-sql
+
+insert into wh_tmpkin ( aa, cid, hmeromhnia, eidos, posothta,
+                        ajia, fpa, apouhkh, parkvd, seira, parno, synal, aitia)
+values ( #tmpkin_aa,$tmpkin_cid,convert(smalldatetime,$hmer_apogr),
+         $tmpkin_eidos,#tmpkin_posothta, #tmpkin_ajia,NULL,$tmpkin_apouhkh,
+         '90','-', 1 ,NULL,'ΑΠΟΓΡΑΦΗ')
+
+end-sql
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_apogr_aa 
+
+
+   execute app_getseq @ID    = $ID     ,
+                      @newnum= #newaa out
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_kin
+begin-select distinct
+b.aa       &insaa       () NOP
+
+   let #insaa       = &insaa       
+
+   do ins_kin_details
+
+from  wh_tmpkin b
+where b.cid = $cid
+
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_kin_details
+
+     execute whp_mvkin #insaa 
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure upd_kint2
+  do del_kint2
+begin-select
+a.cid                &kint2_cid         () NOP
+a.eidos              &kint2_eidos       () NOP
+sum(isnull(apo_p,0)) &kint2_apo_p       () NOP
+sum(isnull(ago_p,0)) &kint2_ago_p       () NOP
+sum(isnull(dia_p,0)) &kint2_dia_p       () NOP
+sum(isnull(gen_p,0)) &kint2_gen_p       () NOP
+sum(isnull(pvl_p,0)) &kint2_pvl_p       () NOP
+
+    let $kint2_cid         = &kint2_cid
+    let $kint2_eidos       = &kint2_eidos
+    let #kint2_apo_p       = &kint2_apo_p
+    let #kint2_ago_p       = &kint2_ago_p
+    let #kint2_dia_p       = &kint2_dia_p
+    let #kint2_gen_p       = &kint2_gen_p
+    let #kint2_pvl_p       = &kint2_pvl_p
+    let #kint2_posothta    = #kint2_apo_p + #kint2_ago_p + 
+                             #kint2_dia_p + #kint2_gen_p - #kint2_pvl_p
+
+    if #posothta != 0
+       do ins_pos_kint2
+    end-if
+
+from wh_kint1 a
+where a.cid = $cid
+and   a.hmeromhnia >= $hmer_apogr
+group by a.cid,a.eidos
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure del_kint2
+begin-sql
+delete from wh_kint2 where cid = $cid
+end-sql
+end-procedure
+
+! *************************************************************************
+
+begin-procedure ins_pos_kint2
+begin-sql
+insert into wh_kint2( cid    ,   eidos,apouhkh,       ypoloipo,desmeysh, anamen)
+values       ( $kint2_cid,$kint2_eidos,'1'    ,#kint2_posothta,   0    ,   0   )
+end-sql
+end-procedure
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = ' '
+  let   $msg2 = ' '
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  ! print 'Είδος'      (5, 1,15) 
+  ! print 'Περιγραφή'  ( ,17,40) 
+  ! print 'Λογαριασμος'( ,60,20) 
+  ! print 'Περιγραφή'  ( ,81,40) 
+
+
+End-Heading              

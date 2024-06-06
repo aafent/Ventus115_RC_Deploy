@@ -1,0 +1,142 @@
+!***********************************************************************
+!***** REPORT      : entaprom.sqr                                  ****
+!***** DATE        : 12/04/93                                       ****
+!***** APPLICATION : ΔΗΜΟΣΙΑ ΛΟΓΙΣΤΙΚΗ                              ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $xrhsh     'Χρήση           : ' 
+ unstring $xrhsh by '"' into $filler $xrhsh $filler
+ move $xrhsh to #xrhsh
+ do main
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+let #sum_kajia = 0
+let #sum_ajia = 0
+begin-select distinct
+a.ar_entalma
+a.xrhsh
+a.synal  () on-break print=never after=sum 
+a.dikaioyxos
+b.afm
+b.dieyuynsh
+convert(char(10),convert(datetime,c.hmeromhnia),103) &hmera
+a.ajia
+
+	do foros
+	do ektyp
+
+from dl_entalma a, sy_synal b, dl_estatus c
+where a.synal = b.synal
+and a.ar_entalma = c.ar_entalma
+and a.xrhsh = c.xrhsh
+and a.xrhsh = #xrhsh
+and a.estatus = '95'
+and c.estatus = '15'
+and a.synal like '50%'
+and a.synal not like '500000'
+order by a.synal
+end-select
+end-procedure
+
+begin-procedure sum
+print '-'		(+1,1,120)	fill
+print 'ΣΥΝΟΛΑ' 		(+1,1,10)	bold
+print #sum_kajia 	(,91,10)	edit 9999999.99c
+print #sum_ajia		(,108,15)	edit 9999999.99c
+let #sum_kajia = 0
+let #sum_ajia = 0
+print ''	(+1,1,1)
+end-procedure
+
+begin-procedure  foros
+begin-select
+d.kvd_ajia
+d.ajia
+from dl_entalmadet2 d			
+where d.ar_entalma = &a.ar_entalma
+and d.xrhsh = &a.xrhsh
+and d.kvd_ajia in (26,27,28)
+end-select
+
+if &d.kvd_ajia = 26 
+let #f = '1'
+end-if
+if &d.kvd_ajia = 27 
+let #f = '4'
+end-if
+if &d.kvd_ajia = 28 
+let #f = '8'
+end-if
+
+
+let #ajia = &a.ajia/1.18
+!let #ajia = &a.ajia - (#f/100*#ajia)
+!let #sum_kajia = #sum_kajia + &a.ajia
+!let #sum_ajia = #sum_ajia + #ajia
+
+end-procedure
+
+begin-procedure  ektyp
+if &d.kvd_ajia = 26 
+let $e.perigrafh = '1%'
+end-if
+if &d.kvd_ajia = 27 
+let $e.perigrafh = '4%'
+end-if
+if &d.kvd_ajia = 28  
+let $e.perigrafh = '8%'
+end-if
+
+print &a.synal			(+1,1,10)
+print &a.dikaioyxos		(,+1,30)
+print &b.afm			(,+1,15)	
+print &b.dieyuynsh		(,+1,20)
+print &hmera			(,+1,10)
+print #ajia			(,+1,10)	edit 9999999.99c
+print $e.perigrafh		(,+1,5)
+print &d.ajia		        (,+1,15)	edit 9999999.99c
+print &a.ar_entalma		(,+1,10)    
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'ΚΑΤΑΣΤΑΣΗ ΕΝΤΑΛΜΑΤΩΝ' 	(2,+1) center
+ print 'Δικαιούχος'  	 	(+3,1,40)
+ print 'ΑΦΜ'       	 	(,+1,15)
+ print 'Διεύθυνση'      	(,+1,20)
+ print 'Ημερομηνία'         	(,+1,10)
+ print 'Καθαρή Αξία'         	(,+1,10)
+ print 'Σ.Φ'         		(,+1,5)
+ print 'Αξία Φόρου'         	(,+1,15)
+ print 'Αρ. Εντάλματος'     	(,+1,15)
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{DL	1	12	498	entaprom	rs	X	01},TITLE{Εντάλματα Προμηθευτών}
+!	PARCOUNT{1}
+!	PAR1{Χρήση	xrhsh	1	=	integer	N	X}
+!REPORTHELP{F}
+!</pcalib>

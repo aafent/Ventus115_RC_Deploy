@@ -1,0 +1,652 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : ekktri.sqr                                             ****
+! **** DATE        : 14/10/97                                               ****
+! **** APPLICATION : ¡–œ»« «                                                ****
+! **** AUTHOR      : ¡÷≈Õ‘¡ «” ¡Õƒ—≈¡”                                      ****
+! **** NOTE        : ≈  ¡»¡—…”« ‘—…‘ŸÕ                                      ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               132
+#DEFINE   HEAD-SIZE              9
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+#DEFINE   MASK1P        b99,999.9c
+#DEFINE   MASK2A        b9999.999c
+#DEFINE   MASK3A       b999,999.99c
+#DEFINE   MASK4                99
+#DEFINE   MASK5A         999999.99c
+#DEFINE   MASK6A        b99999.99c
+#DEFINE   MASK6P        b99999999c
+#DEFINE   MASK7             09999
+#DEFINE   SHORTDATE       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+
+ ! position 6 --> √ÂÌÈÍ‹ ”˝ÌÔÎ·
+ ! position 5 --> …‰ÈÔÍÙﬁÙÁÚ
+ ! position 4 -->  ·ÙÁ„ÔÒﬂ· Âﬂ‰ÔıÚ (4 new, old : 4=5,5=6)
+ ! position 3 --> ¡ÔËﬁÍÁ
+ ! position 2 --> ≈ﬂ‰ÔÚ
+ ! position 1 -->  ﬂÌÁÛÁ –ÂÒÈ¸‰Ôı (¡Õ¡À’”«)
+ ! position 0 --> –·Ò·ÛÙ·ÙÈÍ¸
+
+
+
+ create-array name=synola size=7 field=eis_posot:number
+                                 field=eis_ajia:number
+                                 field=eja_posot:number
+                                 field=eja_ajia:number
+
+ input $apo_eidos 'Apo eidos :'
+ input $evs_eidos 'Evs eidos :'
+
+ input $hmerapo '¡–œ «Ã/Õ…¡        '
+ input $hmerevs '≈Ÿ” «Ã/Õ…¡        '
+
+ input $ianal   '¡Õ¡À’‘… ¡ (Õ/œ) ? '
+ 
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ unstring $ianal by '"' into $filler $anal $filler
+
+ unstring $apo_eidos by '"' into $filler $apo_eidos $filler
+ unstring $evs_eidos by '"' into $filler $evs_eidos $filler
+
+ if ($anal = 'N') or ($anal = 'n') or ($anal = 'Õ') or ($anal = 'Ì')
+    move 'T' to $anal
+    move 'a.aux_code, a.apouhkh, a.eidos, a.hmeromhnia, a.parkvd, a.seira, a.parno' to $SQLORD
+ else
+ if ($anal = 'S') or ($anal = 's') or ($anal = '”') or ($anal = 'Û')
+    move 'S' to $anal
+    move 'a.aux_code, a.apouhkh, a.eidos, a.parkvd' to $SQLORD
+ else
+    move 'F' to $anal
+    move 'a.aux_code, a.apouhkh, a.eidos, a.parkvd' to $SQLORD
+ end-if
+ end-if
+
+ move $L_CID to $cid
+ move 'T' to $theor
+
+ Do Init
+ if #hdlr < 1 
+     next-listing
+     print '**** –—œ¬À«Ã¡ Ã≈ ‘«Õ ≈ ‘≈À≈”« ‘«”  ¡‘¡”‘¡”«” ****' () center
+     next-listing
+ else
+     Do Main
+ end-if
+
+End-Report
+
+! ==============================================================================
+Begin-Procedure Init
+Begin-Select -C1
+x.xrhsh				() NOP
+x.xrhsh_arxh			() NOP
+   	move &x.xrhsh      to #xrhsh
+	move &x.xrhsh_arxh to $xrhsh_arxh
+from ap_xrhsh x
+where cid = $cid
+and $hmer_apo between xrhsh_arxh and xrhsh_telos
+End-Select
+
+move 0 to #hdlr
+
+move 'E' to $exec_anal
+execute -C1 whp_ankau1 'SQR', #hdlr output,$exec_anal, $cid, $hmer_apo, $hmer_evs, $apo_eidos, $evs_eidos
+display 'HDLR ' noline
+display #hdlr
+
+End-Procedure
+! ==============================================================================
+
+Begin-Procedure Main
+
+  move '' to $hmeromhnia
+  move  21 to #col1
+  move  53 to #col2
+ ! move  85 to #col3
+
+  move  62 to #col3
+
+  move 117 to #col4
+  
+
+begin-select 
+
+a.aux_code				()		on-break print = never
+							save   = $idiokthths
+							level  = 1
+							after  = tot-idiokthths
+
+a.aux_perigrafh				() 		on-break print = never
+                                                        level  = 1
+            						save   = $idiok_txt
+
+a.kathg  				()		on-break print = never
+							save   = $kathg
+							level  = 2
+                                                        !before = new-eidos
+ 							after  = tot-kathg
+
+
+a.apouhkh				()		on-break print = never
+  							save   = $apoth
+							level  = 3
+							before = new-apoth
+                                                        after  = tot-apoth
+
+
+a.eidos  				()		on-break print = never
+							save   = $eidos
+							level  = 4
+                                                        before = new-eidos
+							after  = tot-eidos
+
+a.fpa                                   () 		on-break print = never
+                                                        save   = $break_fpa
+                                                        level  = 4
+
+a.parkvd                        	() 		on-break print = never
+							save   = $parkvd
+							level  = 5
+							after  = tot-parkvd
+
+d.perigrafh_txt				() 		on-break print = never
+                                                        save   = $parkvd_txt
+                                                        level  = 5
+a.perigrafh_txt				() NOP
+
+e.perigrafh		&apoth_txt	() NOP
+b.perigrafh                             () NOP
+convert(datetime,a.hmeromhnia)  &hmer  	() NOP
+a.aa                            	() NOP
+d.f_eis					() NOP
+d.f_eja					() NOP
+d.syntel_p				() NOP
+d.syntel_a				() NOP
+a.seira                 	        () NOP
+a.parno                 	        () NOP    
+a.posothta				() NOP
+a.ajia                                  () NOP
+a.fpa_ajia                              () NOP
+
+   move &a.posothta to #posothta
+   move &a.ajia to #ajia
+   move &a.fpa_ajia to #fpa_ajia
+
+  
+  if #posothta <> 0
+     let #timh = abs(#ajia) / abs(#posothta)
+  else
+     let #timh = 0
+  end-if
+
+  if not isnull(&d.f_eis)
+     move #col2 to #col-x
+     let #ypol = #ypol + #posothta
+     do add-totals (0, #posothta, #ajia, 0, 0)
+  else
+     move #col3 to #col-x
+     let #ypol = #ypol - #posothta
+     do add-totals (0, 0, 0, #posothta, #ajia)
+  end-if
+
+  If $anal = 'T'
+     print &hmer			(,01,05)	edit {SHORTDATE}
+     print &a.seira			(,+1,03)
+     print '/'				()
+
+     if &a.parno = 0
+     	print ' '			(,  ,05)
+     else
+	print &a.parno			(,  ,05)	edit {MASK7}
+     end-if
+     print &a.parkvd			(,+1,03)
+     print &a.perigrafh_txt		(,+1,30)
+     print #posothta                    (,#col-x,09)	edit {MASK1P}
+
+     !
+     ! (v) print reset only in case of export (EJAGVGH)
+     !
+
+     if not isnull(&d.f_eis) 
+     else
+        print #timh                   	(,+1,09)	edit {MASK2A}
+        print #ajia			(,+1,11)	edit {MASK3A}
+
+	print #fpa_ajia                 (,+1,09)        edit {MASK6A}
+
+        print #ypol                     (,#col4,09)	edit {MASK6P}
+     end-if
+
+     next-listing
+
+  end-if
+
+
+from wh_tmpankau a, wh_eidh b, ap_par d, wh_apouhk e
+where a.hdlr       = #hdlr
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.parkvd    *= d.parkvd
+and   a.eidos      = b.kvdikos
+and   e.cid	   = $cid
+and   a.apouhkh	   = e.kvdikos
+and   a.aux_code   != '000'
+[$SQLCMD]
+order by 
+[$SQLORD]
+End-Select
+
+  do print-totals (6, '√≈Õ… ¡ ”’ÕœÀ¡.............:', #col1, #col2, #col3, #col4)
+
+End-Procedure
+
+! ******************************************************************************
+
+begin-procedure tot-kathg
+!lakis
+
+  let $msg='”’ÕœÀ¡ ('||$kathg||') '
+
+begin-select 
+k1.perigrafh 
+  move &k1.perigrafh to $tmp
+  let $msg=$msg||$tmp
+from wh_fkeidhinf k1
+where k1.kvdinf = 1
+  and k1.inf = $kathg
+end-select
+
+
+  do print-totals (4, $msg , #col1, #col2, #col3, #col4)
+
+  next-listing need=8
+
+  print '*'					(,01,{PAGE-X})	fill 
+  next-listing
+
+  print '–ŸÀ«”≈…” –≈—…œƒœ’ '                    (,1)
+  
+  print '¡Œ…¡ –ŸÀ«»≈Õ‘ŸÕ'                       (,25)
+  print '–—œÃ«»≈…¡ __%'                         (,43)
+  print '–—œÃ«»≈…¡ __%'                         (,61)
+  print '÷–¡ –ŸÀ«”≈ŸÕ'                          (,79)
+  print '÷–¡ –—œÃ«»≈…¡”'                        (,97)
+  print '¡Œ…¡ √…¡ –¡—¡ƒœ”«'                     (,115)
+
+  next-listing
+
+  print '-'                                     (,25,18) fill
+  print '-'                    		        (,43,18) fill
+  print '-'                         		(,61,18) fill
+  print '-'                                    	(,79,18) fill
+  print '-'      	                  	(,97,18) fill
+  print '-'                     		(,115,18) fill
+
+  next-listing
+
+  move 0 to #k2_ajia
+  move 0 to #k2_fpa_ajia
+
+       display &a.aux_code noline
+       display ':' noline
+       display $idiokthths noline
+       display '->' noline
+
+begin-select
+k2.kathg	() nop 
+k2.apouhkh				 () NOP
+k2.apou_perigrafh    			 () NOP
+sum(k2.ajia)         &k2.ajia            () NOP
+sum(k2.fpa_ajia)     &k2.fpa_ajia        () NOP
+
+    print &k2.kathg      			(,1,3)
+    print &k2.apou_perigrafh                    (,5,15)
+
+    print &k2.ajia                              (,25,18) edit {MASK5A}
+    display &k2.ajia  
+
+    print &k2.fpa_ajia                          (,79,18) edit {MASK5A}
+
+    let #k2_ajia = #k2_ajia + &k2.ajia
+    let #k2_fpa_ajia = #k2_fpa_ajia + &k2.fpa_ajia 
+     
+    next-listing
+
+from wh_tmpankau k2
+where k2.hdlr = #hdlr
+  and k2.kathg= $kathg
+  and exists (select 1 from ap_omadapar k22 where k22.parkvd = k2.parkvd and k22.omada='PVLHSEIS')
+ ! and k2.aux_code   = &a.aux_code
+   and k2.aux_code   = $idiokthths
+ group by k2.kathg,k2.apouhkh, k2.apou_perigrafh
+end-select
+
+  next-listing
+
+  print '-'                                     (,25,18) fill
+  print '-'                    		        (,43,18) fill
+  print '-'                         		(,61,18) fill
+  print '-'                                    	(,79,18) fill
+  print '-'      	                  	(,97,18) fill
+  print '-'                     		(,115,18) fill
+
+
+  next-listing
+
+  print #k2_ajia                                (,25,18) edit {MASK5A}
+!  print '–—œÃ«»≈…¡ __%'                         (,43)
+!  print '–—œÃ«»≈…¡ __%'                         (,61)
+  print #k2_fpa_ajia                            (,79,18) edit {MASK5A}
+!  print '÷–¡ –—œÃ«»≈…¡”'                        (,97)
+!  print '¡Œ…¡ √…¡ –¡—¡ƒœ”«'                     (,115)
+
+  next-listing
+
+  print '*'					(,01,{PAGE-X})	fill 
+  print '– ¡ — ¡   ¡ À œ ’ Ã ≈  ≈ – … ¬ ≈ ¬ ¡ … Ÿ ” ≈ ‘ ≈  ” ’ Ã ÷ Ÿ Õ … ¡' (-1,1) center
+
+  next-listing
+  
+
+  new-page
+
+end-procedure
+
+! ******************************************************************************
+
+
+begin-procedure tot-idiokthths
+
+  do print-totals (5, '”’ÕœÀ¡ …ƒ…œ ‘«‘«.........:', #col1, #col2, #col3, #col4)
+
+  new-page
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-apoth
+
+  print '¡–œ»« ≈’‘… œ” ◊Ÿ—œ” : '                (,01)
+  print &a.apouhkh				(,+1,03)
+  print &apoth_txt				(,+1,30)
+
+  next-listing
+  next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure tot-apoth
+
+  do print-totals (3, '”’ÕœÀ¡ ¡–œ»« «”.........:', #col1, #col2, #col3, #col4)
+
+  print '*'					(,01,{PAGE-X})	fill 
+  next-listing need=3
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-eidos
+
+  print &a.eidos				(,02,15)
+  print &b.perigrafh				(,+1,30)
+  
+  print '  ÷–¡ : '                              (,+1)     
+  print &a.fpa                                  (,+1,02) edit {MASK4}
+  print '%'                                     ()        
+
+! -v- –—œ«√œ’Ã≈Õ¡ ”’ÕœÀ¡
+
+   move 0 to #eis_posot
+   move 0 to #eis_ajia
+   move 0 to #eja_posot
+   move 0 to #eja_ajia
+
+begin-select
+sum(a1.posothta * a2.syntel_p)		&eis_posot
+sum(a1.ajia     * a2.syntel_a)		&eis_ajia
+   move &eis_posot to #eis_posot
+   move &eis_ajia  to #eis_ajia
+from wh_kin a1, ap_par a2
+where a1.cid   in (select t1.cid1 from cu_cid t1 where t1.cid2=$cid)
+and a1.apouhkh = &a.apouhkh
+and a1.eidos   = &a.eidos
+and a1.aux_code= &a.aux_code
+and a1.parkvd  = a2.parkvd
+and a2.f_eis   is not null
+and a1.hmeromhnia >= $xrhsh_arxh
+and a1.hmeromhnia <  $hmer_apo
+end-select
+
+begin-select
+sum(a3.posothta * a4.syntel_p)		&eja_posot
+sum(a3.ajia     * a4.syntel_a)		&eja_ajia
+   move &eja_posot to #eja_posot
+   move &eja_ajia  to #eja_ajia
+from wh_kin a3, ap_par a4
+where a3.cid   in (select t2.cid1 from cu_cid t2 where t2.cid2=$cid)
+and a3.apouhkh = &a.apouhkh
+and a3.eidos   = &a.eidos
+and a3.aux_code= &a.aux_code
+and a3.parkvd  = a4.parkvd
+and a4.f_eja   is not null
+and a3.hmeromhnia >= $xrhsh_arxh
+and a3.hmeromhnia <  $hmer_apo
+end-select
+
+
+! -v- –—œ«√œ’Ã≈Õ¡ ”’ÕœÀ¡
+
+  next-listing
+
+  print '–—œ«√œ’Ã≈Õ¡ ”’ÕœÀ¡ :'			(,18,30)
+
+  print #eis_posot				(,#col2,09)	edit {MASK1P}
+  print 0					(,+1,09)	edit {MASK2A}
+  print	#eis_ajia				(,+1,11)	edit {MASK3A}
+  print #eja_posot				(,#col3,09)	edit {MASK1P}
+  print 0					(,+1,09)	edit {MASK2A}
+  print	#eja_ajia				(,+1,11)	edit {MASK3A}
+  let   #ypol = #eis_posot - #eja_posot
+  print #ypol					(,#col4,09)	edit {MASK6P}
+
+ ! display '>' noline
+ ! display #ypol
+
+  do add-totals (2, #eis_posot, #eis_ajia, #eja_posot, #eja_ajia)
+  next-listing
+  next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure tot-eidos
+
+  print '-'					(,01,{PAGE-X})	fill
+  next-listing need=3
+
+  do print-totals (1, '”’ÕœÀ¡ ¡Õ¡À’”«”.........:', #col1, #col2, #col3, #col4)
+  do print-totals (2, '”’ÕœÀ¡ ≈…ƒœ’”...........:', #col1, #col2, #col3, #col4)
+
+  print '='					(,01,{PAGE-X})	fill
+  next-listing need=3
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure tot-parkvd
+
+  if $anal = 'F'
+
+     print $parkvd				(,#col1,03)
+     print $parkvd_txt				(,+1,30)
+
+     do print-totals (0, '', #col1, #col2, #col3, #col4)
+
+  end-if
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print-totals (#inx, $perigrafh, #col1, #col2, #col3, #col4)
+
+  get #eis_posot from synola(#inx) eis_posot
+  get #eis_ajia  from synola(#inx) eis_ajia
+  get #eja_posot from synola(#inx) eja_posot
+  get #eja_ajia  from synola(#inx) eja_ajia
+
+  print $perigrafh				(,#col1,30)
+  
+  if #inx = 0
+     if #eis_posot <> 0
+     	let #eis_timh = abs(#eis_ajia) / abs(#eis_posot)
+     end-if
+     if #eja_posot <> 0
+     	let #eja_timh = abs(#eja_ajia) / abs(#eja_posot)
+     end-if
+  else
+     move 0 to #eis_timh
+     move 0 to #eja_timh
+  end-if
+
+  if #inx >= 3
+     move 0 to #eis_posot
+     move 0 to #eja_posot
+  end-if
+
+  print #eis_posot				(,#col2,09)	edit {MASK1P}
+  print #eja_posot				(,#col3,09)	edit {MASK1P}
+  print #eja_timh				(,+1,09)	edit {MASK2A}
+  print	#eja_ajia				(,+1,11)	edit {MASK3A}
+  let   #ypol = #eis_posot - #eja_posot
+  print #ypol					(,#col4,09)	edit {MASK6P}
+
+  next-listing
+
+  do reset-totals (#inx)
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure reset-totals (#inx)
+
+ while #inx >= 0
+     put 0 into synola(#inx) eis_posot
+     put 0 into synola(#inx) eis_ajia
+     put 0 into synola(#inx) eja_posot
+     put 0 into synola(#inx) eja_ajia
+     let #inx = #inx - 1
+ end-while
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure add-totals (#inx, #eis_posot, #eis_ajia, #eja_posot, #eja_ajia)
+
+ while #inx <= 6
+     array-add #eis_posot to synola(#inx) eis_posot
+     array-add #eis_ajia  to synola(#inx) eis_ajia
+     array-add #eja_posot to synola(#inx) eja_posot
+     array-add #eja_ajia  to synola(#inx) eja_ajia
+     let #inx = #inx + 1
+ end-while
+
+end-procedure
+ 
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  
+  if $theor = 'F'
+     #INCLUDE "{$L_GDATA}\sqr\FOOT01.inc"
+  end-if
+
+End-Footing
+
+
+! ------------------------------------------------------------------------------
+begin-procedure getcompinfo
+begin-select
+ac.ul1    () nop
+ac.ul2    () nop
+ac.ul3    () nop
+ack.perigrafh () nop
+ack.dieyuynsh () nop
+from ap_comp ac, ap_katasthma ack
+ where ac.cid = $cid
+   and ac.cid = ack.cid
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Heading {HEAD-SIZE}
+if $theor = 'F'
+  #INCLUDE "{$L_GDATA}\sqr\HEAD01.inc"
+else
+
+  do getcompinfo
+
+ ! print &ac.ul1        (1,1)
+ ! print &ac.ul2       (+1,1)
+ ! print &ack.perigrafh (+1,1)
+ ! print &ack.dieyuynsh (+1,1)
+
+  print $L_X1 ({HEAD-LINE},1,{PAGE-X}) Fill 
+  if #HEAD_END_LINE = 0
+     let #HEAD_END_LINE={HEAD-SIZE}
+  end-if
+  print $L_X1 (#HEAD_END_LINE,1,{PAGE-X}) Fill
+
+end-if
+
+
+if $theor = 'F'
+  let $msg = '≈  ¡»¡—…”« –ŸÀ«»≈Õ‘ŸÕ –—œ…œÕ‘ŸÕ ‘—…‘ŸÕ'
+  print $msg 					(3,) Center
+end-if
+
+  !print '»≈”«.......:'				(4,1,12)
+  !print $thesh					(,+1,30)
+  let $msg = '( ' || $hmerapopr || ' ≈Ÿ” ' || $hmerevspr || ' )'
+  print $msg					(4,) Center
+   
+  print '√…¡ Àœ√¡—…¡”Ãœ  :'				(5,1)
+  print $idiokthths				(,+1,03)
+  print $idiok_txt				(,+1,30)
+
+  print '[---------------------≈ … ƒ œ ” ------------------]'  	(7,1,51) 
+
+  print ' ≈…”¡◊».  [--------- ≈Œ¡√Ÿ√≈” ----------] ÷.–.¡. ≈–…               ’–œÀœ…–œ' ()
+
+
+  print '«Ã/Õ…¡'                               	(8,1,05) 
+  print '–¡—¡”‘¡‘…'                        	(,+1,09) 
+  print '    ¡…‘…¡  …Õ«”«”'                     (,+1,35) 
+  print '–œ”œ‘«‘¡  –œ”œ‘«‘¡  ‘…Ã« ÃœÕ.       ¡Œ…¡  –ŸÀ«”≈ŸÕ                –œ”œ‘«‘¡' ()
+
+End-Heading
+
+

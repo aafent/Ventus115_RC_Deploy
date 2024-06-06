@@ -1,0 +1,186 @@
+! **********************************************************************
+! **** PROLOGIC S.A.                                                ****
+! **** REPORT      : ettik.sqr                                      ****
+! **** DATE        : 27/03/95                                       ****
+! **** APPLICATION : ΣΥΝΑΛΛΑΣΟΜΕΝΟΙ                                 ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                  ****
+! **** NOTE        : ΕΚΤΥΠΩΣΗ ΕΤΤΙΚΕΤΩΝ                             ****
+! **********************************************************************
+
+#DEFINE   PAGE-Y  32767 
+#DEFINE   PAGE-X    132 
+#DEFINE   HEAD-SIZE   0
+#DEFINE   FOOT-SIZE   0
+#DEFINE   HEAD-LINE   0
+
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   MASK1     99,999,999,999
+#DEFINE   MASK2                999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+ no-formfeed
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $ettkvd    'Κωδικός Εττικετας              : '
+ input $nnoott    'Φορές Εκτύπωσης κάθε Εττικέτας : '
+ input $tajinom   'Κατά Κωδικό (1) / Επωνυμία (2) : '
+
+ move ' ' to $SQLORDERCMD
+
+! move $ettkvd to $kvdett
+
+ unstring $ettkvd  by '"' into $filler1 $kvdett $filler1
+ unstring $tajinom by '"' into $filler2 $newtaj $filler2
+ unstring $nnoott  by '"' into $filler3 $n_o_t  $filler3
+
+ let #nnn = to_number ($n_o_t)
+
+ if $newtaj='2'
+   move 'order by a.epvnymia' to $SQLORDERCMD 
+ else 
+   if $newtaj='1'
+     let $SQLORDERCMD = 'order by a.synal'
+   else
+     let $SQLORDERCMD = 'order by a.synal'
+   end-if
+ end-if
+
+ do main($SQLCMD,$SQLORDERCMD,#nnn,$kvdett)
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main($SQLCMD,$SQLORDERCMD,#nnn,$kvdett)
+  
+  move  0  to  #v_la
+  move  0  to  #h_la
+  move  0  to  #v_si
+  move  0  to  #h_si
+  move  0  to  #v_sp
+  move  0  to  #h_sp
+
+  do get_ettiketa ($kvdett, #v_la, #h_la, #v_si, #h_si, #v_sp, #h_sp)
+  
+  move 0 to #fores
+  move 0 to #ettiketa
+  move 0 to #grammh
+
+begin-select
+a.epvnymia          () NOP
+b.dieyuynsh         () NOP
+b.polh              () NOP
+b.taxkvd            () NOP
+
+  move 0 to #i
+  while #i < #nnn
+    add  1  to  #i
+    add  1  to  #ettiketa
+    add  1  to  #grammh
+
+    let $value = ' '
+    let $value = &a.epvnymia
+    do print_ettiketa (#ettiketa, #grammh, $value, #v_la, #h_la, #v_si, #h_si, #v_sp, #h_sp)
+    add  1  to  #grammh
+    let $value = ' '
+    let $value = &b.dieyuynsh
+    do print_ettiketa (#ettiketa, #grammh, $value, #v_la, #h_la, #v_si, #h_si, #v_sp, #h_sp)
+    add  1  to  #grammh
+    let $value = ' '
+    let $value = &b.polh || ' ' || &b.taxkvd
+    do print_ettiketa (#ettiketa, #grammh, $value, #v_la, #h_la, #v_si, #h_si, #v_sp, #h_sp)
+    move 0  to  #grammh
+  end-while
+
+from  sy_synal a, sy_synaltopos b
+where a.synal=b.synal
+
+! from  cu_kat a, ap_polh b, cu_pel c
+! where a.polis=b.kvdikos
+! and   a.pelaths = c.kvdikos
+! and   a.flag1 not like 'Πελατη'
+[$SQLCMD]
+[$SQLORDERCMD]
+end-select
+  
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure get_ettiketa ($kkkttt,:#v_la,:#h_la,:#v_si,:#h_si,:#v_sp,:#h_sp)
+begin-select
+v_labels   ()  NOP
+h_labels   ()  NOP
+v_size     ()  NOP
+h_size     ()  NOP
+v_space    ()  NOP
+h_space    ()  NOP
+  move &v_labels  to  #v_la
+  move &h_labels  to  #h_la
+  move &v_size    to  #v_si
+  move &h_size    to  #h_si
+  move &v_space   to  #v_sp
+  move &h_space   to  #h_sp
+from ap_label
+where ap_label.kvdikos=$kkkttt
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_ettiketa (#ettiketa, #grammh, $value, #v_la, #h_la, #v_si, #h_si, #v_sp, #h_sp)
+
+
+! let #ett_of_line = #ettiketa % #h_la   
+  let #ett_of_line = (#ettiketa - 1) % #h_la   
+
+  add 1 to #ett_of_line
+
+  let #X = ((#ett_of_line - 1) * #h_si) + ((#ett_of_line - 1) * #h_sp)
+
+  if #X < 1
+    let #X = 1
+  end-if
+
+  let #ett_per_page = #v_la * #h_la
+
+! let #ett_line = #ettiketa % #v_la
+  let #ett_line = (#ettiketa - 1) / #h_la
+
+  
+  let #ett_line = round((#ett_line - 0.4),0)
+ 
+  add  1  to  #ett_line
+ 
+! let #aaa = round((1 - #ett_line),0)
+!
+! if #aaa < 0.0
+!   let #aaa = #aaa * (-1)
+! end-if
+!
+! move  #aaa  to  #ett_line
+
+! let #no_of_grammh = (round((#ettiketa / #ett_per_page),0) * #v_la) + #ett_line
+
+  let #Y = ((#ett_line - 1)* #v_sp) + ((#ett_line - 1)* #v_si) + #grammh
+
+  print $value (#Y,#X,#h_si)
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+! Begin-Footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+! End-Footing
+
+! Begin-Heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+! end-Heading

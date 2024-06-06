@@ -1,0 +1,368 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : statypol.sqr                                   ****
+! ***** DATE        : 09/05/95                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** AUTHOR      : ÌÐÏÊÉÁÓ ÍÉÊÏÓ                                  ****
+! ***** NOTE        : Õðïëïéðá ðåëáôùí ìå áíáëõóç õðïëïßðïõ          ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   6
+
+#DEFINE   DATEMASK     DD/MM/YY
+#DEFINE   MASK1             999
+#DEFINE   MASK3  99,999,999,999
+#DEFINE   MASK5          99,999
+#DEFINE   MASK2          999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ input $itmhma   'tmhma' 
+ input $plhuoss  'plhuos'
+ input $irest    'rest'
+ input $iord     'order'
+ input $idrast   'drasthriothta'
+ input $ipvl     'pvlhths'
+ 
+! input $ienerg   'pvlhths'
+
+ unstring $itmhma  by '"'  into $filler $tmhma  $filler
+ unstring $irest   by '"'  into $filler $rest   $filler
+ unstring $iord    by '"'  into $filler $ord    $filler
+ unstring $ipvl    by '"'  into $filler $pvl    $filler
+ unstring $idrast  by '"'  into $filler $drast  $filler
+
+! unstring $ienerg  by '"'  into $filler $energ  $filler
+
+ move $rest   to #rest
+ move $ord    to #ord
+ move $pvl    to #pvl
+
+ execute app_datecnv   $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+ execute app_geteom    $evshm,   $evshm output
+ execute app_floatcnv  $plhuoss, #plhuos output
+ 
+ if $drast = '*'
+    let $SQLCMDDR  = ''
+ else 
+    let $SQLCMDDR  = 'and c.drast =' || $idrast
+    do find_drast
+ end-if
+
+ if $tmhma != '*'
+    do find_tmhma
+ end-if
+
+ if $pvl = '*'
+    let $SQLCMDPVL = ''
+ else 
+    let $SQLCMDPVL = 'and d.pvlhths =' || $pvl
+    do find_pvl
+ end-if
+
+! if($energ = 'Í' or $energ = 'N')
+!    let $SQLSXOLIA = 'and exists (select l.synal 
+!                                  from   sy_synalsxolia l 
+!                                  where  l.synal = b.synal 
+!                                  and    kvdinf >= 90)'
+! else 
+!    let $SQLSXOLIA = ''
+! end-if
+
+! Õðüëïéðá -------------------- 
+ if #ord = 2
+  let $pord = 'ÕÐÏËÏÉÐÁ '
+  let $SQLCMDORD1 =  'order by  a.ypol desc' 
+  let $apohm   = '1 Jan 1992'
+  let $apohmpr = '01/01/92'
+ end-if
+
+! ÐùëÞóåéò -------------------
+ if #ord = 1
+  let $pord = 'ÐÙËÇÓÅÉÓ '
+  let $SQLCMDORD1 =  'order by a.xre desc'
+ end-if
+
+ do main 
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ 
+begin-sql
+truncate table tmp_ypol02 
+end-sql
+
+ move 1   to #inx
+ move 0   to #x
+ move 0   to #p
+ move 0   to #y
+ move 0   to #r_x
+ move 0   to #r_p
+ move 0   to #r_y
+ move 'T' to $flag
+     
+begin-select distinct
+b.synal         &synal       () NOP          ! (,+1,15)
+b.epvnymia      &epvnymia    () NOP          ! (,+1,40)
+     
+ let $synal = &synal
+ do getypol
+
+from  sy_synal     b, 
+      ap_epaggelma c,
+      sy_synalprog d,
+      sy_pvlhtes   e
+
+where b.synal       = d.synal
+and   c.kvdikos     = b.epaggelma
+and   e.kvdikos     = d.pvlhths
+[$SQLCMDPVL]
+[$SQLCMDDR]
+! [$SQLSXOLIA]
+[$SQLCMD]
+end-select
+ 
+  next-listing
+ 
+ do printtop
+
+begin-sql
+truncate table tmp_ypol02 
+end-sql
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure printtop
+
+begin-select distinct
+a.synal           &s      () NOP           
+b.epvnymia        &e      () NOP
+a.xre             &x      () NOP
+a.pis             &p      () NOP
+a.ypol            &y      () NOP
+
+    if #ord = 1
+       let #tmp_y = &x 
+    end-if
+    if #ord = 2
+       let #tmp_y = &y 
+    end-if
+
+   if  #tmp_y < #rest
+       move 'F' to $flag
+   end-if
+ 
+   if $flag = 'T'
+      let   #x = #x + &x
+      let   #p = #p + &p
+      let   #y = &x - &p
+      print #inx                 (, 1, 7) edit {MASK5}
+      print &s                   (,+1,15)
+      print &e                   (,+1,40)
+      print ' '                  (,+1,20)
+      print &x                   (,+1,14) edit {MASK3}
+      print &p                   (,+1,14) edit {MASK3}
+      print #y                   (,+1,14) edit {MASK3}
+      next-listing
+   else
+      let   #r_x = #r_x + &x
+      let   #r_p = #r_p + &p
+      let   #r_y = #r_x - #r_p     
+   end-if
+ 
+   if #inx  = #plhuos
+      move 'F' to $flag
+   end-if
+ 
+   let #inx = #inx + 1
+
+from sy_synal b,
+     tmp_ypol02 a
+where a.synal = b.synal
+
+[$SQLCMDORD1]
+end-select
+ next-listing
+
+! ------------------------ R E S T ----------------------------
+
+  let #inx = #inx - #plhuos
+   
+  print '   '                  (+1, 1, 7)
+  print '==================='  (  ,+1,58)
+  print '    ÐëÞèïò'           (  ,+1,20)
+  print '       ×ñÝùóç'        (  ,+1,14)
+  print '      Ðßóôùóç'        (  ,+1,14)
+  print '     Õðüëïéðï'        (  ,+1,14)
+  print '         '            (  ,  1,65)
+
+  print '   '                  (+1, 1, 7)
+  print '  ÓÕÍÏËÏ ÁÍÁËÕÔÉÊÙÍ'  (  ,+1,57)
+
+  let #y = #x - #p
+
+  print '           '          (  ,+1,20)
+  print #x                     (  , +1,14) edit {MASK3}
+  print #p                     (  , +1,14) edit {MASK3}
+  print #y                     (  , +1,14) edit {MASK3}
+
+  print '   '                  (+1, 1, 7)
+  print '      ÓÕÍÏËÏ ËÏÉÐÙÍ'  (  ,+1,57)
+
+  print #inx                   (  , +1,20) edit {MASK5}
+  print #r_x                   (  , +1,14) edit {MASK3}
+  print #r_p                   (  , +1,14) edit {MASK3}
+  print #r_y                   (  , +1,14) edit {MASK3}
+
+  let #r_x = #r_x + #x
+  let #r_p = #r_p + #p
+  let #r_y = #r_x - #r_p
+
+  print '   '                  (+1, 1, 7)
+  print '## Ó  Õ  Í  Ï  Ë  Ï'  (  ,+1,57)
+
+  print '           '          (  ,+1,20)
+  print #r_x                   (  , +1,14) edit {MASK3}
+  print #r_p                   (  , +1,14) edit {MASK3}
+  print #r_y                   (  , +1,14) edit {MASK3}
+
+end-procedure
+
+
+
+! ------------------------------------------------------------------------------
+begin-procedure getypol
+
+   move 0  to  #xrevsh out
+   move 0  to  #pistvsh out
+   move 0  to  #ypol out
+
+
+ if $tmhma != '*'
+execute syp_getypol  @synal    = $synal, 
+                     @hmer     = $evshm, 
+                     @cid      = $cid,
+                     @xrevsh   = #xrevsh out,
+                     @pistvsh  = #pistvsh out,
+                     @ypoloipo = #ypol out,
+                     @tmhma    = #tmhma
+ else 
+execute syp_getypol  @synal    = $synal, 
+                     @hmer     = $evshm, 
+                     @cid      = $cid,
+                     @xrevsh   = #xrevsh out,
+                     @pistvsh  = #pistvsh out,
+                     @ypoloipo = #ypol out
+ end-if 
+
+begin-select
+dateadd(dd, -1,$apohm) &hm1    () NOP
+  move &hm1 to $evs_hmer1
+  display $evs_hmer1
+end-select
+
+
+if #ord = 1
+    if $tmhma != '*'
+execute syp_getypol  @synal    = $synal, 
+                     @hmer     = $evs_hmer1, 
+                     @cid      = $cid,
+                     @xrevsh   = #xrevsh_p out,
+                     @pistvsh  = #pistvsh_p out,
+                     @ypoloipo = #ypol_p out,
+                     @tmhma    = #tmhma
+    else
+execute syp_getypol  @synal    = $synal, 
+                     @hmer     = $evs_hmer1, 
+                     @cid      = $cid,
+                     @xrevsh   = #xrevsh_p out,
+                     @pistvsh  = #pistvsh_p out,
+                     @ypoloipo = #ypol_p out
+    end-if 
+
+  let #xrevsh  = #xrevsh  - #xrevsh_p
+  let #pistvsh = #pistvsh - #pistvsh_p
+  let #ypol    = #ypol    - #ypol_p
+end-if
+
+begin-sql   
+insert into tmp_ypol02 (synal ,xre ,pis  ,ypol) values ($synal,#xrevsh,#pistvsh,#ypol)
+end-sql
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure find_tmhma
+ move $tmhma to #tmhma
+begin-select
+a.perigrafh     &tmhma_p  () NOP
+
+  let $pr = $pr || ' - ÔÌÇÌÁ : ' || &tmhma_p
+
+from ap_tmhma a
+where a.kvdikos = #tmhma
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_pvl
+begin-select
+a.perigrafh     &pvlhths_p  () NOP
+
+  let $pr = $pr || ' - ÐÙËÇÔÇÓ : ' || &pvlhths_p
+
+from sy_pvlhtes a
+where a.kvdikos = #pvl
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_drast
+begin-select
+a.perigrafh     &drast_p  () NOP
+
+  let $pr = 'ÄÑÁÓÔÇÑÉÏÔÇÔÁ : ' || &drast_p
+
+from ap_drast a
+where a.kvdikos = $drast
+end-select
+end-procedure
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  move $evshm to $evshmpr {DATEMASK}
+  let $msg= $pord || ' ÐÅËÁÔÙÍ  ÇÌÅÑÏÌÇÍÉÁ ÁÐÏ : '|| $apohmpr || ' -  ÅÙÓ : '||$evshmpr
+ 
+  print $msg (3,) center
+  print $pr  (4,) center
+  
+  print 'A/A'                               (7, 1, 7)
+  print '    Ó õ í á ë ë á ó ü ì å í ï ò'   ( ,+1,56)
+  print ' '                                 ( ,+1,20)
+  print '        ×ñÝùóç'                        ( ,+1,14)
+  print '       Ðßóôùóç'                        ( ,+1,14)
+  print '      Õðüëïéðï'                        ( ,+1,14)
+
+end-heading

@@ -1,0 +1,232 @@
+! ***********************************************************************
+! ***** REPORT      : eggr.sqr                                       ****
+! ***** DATE WRITTEN: 12/03/98                                       ****
+! ***** APPLICATION : цемийг коцистийг                               ****
+! ***** NOTE        : --- ейтупысг аяхяоу еццяажым  ---              ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y                 59
+#DEFINE   PAGE-X                134
+#DEFINE   HEAD-SIZE              23
+#DEFINE   FOOT-SIZE               5
+#DEFINE   HEAD-LINE               2
+
+#DEFINE   DATEMASK       DD/MM/YYYY
+#DEFINE   MASK1              999999
+#DEFINE   MASK2     999,999,999.99c
+#DEFINE   MASK3     b9,999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $iaa  'тАУТЭТГТА еЦЦЯАЖчР  : '
+ execute app_floatcnv   $iaa, #aa output
+
+ move 'T' to $pageflag
+
+ move $L_CID to $cid
+
+ do get_note
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure get_note
+  move '' to $note
+
+begin-select
+note	() NOP
+  let $note = $note || &note
+from sy_eggr_msg
+where aa = #aa
+order by inx
+end-select
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure main
+
+move '' to $txt1
+move '' to $txt2
+move '' to $txt3
+
+begin-select -C1 LOOPS=1
+a1.kat &kat
+a2.log_tam &log_tam
+a2.txt1      () nop
+a2.txt2      () nop
+a2.txt3      () nop
+a2.perigrafh () nop
+
+     	move &a2.txt1 to $txt1
+	move &a2.txt2 to $txt2
+	move &a2.txt3 to $txt3
+	move &a2.perigrafh to $kat_perigrafh
+
+	exit-select
+from sy_eggr a1, ap_katasthma a2
+where a1.cid = $cid
+and   a1.aa  = #aa
+and   a1.cid = a2.cid
+and   a1.kat = a2.kat
+end-select
+
+begin-select -C1
+a.id					() NOP
+a.kat					() NOP
+a.eggr_seira				() NOP
+a.eggr_ariumos				() NOP
+convert(datetime,a.hmer_e) &a.hmer_e 	() NOP
+a.logar 		              	() NOP
+a.aitia			    		() NOP
+a.xrevsh				() NOP
+a.pistvsh				() NOP
+
+   do makelogform(&a.logar,$outlogar,$logar_txt)
+   let   $tmp=$outlogar||' '||$logar_txt
+ ! print $select15cpi (,1) code
+   print $select15cpi (,1) code
+   print $tmp				(,09,35)
+   print &a.aitia                       (,+2,30)
+   print $select10cpi () code
+   if    &a.id=1 or &a.id=2
+         let   #poso = &a.xrevsh + &a.pistvsh
+         print #poso				(,+12,14) 	edit {MASK2}
+         let   #total = #total + #poso
+   else
+         print &a.xrevsh			(, +0,14) 	edit {MASK2}
+         print &a.pistvsh			(, +1,14) 	edit {MASK2}
+         let   #total_x = #total_x + &a.xrevsh
+         let   #total_p = #total_p + &a.pistvsh
+   end-if
+   position (+1)
+   If    #CURRENT-LINE > 40
+         new-page
+   end-if
+
+from  sy_eggr a
+where a.cid = $cid
+and   a.aa  = #aa
+and   a.logar <> &log_tam
+[$SQLCMD]
+order by a.inx
+end-select
+  
+      do olog(#total, $poso_txt)
+   if    #total <> 0
+         print #total    		(24,63,14) 	edit {MASK2}
+         print $poso_txt                (25,6) wrap 50 3
+         let   #tmp=round(#total / 340.75,2)
+!         print ' Euro:'                 (26,58)
+!         print #tmp                     (,+1)   edit 9999999999.99c
+   else
+         print #total_x                 (24,51,14)      edit {MASK2}
+         print #total_P                 (  ,+1,14)      edit {MASK2}
+   end-if
+
+   next-listing 
+   next-listing
+   next-listing
+   next-listing
+   next-listing
+   move  #aa to $msg 999999
+   let   $msg='( #'||$msg||' )'
+   let   $msg=$msg||'                    ейдосг апо : '|| $kat_perigrafh
+   print $msg                          (,6)    
+   next-listing
+end-procedure
+! ****************************************************************************
+begin-procedure gettitle( #kvdikos, :$perigrafh )
+move '' to $perigrafh
+begin-select 
+perigrafh () nop
+   move &perigrafh to $perigrafh
+from sy_ael7fk
+where kvdikos = #kvdikos
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure olog( #poso, :$poso_txt )
+  execute -C2 app_olograf @poson=#poso, @olograf=$poso_txt output
+end-procedure
+! ****************************************************************************
+begin-procedure makelogform($inlogar,:$outlogar,:$logar_txt)
+  execute -C2 glp_logfrm @in_logar=$inlogar, @out_logar=$outlogar output, @logar_txt = $logar_txt output
+end-procedure
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ ! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+  print $select15cpi (1,1) code
+  print 'о цем. д/мтгс'        (1,2)
+  print $txt1                  (5,2)
+  print 'о оийом. д/мтгс'      (1,22)
+  print $txt1                  (5,22)
+  let $msg=''
+  if  &a.id = 1
+      let $msg='о йатабакым'
+  else
+      let $msg='о еиспяанас'
+  end-if
+
+  print $msg                   (1,43)
+  print 'о талиас'             (1,64)
+  print $txt2                  (5,64)
+  print 'о екецвос'            (1,85)
+  print 'о коцистгс'           (1,106)
+  print $txt3                  (5,106)
+  print $select10cpi () code
+
+! print $reset_printer () code
+
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ if $cid='50'
+    print 'екаиоуяцийг а.е.' (1,1)
+    print 'пеияаиыс 37-39  105 53 ахгма' (2,1)
+    print 'ажл 094004060 жаее ахгмым' (3,1)
+ end-if
+ 
+ do gettitle(&a.id,$perigrafh)
+ move #total to $msg {MASK2}
+ if &a.id = 1
+    let $msg='цяаллатио еиспяангс '||$msg
+ else
+ if &a.id = 2
+    let $msg='емтакла пкгяылгс '||$msg
+ else
+    let $msg=$perigrafh
+ end-if
+ end-if
+
+ print $expand_on  (9,1) code
+ print $msg	   (9,8) 
+ print $expand_off ()    code
+ if    #PAGE-COUNT = 1
+       print $note		(11,05,0)	Wrap 45 12 ON=<13>
+ end-if
+ print &a.eggr_seira		(16,68,03)
+ print '.'                      ()
+ !print &a.eggr_ariumos		(  ,+1,06)	edit 999999
+ move  &a.hmer_e      to $msg {DATEMASK}
+ if    &a.eggr_ariumos = 0
+       move ''        to $msg
+ end-if
+! print $select15cpi (,1) code
+! print 'xxx'        (,90,)
+
+!print $msg	        	(18,62,10)
+End-Heading

@@ -1,0 +1,214 @@
+! **************************************************************************
+! ***** PROLOGIC S.A.                                                   ****
+! ***** REPORT      : ypol2.sqr                + -- -- -- -- -- -- -- + ****
+! ***** DATE        : 09/06/93                 | LAST UPDATE 22/03/95 | ****
+! ***** APPLICATION : synalages                |                      | ****
+! ***** AUTHOR      : ¡÷≈Õ‘¡ «” ¡Õƒ—≈¡”        | Ã–œ …¡” Õ… œ”        | ****
+! ***** NOTE        : …ÛÔÊ˝„ÈÔ ”ıÌ·ÎÎ·ÛÔÏ›Ì˘Ì  + -- -- -- -- -- -- -- + ****
+! **************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99,999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $ihm_apo 'apo hmeromhnia '
+ input $ihm_evs 'evs hmeromhnia '
+ input $ilogar  'eidos eggrafvn '
+ input $itmhma  'tmhma          '
+ input $ianal   'anal           '
+
+ execute app_datecnv   $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+
+ unstring $ilogar by '"' into $filler $logar $filler
+ unstring $itmhma by '"' into $filler $tmhma $filler
+ unstring $ianal  by '"' into $filler $anal  $filler
+ display $cid
+ display $tmhma
+ display $logar
+ display $apohm
+ display $evshm
+ display $ianal
+
+ let $tmhma_pr = ' ¡… Ã≈ ”‘œ…◊≈…¡ –œ’ ¡÷œ—œ’Õ '
+ if $tmhma != '*'
+    do get_tmhma ($tmhma,$tmhma_per)
+    let $tmhma_pr = $tmhma_pr || $tmhma_per
+ else
+    let $tmhma_pr = $tmhma_pr || 'œÀ¡ ‘¡ ‘Ã«Ã¡‘¡ ‘«” ≈‘¡…—≈…¡”'
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+move $evshm to $evs_hmer2
+
+begin-select
+dateadd(dd, -1 ,$apohm) &hm1    () NOP
+  move &hm1 to $evs_hmer1
+end-select
+
+display $evs_hmer1
+display $evs_hmer2
+
+begin-select distinct
+a.synal                                () NOP
+b.epvnymia                             () NOP
+	display &a.synal
+
+  do getypol($logar,$cid,&a.synal,$evs_hmer1,#pr_xrevsh,#pr_pistvsh,#pr_ypoloipo,$tmhma)
+  do getypol($logar,$cid,&a.synal,$evs_hmer2,#al_xrevsh,#al_pistvsh,#al_ypoloipo,$tmhma)
+
+  let #xrevsh   = #al_xrevsh   - #pr_xrevsh
+  let #pistvsh  = #al_pistvsh  - #pr_pistvsh
+  let #ypoloipo = #al_ypoloipo - #pr_ypoloipo
+  
+  let #tmp = #pr_xrevsh + #pr_pistvsh + #al_xrevsh + #al_pistvsh
+  if #tmp <> 0
+    if $anal = '1'
+      print &a.synal                       (,01,05)
+      print &b.epvnymia                    (,+1,33)
+      print #xrevsh                        (,+1,14) edit {MASK1}
+      print #pistvsh                       (,+1,14) edit {MASK1}
+      print #ypoloipo                      (,+1,14) edit {MASK1}
+      print $L_X3                          (,+1,01)
+      print #al_xrevsh                     (,+1,14) edit {MASK1}
+      print #al_pistvsh                    (,+1,14) edit {MASK1}
+      print #al_ypoloipo                   (,+1,14) edit {MASK1}
+      next-listing
+    end-if
+
+      let   #tot_xrevsh    = #tot_xrevsh    + #xrevsh
+      let   #tot_pistvsh   = #tot_pistvsh   + #pistvsh
+      let   #tot_prxrevsh  = #tot_prxrevsh  + #al_xrevsh
+      let   #tot_prpistvsh = #tot_prpistvsh + #al_pistvsh
+
+  end-if
+
+from   sy_kin        a, 
+       sy_synal      b ,
+       sy_synaltopos bb,
+       sy_synalprog  bbb
+ !      ap_nomos      c, 
+!       ap_epaggelma  ff
+
+where  a.cid                       =    $cid
+and    a.logar                     like $logar
+and    a.synal                     =      b.synal
+and    a.synal                     =     bb.synal
+and    a.synal                    *=    bbb.synal
+!and    isnull(b.epaggelma,'00000') =     ff.kvdikos
+!and    isnull(bb.nomos,0)          =      c.kvdikos
+
+[$SQLCMD]
+order by b.epvnymia
+end-select
+      next-listing
+      print '√ ≈ Õ …   ¡   ” ’ Õ œ À ¡'    (,01,39)
+      print #tot_xrevsh                    (,+1,14) edit {MASK1}
+      print #tot_pistvsh                   (,+1,14) edit {MASK1}
+
+      let   #ypoloipo = #tot_xrevsh - #tot_pistvsh
+      print #ypoloipo                      (,+1,14) edit {MASK1}
+
+      print $L_X3                          (,+1,01)
+      print #tot_prxrevsh                  (,+1,14) edit {MASK1}
+      print #tot_prpistvsh                 (,+1,14) edit {MASK1}
+
+      let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+      print #ypoloipo                      (,+1,14) edit {MASK1}
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure getypol($logar,$cid,$synal,$evs_hmer,:#xrevsh,:#pistvsh,:#ypoloipo,$tmhma)
+
+ if $tmhma = '*'
+    execute syp_getypol @synal    = $synal, 
+                        @cid      = $cid, 
+                        @hmer     = $evs_hmer,
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar
+  else
+    move $tmhma to #tmhma
+    execute syp_getypol @synal    = $synal, 
+                        @cid      = $cid, 
+                        @hmer     = $evs_hmer,
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar,
+                        @tmhma    = #tmhma
+  end-if
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure get_tmhma ($t,:$p)
+
+  move $t to #t
+
+begin-select
+perigrafh    () NOP
+  let $p = &perigrafh
+from  ap_tmhma
+where kvdikos = #t
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='…”œ∆’√…œ ”’Õ¡ÀÀ¡”œÃ≈ÕŸÕ ('||$logar||') –≈—…œƒœ’ : '||$apohmpr||' - '||$evshmpr
+  print $msg                                           (3,)      center
+  print $tmhma_pr                                      (4,)      center
+  print $L_X3                                          (6,01,01)
+
+  print ' '                                            (6,1,05)
+  print ' '                                            (,+1,33)
+  print '------   ﬂ Ì Á Û Á    – Â Ò È ¸ ‰ Ô ı ------' (,+1,44)
+  print $L_X3                                          (,+1,01)
+  print '----   ﬂ Ì Á Û Á    – Ò Ô ‰ Â ı Ù È Í ﬁ ----' (,+1,44)
+
+  print ' '                                            (7,1,05)
+  print '”ıÌ·ÎÎ·Û¸ÏÂÌÔÚ'                               (,+1,33)
+  print '        ◊Ò›˘ÛÁ'                               (,+1,14)
+  print '       –ﬂÛÙ˘ÛÁ'                               (,+1,14)
+  print '      ’¸ÎÔÈÔ'                               (,+1,14)
+  print $L_X3                                          (,+1,01)
+  print '        ◊Ò›˘ÛÁ'                               (,+1,14)
+  print '       –ﬂÛÙ˘ÛÁ'                               (,+1,14)
+  print '      ’¸ÎÔÈÔ'                               (,+1,14)
+
+end-heading
+

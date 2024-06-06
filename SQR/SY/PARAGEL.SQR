@@ -1,0 +1,169 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : paragel.sqr                                    ****
+!***** DATE        : 05/08/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHN                                 ****
+!***** NOTE        : Κατασταση παραγγελιών πωλήσεων                 ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    59
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK5     99999
+#DEFINE   MASK6     999999
+#DEFINE   MASK8     999,999,999c
+#DEFINE   MASK4_2   9,990.99c
+#DEFINE   MASK6_2   999,990.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.aa                                () NOP 
+convert(datetime,a.hmer_k) &a.hmer  (,01,08) edit {DATEMASK}
+a.seira                             (,+2,02)
+a.parno                             (,+1,05) edit {MASK5}
+a.synal                             (,+2,05)
+  do getsynal (&a.synal,$epvnymia,#tziros,#ypoloipo,$eisprajh)
+  print $epvnymia                   (,+1,25)
+  print #tziros                     (,+1,11) edit {MASK8}
+  print #ypoloipo                   (,+1,11) edit {MASK8}
+  print $eisprajh                   (,+1,08) edit {DATEMASK}
+convert(datetime,a.hm_ep_parad) &a.hm_parad    (,+3,08) edit {DATEMASK}
+a.tropos_plhr                       () NOP   
+  do getplhr (&a.tropos_plhr,$plhrvmh)
+  print $plhrvmh                    (,+1,30)
+a.pvlhths                           () NOP 
+  do getpvlhths (&a.pvlhths,$pvlhths)
+  print $pvlhths                    (+1,01,20)
+
+  do getdetails(&a.aa)
+
+a.note                              (  ,01,80)
+
+  next-listing
+  print $L_X2                       (,01,{PAGE-X}) fill
+
+  next-listing
+
+from sy_parag a
+where a.cid = $cid
+[$SQLCMD]
+order by a.hmer_k, a.aa
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getdetails(#aa)
+begin-select
+b.eidos                             (,21,05) edit {MASK5}
+  do geteidos (&b.eidos,$perigrafh)
+  print $perigrafh                  (,+1,25)
+0 &b.posothta_parag                    (,+1,10) edit {MASK6_2}
+b.timh                              (,+3,07) edit {MASK6}
+b.paral_posothta                    (,+2,10) edit {MASK6_2}
+0 &b.ekp_pos                           (,+2,07) edit {MASK4_2}
+  print '%'                         (,  ,11)
+  next-listing
+from sy_paragdet b
+where b.aa = #aa
+order by seira
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure geteidos($eidos,:$perigrafh)
+  move '' to $perigrafh
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $perigrafh
+from wh_eidh
+where kvdikos =$eidos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getplhr(#plhr,:$perigrafh)
+  move '' to $perigrafh
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $perigrafh
+from sy_troposplhr
+where kvdikos = #plhr
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getpvlhths(#pvlhths,:$pvlhths)
+  move '' to $pvlhths
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $pvlhths
+from sy_pvlhtes
+where kvdikos = #pvlhths
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal,:$epvnymia,:#tziros,:#ypoloipo,:$eisprajh)
+  move '' to $epvnymia
+ ! execute syp_getoik1 @synal = $synal, @miktos_tziros = #tziros out, 
+  !                    @ypoloipo = #ypoloipo out, @tel_eisp = $eisprajh out
+begin-select
+epvnymia     () NOP
+  move &epvnymia to $epvnymia
+from sy_synal
+where synal = $synal
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='Π Α Ρ Α Γ Γ Ε Λ Ι Ε Σ   Π Ω Λ Η Σ Ε Ω Ν'
+  print $msg (3,) center
+  print 'Ημ/νία'               (5,01,08)
+  print 'Παραγγελία'           ( ,+2,10)
+  print 'Συναλλασόμενος'       ( ,+6,25)
+  print '  Tζίρος'             ( ,+2,10)
+  print '  Υπόλοιπο'           ( ,+1,10)
+  print '  Είσπραξη'           ( ,+1,20)
+  print 'Τρόπος Πληρωμής'      ( ,+1,20)
+
+  print 'Πωλητής'              (6,01,08)
+  print ''                     ( ,+2,10)
+  print 'Είδος'                ( ,+6,25)
+  print 'Ποσ.Παραγγ.'          ( ,+2,10)
+  print '  Τιμή'               ( ,+2,10)
+  print 'Ποσ.Παραλ.'           ( ,+1,10)
+  print 'Εκπτωση (%)'          ( ,+1,20)
+end-heading

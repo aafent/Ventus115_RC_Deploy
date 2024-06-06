@@ -1,0 +1,338 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : tmphmer.sqr                                    ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ¡÷≈Õ‘¡ «” ¡Õƒ—≈¡”                              ****
+!***** NOTE        :  ·Ù·ÛÙ·ÛÁ ÂÎ›„˜Ôı Ù·ÏÂÈÔı                      ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    59
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99999
+#DEFINE   MASK2     99
+#DEFINE   MASK3     99999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $ihm_apo 'hmer_apo'
+ input $ihm_evs 'hmer_evs'
+ input $perioxh 'perioxh'
+ execute app_datecnv    $ihm_apo, $hm_apo output, $hm_apopr output
+ execute app_datecnv    $ihm_evs, $hm_evs output, $hm_evspr output
+ unstring $perioxh by '"' into $filler $perioxh $filler
+
+ let $omada = '‘_'||$perioxh
+
+ display $cid
+ if $cid = 'O'
+    let $omada = '‘¡Ã'
+ end-if
+
+ do init_report
+
+ display $omada
+ display $perioxh
+ display 'vvvvv'
+ display $start_hm
+ display $hm_evs
+ display '^^^^^'
+
+ execute syp_cretmphmer $cid,$perioxh, $start_hm, $hm_evs
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 0 to #tot_xre
+ move 0 to #tot_pis
+ move 'F' to $print_flag
+
+ if #pro_pis <> 0 or #pro_xre <> 0
+    print '¡–œ Ã≈‘¡÷œ—¡ :'   (,50)
+    print #pro_pis           (,86,15) edit {MASK3}
+    print #pro_xre           (,+1,15) edit {MASK3}
+    let #diff    = #pro_pis - #pro_xre
+    print #diff              (,+1,15) edit {MASK3}
+
+    next-listing
+ end-if
+ 
+
+begin-select 
+a.owner                   () NOP
+a.aa                      () NOP
+a.xp                      () NOP
+a.logar                   () NOP
+a.synal                   () NOP
+a.parkvd                  () NOP
+a.seira                   () NOP
+a.parno                   () NOP
+a.xrevsh                    () NOP
+a.pistvsh                    () NOP
+a.aitia                   () NOP
+convert(datetime,a.hmer)  &a.hmer  () NOP
+
+   if &a.owner = 'E'
+      move &a.aa to $tay 999999
+   else
+      move ' '   to $tay
+   end-if
+
+
+   if $print_flag = 'F'
+      do finddiff(&a.hmer,$hm_apo,$print_flag)
+      do domore
+   end-if
+
+   move 0 to #xrevsh
+   move 0 to #pistvsh
+
+      move &a.xrevsh to #xrevsh
+
+      move &a.pistvsh to #pistvsh
+
+
+   if $print_flag = 'T'
+      let #ps_col  = #current-column + 1
+      move 86 to #ps_col                   ! to correct sqr bug
+    
+      print &a.hmer           (,01,05) edit {SMALLDATE}
+      do makelogform($cid, #xrhsh, &a.synal,&a.logar,$outlogar,$logper)
+      print $outlogar         (,+1,12)
+      print $logper           (,+1,30)
+   
+      if &a.parkvd = '1'
+         print '√≈'          (,+1,02)
+      else 
+      if &a.parkvd = '2'
+         print '≈–'          (,+1,02)
+      else
+         print &a.parkvd     (,+1,02)
+      end-if
+      end-if
+      print &a.seira         (,+1,03)
+      print &a.parno         (,,05) edit 99999
+      print $tay             (,+1,06)
+      print #pistvsh         (,86,15) edit {MASK3}
+      print #xrevsh          (,+1,15) edit {MASK3}
+      let #tot_pis = #tot_pis + #pistvsh
+      let #tot_xre = #tot_xre + #xrevsh
+      let #diff    = #tot_pis - #tot_xre
+      print #diff            (,+1,15) edit {MASK3}
+
+      next-listing
+      print &a.aitia         (,20,30)
+      next-listing need=3
+   end-if
+
+   if $print_flag = 'F'
+      let #tot_pis = #tot_pis + #pistvsh
+      let #tot_xre = #tot_xre + #xrevsh
+   end-if
+
+from sy_tmphmer a
+where a.cid = $cid
+  and a.hmer between $hm_apo and $hm_evs and a.parkvd !="3"
+[$SQLCMD]
+order by a.hmer, a.parkvd, a.seira, a.parno, a.inx
+end-select
+
+   ! print $L_X1            (,#ps_col,31) fill
+   print $L_X1            (,86,46) fill
+   next-listing
+   ! print #tot_pis         (,#ps_col,15) edit {MASK3}
+   print #tot_pis         (,86,15) edit {MASK3}
+   print #tot_xre         (,     +1,15) edit {MASK3}
+   let   #diff = #tot_pis - #tot_xre
+   let   #ps_col = #ps_col + 9
+   ! print #diff            (,#ps_col,15) edit {MASK3}
+   print #diff            (,+1,15) edit {MASK3}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure domore
+
+        if $print_flag = 'T' 
+    
+           if #tot_pis <> 0 and #tot_xre <> 0
+              let $msg = ' …Õ«”« ≈Ÿ” '||$hm_apopr
+              print $msg            (,50)
+              print #tot_pis        (,86,15)           edit {MASK3}
+              print #tot_xre        (,+1,15)           edit {MASK3}
+              let #diff    = #tot_pis - #tot_xre
+              print #diff           (,+1,15)           edit {MASK3}
+              next-listing
+           end-if
+
+display 'I GOT HERE'
+display #tot_xre
+display #tot_pis
+
+           let #tot_pis  =  #tot_pis + #pro_pis
+           let #tot_xre  =  #tot_xre + #pro_xre
+           let #diff     = #tot_pis - #tot_xre
+        end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure finddiff($hm1,$hm2,:$flag)
+
+move 0 to #diff
+begin-select
+datediff(dd,$hm2,$hm1) &diff
+   move &diff to #diff
+end-select
+
+if #diff >= 0
+   move 'T' to $flag
+end-if
+
+end-procedure
+! ******************************************************************
+
+begin-procedure makelogform($cid, #xrhsh, $synal,$inlogar,:$outlogar,:$logper)
+
+if $synal = ''
+  execute glp_logfrm @cid = $cid, @xrhsh = #xrhsh,
+                     @in_logar=$inlogar, @out_logar=$outlogar output
+  do getlog ($cid,  #xrhsh, $inlogar, $logper)
+else
+  let $outlogar = $inlogar||'/'||$synal
+  do getsynal ($synal,$logper)
+end-if
+end-procedure
+
+begin-procedure getlog($cid, #xrhsh, $inlogar,:$logper)
+  move '' to $logper
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $logper
+from gl_logar
+where logar=$inlogar
+  and cid=$cid
+  and xrhsh = #xrhsh
+end-select
+end-procedure
+
+begin-procedure getsynal($synal,:$epvnymia)
+  move '' to $epvnymia
+begin-select
+epvnymia     () NOP
+  move &epvnymia to $epvnymia
+from sy_synal
+where synal=$synal
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure init_report
+
+! –—œ«√œ’Ã≈Õ« «Ã≈—¡ √…¡ ≈’—≈”« –—œœƒ≈’‘… ŸÕ ’–œÀœ…–ŸÕ
+
+
+begin-select
+convert(datetime,dateadd(dd,-1,$hm_apo)) &hmpre
+  move &hmpre to $hm_pre
+
+end-select
+
+! ≈’—≈”« ‘«” ¡—◊«” ‘«” ◊—«”«”
+
+begin-select
+xrhsh				    &t3.xrhsh
+convert(datetime,xrhsh_arxh)        &t3.hmxrh
+   move &t3.xrhsh to #xrhsh
+   move &t3.hmxrh to $hm_xrh
+from ap_xrhsh t3
+where cid = $cid
+  and $hm_apo between xrhsh_arxh and xrhsh_telos
+end-select
+
+
+! ≈’—≈”« –—œ«√œ’Ã≈ÕŸÕ –—œœƒ≈’‘… ŸÕ ”’ÕœÀŸÕ
+
+move 0 to #pro_xre
+move 0 to #pro_pis
+move '1 jan 2002' to $hm_xrh
+
+begin-select
+sum(xrevsh)     &t2.xrevsh
+sum(pistvsh)    &t2.pistvsh
+convert(datetime,dateadd(dd,+1,max(hmer_e)))  &t2.maxhm
+
+     move &t2.xrevsh   to #pro_pis
+     move &t2.pistvsh  to #pro_xre
+
+  move &t2.maxhm    to $start_hm
+from gl_oh_total t2
+where hmer_e between $hm_xrh and $hm_pre
+  and omada = $omada 
+and cid=$cid
+end-select
+begin-select
+sum(xrevsh) &txre,sum(pistvsh) &tpi
+
+from sy_tmphmer
+where cid=$cid and hmer>=&t2.maxhm and hmer<$hm_apo
+and parkvd!='3'
+end-select
+add &txre to #pro_xre
+add &tpi to #pro_pis
+show #pro_xre
+show #pro_pis
+show $hm_pre
+
+end-procedure
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg=' ¡‘¡”‘¡”« ≈À≈√◊œ’ ‘¡Ã≈…œ’ ('||$perioxh||') –≈—…œƒœ’ : '||$hm_apopr||' - '||$hm_evspr
+  print $msg (3,) center
+  print '«ÏÂÒ.'                (5,01,05) 
+  print 'ÀÔ„·ÒÈ·ÛÏ¸Ú'          (,+1,12)
+  print '– Â Ò È „ Ò · ˆ Á'    (,+1,30)
+  print '–¡'                   (,+1,02)
+  print '”≈…'                  (,+1,03)
+  print '¡ÒÈË.'                (,+1,05)
+  print '≈„„Ò.'                (,+1,05)
+  print '≈ÈÛÒ‹ÓÂÈÚ'           (,86,15)
+  print ' –ÎÁÒ˘Ï›Ú'            (,+1,15)
+  print '–ÒÔÔ‰.’¸ÎÔÈÔ'       (,+1,15)
+  print '¡ È Ù ﬂ ·'            (6,20,30)
+
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	1	2	462	tmphmer	rs_xp	X	01},TITLE{ ·Ù‹ÛÙ·ÛÁ ÂÎ›„˜Ôı Ù·ÏÂﬂÔı}
+!	PARCOUNT{2}
+!	PAR1{«ÏÂÒÔÏÁÌﬂ·	DUMP1	2	¡–œ-≈Ÿ”	datetime		X}
+!	PAR2{–ÂÒÈÔ˜ﬁ	DUMP2	1	≈–…Àœ√«	char(1)		X}
+!REPORTHELP{F}
+!</pcalib>

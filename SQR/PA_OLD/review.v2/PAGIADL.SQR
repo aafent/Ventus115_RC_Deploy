@@ -1,0 +1,285 @@
+!***********************************************************************
+!***** REPORT      : pagiadl.sqr                                    ****
+!***** DATE        : 12/04/93                                       ****
+!***** NOTE        : --- коцистийо сведио цем. коц.    ----         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999,999,999.99c
+#DEFINE   MASK2     999
+#DEFINE   MASK3     99
+#DEFINE   MASK4     9999
+#DEFINE   MASK5	    999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $xrhsh	' вягсг'
+ input $kodapo	' йыдийос пациоу апо'
+ input $kodeos	' йыдийос пациоу еыс'
+ unstring $xrhsh by '"' into $filler $xrhsh $filler
+ unstring $kodapo by '"' into $filler $kodapo $filler
+ unstring $kodeos by '"' into $filler $kodeos $filler
+move $xrhsh to #xrhsh
+let $date1 = '1/1/' || $xrhsh
+let $date2 = '12/31/' || $xrhsh
+ do main
+ do synola
+
+End-Report
+
+! ****************************************************************************
+begin-procedure main
+
+let $logar_gl = '0'
+begin-select
+kvdikos 
+perigrafh
+pososto 
+hm_enarjhs &hmenarjhs
+logar_gl
+  if $logar_gl = '0'
+     let $logar_gl = &logar_gl
+  end-if
+
+  if &logar_gl > $logar_gl
+     do synola_logar
+     let $logar_gl = &logar_gl
+  end-if
+
+  do find_ajies
+  do ektyp
+
+from pa_mhtrvo
+where kvdikos between $kodapo and $kodeos
+order by logar_gl,kvdikos
+end-select
+do synola_logar
+end-procedure
+
+begin-procedure find_ajies
+let #posothta	= 0
+let #kthsh      = 0
+let #aposbesh   = 0
+let #praposbesh = 0
+let $hmeromhnia = ''
+let #pvlhsh     = 0
+let $hmpvlhshs  = ''
+begin-select
+sum(isnull(pistvsh,0))	&kthsh
+sum(isnull(posothta,0))	&posothta
+  let #kthsh = &kthsh
+  let #posothta = &posothta
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('01','04')
+
+end-select
+let #flag_pvl=0
+begin-select
+count(*) &pvl
+
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('02')
+end-select
+if &pvl>0
+	let #flag_pvl=1
+end-if
+
+
+begin-select
+min(hm_parast)	&hmeromhnia
+  let $hmeromhnia = &hmeromhnia
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('01','04')
+  and hm_parast is not null
+end-select
+
+begin-select
+sum(isnull(pistvsh,0))	&aposbesh
+  let #aposbesh = - &aposbesh
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '03'
+  and hmeromhnia between $date1 and $date2
+end-select
+
+begin-select
+sum(isnull(pistvsh,0))	&praposbesh
+  let #praposbesh = - &praposbesh
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '03'
+  and hmeromhnia < $date1
+end-select
+
+begin-select
+isnull(xrevsh,0)	&pvlhsh
+hmeromhnia		&hmpvlhshs
+  let #pvlhsh = &pvlhsh
+  let $hmpvlhshs = &hmpvlhshs
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '02'
+end-select
+
+
+if $hmeromhnia = ''
+   let $hmeromhnia = &hmenarjhs
+end-if
+let $hmenarjhs = &hmenarjhs
+if $hmenarjhs = ''
+   let $hmenarjhs = $hmeromhnia
+end-if
+end-procedure
+
+begin-procedure ektyp
+let #aa = #aa + 1
+let #synoloap = #aposbesh + #praposbesh
+let #anaposb  = #kthsh - #synoloap
+print #aa			(+1,1,4)  edit {MASK4}
+print &kvdikos			(,+1,10)
+print &perigrafh		(,+1,20)
+print #posothta			(,+1,3)	  edit {MASK2}
+print #kthsh			(,+1,14)  edit {MASK1}
+if $hmenarjhs <> ''
+   print $hmenarjhs		(,+1,10)  edit {DATEMASK}
+end-if
+print &pososto			(,+1,6)	  edit {MASK5}
+print #aposbesh			(,+1,14)  edit {MASK1}
+print #synoloap			(,+1,14)  edit {MASK1}
+print #anaposb			(,+1,14)  edit {MASK1}
+if $hmeromhnia <> ''
+   print &hmeromhnia		(,+1,10)  edit {DATEMASK}
+end-if
+
+if #pvlhsh <> 0
+   let #kerdos = #pvlhsh - #anaposb
+else
+   let #kerdos = 0
+end-if
+
+if $hmpvlhshs <> ''
+   print $hmpvlhshs		(+1,1,10) edit {DATEMASK}
+else
+   print ''			(+1,1,10)
+end-if
+print #pvlhsh			(,+1,14)  edit {MASK1}
+print #kerdos			(,+1,14)  edit {MASK1}
+
+add #posothta   to #s_posothta
+if #flag_pvl=0
+	add #kthsh	to #s_kthsh
+	add #anaposb	to #s_anaposb
+	add #kthsh	to #l_kthsh
+	add #synoloap	to #l_synoloap
+	add #anaposb	to #l_anaposb
+end-if
+add #aposbesh	to #s_aposbesh
+add #synoloap	to #s_synoloap
+add #kerdos	to #s_kerdos
+add #posothta   to #l_posothta
+add #aposbesh	to #l_aposbesh
+
+
+add #kerdos	to #l_kerdos
+end-procedure
+
+begin-procedure synola
+
+print '='			(+1,1,100) fill
+print ' '			(+1,1,4)
+print ' '			(,+1,10)
+print 'сумока'			(,+1,20)
+print #s_posothta		(,+1,3)   edit {MASK2}
+print #s_kthsh			(,+1,14)  edit {MASK1}
+print ' '			(,+1,10)
+print ' '			(,+1,6)
+print #s_aposbesh		(,+1,14)  edit {MASK1}
+print #s_synoloap		(,+1,14)  edit {MASK1}
+print #s_anaposb		(,+1,14)  edit {MASK1}
+print ' '			(,+1,10)
+
+print ''			(+1,1,10)
+print #s_kerdos			(,+1,14)  edit {MASK1}
+
+end-procedure
+
+begin-procedure synola_logar
+
+print '='			(+1,1,100) fill
+print ' '			(+1,1,4)
+print 'сумока'			(,+1,10)
+print $logar_gl			(,+1,20)
+print #l_posothta		(,+1,3)	  edit {MASK2}
+print #l_kthsh			(,+1,14)  edit {MASK1}
+print ' '			(,+1,10)
+print ' '			(,+1,6)
+print #l_aposbesh		(,+1,14)  edit {MASK1}
+print #l_synoloap		(,+1,14)  edit {MASK1}
+print #l_anaposb		(,+1,14)  edit {MASK1}
+print ' '			(,+1,10)
+
+print ''			(+1,1,10)
+print #l_kerdos			(,+1,14)  edit {MASK1}
+
+print ' '			(+1,1)
+
+let #l_posothta = 0
+let #l_kthsh	= 0
+let #l_aposbesh	= 0
+let #l_synoloap	= 0
+let #l_anaposb	= 0
+
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+let $d = 'лгтяыо пациым тгс ' || $date2
+ print 'бибкио апоцяажым - исокоцислоу'	(1,+1)	center
+ print $d 	(2,+1)  center
+ add 1 to #selida
+ print 'секида :'			(2,90)
+ print #selida				(,+1)   edit {MASK3}
+ print 'A/A'				(5,1,4)
+ print 'йыдийос'          		(,+1,10)
+ print 'пеяицяажг'        		(,+1,20)
+ print 'пос'				(,+1,3)
+ print 'аниа йтгсгс'			(,+1,14)
+ print 'глея. ем' 	 		(,+1,10)
+ print 'апос.%'   	 		(,+1,6)	
+ print 'апосбесеис вягс'		(,+1,14)
+ print 'сумоко апосбес.'		(,+1,14)
+ print 'амапосбестг ан.'		(,+1,14)
+ print 'глея. йтгс'			(,+1,10)
+
+ print 'глея. пык.'			(6,1,10)
+ print 'аниа пыкгсгс'			(,+1,14)
+ print 'йеядос/фглиа'			(,+1,14)
+
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{PA	1	7	493	pagiadl	rs	X	01},TITLE{лГТЯЧО пАЦъЫМ}
+!	PARCOUNT{2}
+!	PAR1{вЯчСГ	dump	1	=	int		X}
+!	PAR2{йЫДИЙЭР пАЦъОУ	dump	2	апо-еыс	char(25)		X}
+!REPORTHELP{F}
+!</pcalib>

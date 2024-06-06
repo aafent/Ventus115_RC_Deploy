@@ -1,0 +1,81 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : sxolia.sqr                                     ****
+!***** DATE        : 01/11/95                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΘΕΟΤΟΚΑΣ ΙΩΑΝΝΗΣ                               ****
+!***** NOTE        : Σχόλια Συναλλασσομένων                         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99999
+#DEFINE   MASK2     9,999,999,999c
+#DEFINE   MASK3     99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select
+a.synal                         (,01,10) on-break print=change/top-page
+                                                  level=1
+b.epvnymia                      (,+2,35) on-break print=change/top-page
+                                                  level=1
+c.perigrafh                     (,+2,15) on-break level=1
+convert(datetime,a.hmeromhnia) &a.hmeromhnia     (,+2,08) edit {DATEMASK}
+a.sxolio                        (,+2,  ) WRAP 45 2 STRIP=/\^@<13> ON=<10>
+ 
+  next-listing       
+
+from sy_synalsxolia a, sy_synal b, sy_kvdinf c
+where a.synal = b.synal
+  and a.kvdinf = c.kvdikos
+[$SQLCMD]
+order by
+[$SQLORD], a.seira
+end-select
+
+End-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΣΧΟΛΙΑ ΣΥΝΑΛΛΑΣΣΟΜΕΝΩΝ'
+  print $msg (3,) center
+
+  print 'Κωδικός'              (5,01,10)
+  print 'Συναλλασόμενος'       ( ,+2,35)
+  print 'Πληροφορία'           ( ,+2,15)
+  print 'Ημ/νία'               ( ,+2,08)
+  print 'Σχόλιο'               ( ,+2,45)
+
+end-heading

@@ -1,0 +1,147 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : mskpvl.sqr                                       ****
+! ***** DATE        : 20/06/95                                         ****
+! ***** APPLICATION :                                                  ****
+! ***** AUTHOR      :                                                  ****
+! ***** NOTE        :                                                  ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     80
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK      DD/MM/YY
+#DEFINE   DATEM         DD/MM
+
+#DEFINE   MASK1             999,999,999
+#DEFINE   MASK2               9,999,999.9999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID  to $cid
+
+ input $icid     '≈Ù·ÈÒÂÈ·'
+ input $ihm_evs  'evs hmeromhnia '
+ 
+ unstring $icid   by '"' into $filler1 $cid   $filler1
+
+ if $cid = '='
+    execute app_getdefcid $cid, $cid output
+ end-if
+
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+ 
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 0 to #cnt
+begin-select  distinct
+a.pvlomada             &pvlomada        () NOP
+a.perigrafh            &perigr          () NOP
+
+  move &pvlomada to $pvlomada
+  move &perigr   to $perigr
+
+  do print_msk
+  do find_logar
+
+from wh_pvlomades a,wh_eidh b
+where  a.pvlomada = b.pvlomada
+and    exists     (select d.eidos
+                   from wh_eidhmore d
+                   where b.kvdikos = d.eidos
+                   and   d.cid = $cid )
+and    not exists (select c.eidos
+                   from sy_spceidh c
+                   where b.kvdikos = c.eidos)
+![$SQLCMD]
+order by a.pvlomada
+end-select
+  display #ss
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_logar
+
+begin-select distinct
+a.logar           &logar       () NOP
+b.eidos           &eidos       () NOP
+a.perigrafh       &perigrafh   () NOP
+a.serlogar        &se          () NOP
+a.parent          &pa          () NOP
+a.bathmos          &ll          () NOP
+a.post_flag       &po          () NOP
+
+  let $logar = &logar
+
+  !do mk_logar
+
+  print $pr_logar  (,+1,20)
+  print &perigrafh (,+1,40)
+  print &eidos     (,+1,15)
+
+from  gl_logar a,wh_eidhmore b
+where a.logar     = b.logar
+and   a.bathmos      = 5
+and   a.cid       = $cid
+![$SQLCMD]
+order by a.logar
+end-select
+end-procedure
+
+! *************************************************************************
+begin-procedure mk_logar
+
+  execute glp_logfrm $cid, $logar, $pr_logar output
+
+end-procedure
+! ******************************************************************
+
+begin-procedure print_msk
+  let #s = 0
+  execute whp_getmsk4 @cid=$cid, @eidos=$pvlomada, @hmer=$evshm, @msk=#msk out
+  @ypoloipo = #ypol out
+ ! if #ypol <> 0
+!    print #cnt              (, 01,03)
+    print $pvlomada         (, 01,15)
+    print $perigr           (,+01,30)
+    print #msk              (,+01,15) edit {MASK2}
+    print #ypol             (,+01,15) edit {MASK1}
+    let #s = #msk * #ypol
+    let #ss = #ss + #s
+    let #cnt = #cnt + 1
+    next-listing
+ ! end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let $msg='‘…Ã«  œ”‘œ’” ¡Õ¡ œÃ¡ƒ¡ –ŸÀ«”«”'
+  print $msg                         (3,   ,  )       center
+  print ' ˘‰ÈÍ¸Ú'                    (5, 01,15)
+  print '–ÂÒÈ„Ò·ˆﬁ'                  ( ,+01,30)
+  print '         Ã.”. '             ( ,+01,14) 
+  print '    ’¸ÎÔÈ·'               ( ,+01,12) 
+end-heading

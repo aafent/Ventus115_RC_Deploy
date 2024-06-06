@@ -1,0 +1,96 @@
+[Descriptions]
+title=Ελέγχος Κατά τη καταχώρηση του παραστατικού
+Engine Version=1.0
+@parkvd=Κωδ.Παραστατικού
+@aa=Ταυτότητα Εγγραφής
+
+
+[Forbidden variables]
+@err
+@rc
+@msg
+@ret
+@sta
+@pbrm
+@FE
+
+[Already delcared variables]
+@parkvd
+@aa
+
+
+[Valid Tables]
+Παραστατικό
+Αναλυτικές Γραμμές
+
+[commands syntax check]
+;
+; command_name=ARG_NOEMPTY [ARG_NOEMPTY|ARG_OPTIONAL Only commands with arguments (or with optional args) must be declared here]
+;
+
+
+[Παραστατικό]
+from sy_parmas
+where aa=@aa
+
+[Αναλυτικές Γραμμές]
+ from sy_pardet
+where aa = @aa
+
+
+
+[HEADER]
+create proc vertp_@INTERNALNAME
+(
+ @FE          char(3) = null,
+ @parkvd      parkvd_type,
+ @aa          rowid_type
+) as
+BEGIN
+ declare @err     int             /* Error Number    */
+ declare @rc      int             /* Row count       */
+ declare @msg     varchar(70)     /* Error Message   */
+ declare @ret     int             /* Proc Ret Status */
+ declare @sta     int             /* Subproc  Status */
+ declare @pbprm   varchar(255)    /* Return Parameters for PowerBuilder */
+
+ if @FE = 'WEB' begin set nocount on end
+ select @err = 0, @msg = null, @pbprm = null, @sta=0
+/* ******************** BEGIN OF MAIN PROCEDURE BODY ********************** */
+
+
+
+[FOOTER]
+/* ******************** BUILD PARAMETERS FOR PB  ************************** */
+  if @FE='PB'
+  begin
+     select @pbprm = convert(varchar(9), @rc)
+  end
+/* ******************** END   OF MAIN PROCEDURE BODY ********************** */
+proc_exit:
+/* transaction control */
+ if @err != 0
+    begin
+      if @msg is null select @msg = 'GENERAL ERROR'
+      if @FE!='WEB' if @err != 99 raiserror 30100 @msg
+      if @FE='WEB' select @ret=-1 else select @ret = @err
+    end
+ else
+    begin
+      if @FE='WEB' select @ret=1 else select @ret = 0
+      if @FE = 'PB'
+      begin
+         select @pbprm = isnull(@pbprm, '!')
+         raiserror 39999 @pbprm
+      end
+ end
+ if @FE='WEB' and @ret= -1 select @ret,@msg
+ return @ret
+END
+
+
+[Before Deployment]
+if exists(select 1 from sysobjects where type='P' and name='vertp_@INTERNALNAME') drop proc vertp_@INTERNALNAME
+
+[After Deployment]
+grant all on vertp_@INTERNALNAME to public

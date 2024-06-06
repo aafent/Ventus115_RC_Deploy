@@ -1,0 +1,223 @@
+!***********************************************************************
+!***** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                 ****
+!***** REPORT      : lhjh.sqr                                       ****
+!***** DATE        : 09/06/93 - 2/9/96 - 23/4/02                    ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ  - ΜΠΟΚΙΑΣ ΝΙΚΟΣ             ****
+!***** NOTE        : Καταλογος Αξιογραφων κατα Ληξη                 ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1 9999,999.99
+#DEFINE   MASK2       99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ieidos   'eidos ajiogr   '
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ input $flagxart 'xartofylakio (n/o)'
+
+ unstring $ieidos   by '"' into $filler $eidos $filler
+ unstring $flagxart by '"' into $filler $flagxart $filler
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ if $flagxart='N' or $flagxart='n' or $flagxart='ν' or $flagxart='Ν'  or $flagxart='Y' or $flagxart='y'
+    move 'Y' to $flagxart
+    move ' and a.last_status in (select status from aj_status where uesh="PORTFOLIO") ' to $SQLCMD2
+ else
+    move 'N' to $flagxart
+    move '' to $SQLCMD2
+ end-if
+
+  
+
+ if $eidos='Ε' or $eidos='ε' or $eidos='E' or $eidos='e' or $eidos='1'
+     move '1'               to $typ_ajio
+     move 'Επιταγών'        to $typos
+     move '33%'             to $xartofylakio
+ end-if
+ if $eidos='Σ' or $eidos='σ' or $eidos='S' or $eidos='s' or $eidos='2'
+     move '2'               to $typ_ajio
+     move 'Συναλλαγματικών' to $typos
+     move '310000%'         to $xartofylakio
+ end-if
+
+ if $typ_ajio = ''
+    show clear-screen (24,1) 'Λάθος Είδος Αξιογράφου' beep
+    stop
+ end-if
+
+ display 'typ_ajio : ' noline
+ display $typ_ajio
+ display 'cid      : ' noline
+ display $cid
+ display 'apo hm   : ' noline
+ display $apohm
+ display 'evs hm   : ' noline
+ display $evshm
+ display 'SQLCMD2  : ' noline
+ display $SQLCMD2
+ 
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select 
+convert( datetime, a.hm_lhjhs) &a.hm_lhjh        ()  On-Break print = never 
+                                                             level = 1 
+                                                             save  = $day 
+                                                             after = subtotals 
+                                                             skiplines = 1
+a.cid                                           () NOP
+a.seira                                         () NOP
+a.parno                                         () NOP
+a.aa                                            (, 01,05) edit {MASK2}
+a.synal                                         (, +1,05)
+b.epvnymia                                      (,+01,24)
+a.trapeza_ekd                                   (,+01,20)
+
+   move &a.parno to $tmp 9999999
+   let $tmp = &a.seira || $tmp 
+   print $tmp                                   (,+01,12)
+   ! it was : a.aa_eterias                      (,+01,12)
+
+convert( datetime, a.hm_ekdoshs)  &a.hm_ekd     (,+01,08) edit {DATEMASK}
+
+  print &a.hm_lhjh                              (,+01,08) edit {DATEMASK}
+  print ''                                      (,+01,11)
+
+a.notes                                         (,+01,30)
+
+  next-listing
+
+a.ekdoths                                       (, 13,24)
+a.ariumos                                       (,+01,20)
+a.ypok_trap                                     (,+01,12)
+	! !!!a.topos_plhr                       (,+01,12) 
+
+  print ''                                      (,+01,17)
+
+a.ajia                                          (,+01,11) edit {MASK1}
+
+  let #daytot = #daytot + &a.ajia
+
+  next-listing
+
+from  aj_svma a,sy_synal b
+where a.synal    =    b.synal
+  and a.eidos    =    $typ_ajio
+  and a.cid      =    $cid
+  and a.hm_lhjhs  between $apohm and $evshm
+ ! IT WAS :  and a.logar_end   like    $xartofylakio
+[$SQLCMD2]
+[$SQLCMD]
+order by a.hm_lhjhs, a.seira, a.parno
+end-select
+
+   do totals
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure subtotals
+
+   next-listing
+   print 'Σύνολο Ημέρας  ['               (,54,16)
+   print $day                             (,+1,08) edit {DATEMASK}
+   print ']'                              (,+1,01)
+   print #daytot                          (,+9,12) edit {MASK1}
+   next-listing
+   let #total = #total + #daytot
+   move 0 to #daytot
+end-procedure
+
+! ******************************************************************
+
+begin-procedure totals
+   next-listing
+   print 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ ΠΕΡΙΟΔΟΥ  ['      (,34,25)
+   print $apohm                           (,+1,08) edit {DATEMASK}
+   print '-'                              (,+1,01)
+   print $evshm                           (,+1,08) edit {DATEMASK}
+   print ']'                              (,+1,01)
+   print #total                           (,+9,12) edit {MASK1}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_synal($synal,:$epvnymo)
+
+begin-select
+a2.epvnymia         () NOP
+
+from  sy_synal a2
+where a2.synal = $synal
+end-select
+
+move &a2.epvnymia     to $epvnymo
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = 'Λ Η Ξ Ι Α Ρ Ι Ο   Α Ξ Ι Ο Γ Ρ Α Φ Ω Ν  ['||$typos||']' 
+  print $msg                   (3,) Center
+  print 'Αριθμ'                (5,01,5)
+  print 'Ονοματεπωνυμο Συναλλασσόμενου' ( ,+1,30)
+  print 'Τ ρ α π έ ζ α'        ( ,+1,20)
+  print 'Αρ.Επιταγής'          ( ,+1,12)
+  print '  Εκδοση'             ( ,+1,08)
+  print '    Λήξη'             ( ,+1,08)
+  print '           '          ( ,+1,11)
+  print 'Παρατηρήσεις'         ( ,+1,30)
+
+  print  $typos                (6,01,05)
+  print '    =//=      εκδότη' ( ,+1,30)
+  print 'Αριθμός Λογαριασμού'  ( ,+1,20)
+  print 'Τόπος Πληρωμής'       ( ,+1,12)
+  print '        '             ( ,+1,08)
+  print '        '             ( ,+1,08)
+  print '    Π ο σ ό'          ( ,+1,11)
+  print '     '                ( ,+1,05)
+  print '        '             ( ,+1,20)
+end-heading
+
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{AJ	1	2	409	lhjh	rs	X	01},TITLE{Κατάλογος Αξιογράφων κατα λήξη}
+!	PARCOUNT{3}
+!	PAR1{Τύπος Αξιογρ.(Ε/Σ)	TYPOS	1	1ο ΓΡΑΜΜΑ	char(1)		X}
+!	PAR2{Ημερομηνία λήξης	HMER	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR3{Στο Χαρτοφυλάκιο	XART	1	ΝΑΙ/ΟΧΙ	char(1)		X}
+!REPORTHELP{T},RNHELP{Τύπος Αξιογράφου : Ε=ΕΠΙΤΑΓΗ, Σ=ΣΥΝΑΛ/ΚΗ},RNVER{2.00},RNCREDT{1994-05-27},RNMODDT{2002-04-24},
+!</pcalib>

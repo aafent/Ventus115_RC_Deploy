@@ -1,0 +1,578 @@
+! ******************************************************************************
+! **** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                         ****
+! **** REPORT      :                                                        ****
+! **** DATE        :                                                        ****
+! **** APPLICATION : Αποθηκες                                               ****
+! **** AUTHOR      : Mal Nick                                               ****
+! **** NOTE        :                                                        ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X         160
+#DEFINE   HEAD-SIZE        4
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        4
+
+#DEFINE   MASK1         999,999
+#DEFINE   MASK2      99,999,999
+#DEFINE   MASK3   9,999,999,999
+#DEFINE   MASK4            9999.99
+#DEFINE   MASK5     999,999,999
+#DEFINE   MASK6 999,999,999,999
+#DEFINE   DATEMASK   DD/MM/YY  
+#DEFINE   DATEMASK2     MM    
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $icid     'company        '
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+
+ input $ikvd
+ input $ipvl
+ input $itmhma
+
+ unstring $icid     by  '"' into   $filler1   $cid     $filler8
+ unstring $ikvd     by  '"' into   $filler1   $kvd     $filler8
+ unstring $itmhma   by  '"' into   $filler3   $tmhma   $filler10
+ unstring $ipvl     by  '"' into   $filler3   $pvl     $filler10
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+ execute app_geteom     $apohm, $apohm out
+ 
+ if $cid = '='
+    execute app_retdefcid $cid output
+ end-if
+
+
+ if $kvd != '*'
+    let $SQLKVD = 'and b.kvdikos like ' || $kvd
+    let $SQLKVDGRP = 'group by b.kvdikos,a.hmeromhnia'
+ else 
+    let $SQLKVD = ' '                            
+    let $SQLKVDGRP = 'group by b.kvdikos,a.hmeromhnia'
+ end-if
+
+ if $pvl != '*'
+    let $SQLPVL = 'and c.pvlomada like ' || $ipvl
+    let $SQLPVLGRP = 'group by c.pvlomada,c.perigrafh,a.hmeromhnia'
+ else 
+    let $SQLPVL = ' '                             
+    let $SQLPVLGRP = ' group by c.pvlomada,c.perigrafh,a.hmeromhnia '
+ end-if
+
+ if $tmhma != '*'
+! do main_tmhma
+ let #tmhma = $tmhma
+    let $SQLTMHMA = 'and c.tmhma ='|| $tmhma
+    let $SQLTMHMAGRP = 'group by c.tmhma,a.hmeromhnia'
+ else 
+    let $SQLTMHMA = ' '                       
+    let $SQLTMHMAGRP = 'group by c.tmhma,a.hmeromhnia'
+ end-if
+
+ 
+ do main_pvlomada
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main_pvlomada
+
+begin-sql
+delete from s_wh_stat01
+end-sql
+
+begin-select
+c.pvlomada                     &kvd         () NOP
+c.perigrafh                    &per         () NOP   
+convert(datetime,a.hmeromhnia) &date        () NOP                       
+sum(a.pvl_p)                   &pvl_p       () NOP                       
+sum(a.pvl_a)                   &pvl_a       () NOP                       
+
+  
+             let $kvd    = &kvd  
+             let $per    = &per 
+             let $date   = &date
+             let #pvl_p  = &pvl_p
+             let #pvl_a  = &pvl_a
+  do insert
+
+from wh_kint1 a, wh_eidh b, wh_pvlomades c           
+where a.eidos = b.kvdikos
+and   c.pvlomada = b.pvlomada
+and   a.hmeromhnia between $apohm and $evshm
+and   a.cid = $cid
+[$SQLPVL]
+[$SQLTMHMA]
+[$SQLPVLGRP]
+end-select
+
+  do print_details
+
+  do print_sum
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure insert
+
+begin-sql
+insert into s_wh_stat01( kvdikos, hmeromhnia, pvl_a , pvl_p)
+ values                ($kvd    ,$date      ,#pvl_a ,#pvl_p)
+end-sql
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure print_details
+
+
+begin-select distinct
+ next-listing need=20
+ print ' Είδος :'                                   (, 1,10)
+a.kvdikos                &k                         (,+1,15)
+b.perigrafh                                         (,+1,40)
+
+ next-listing
+!    print '-'                                        (, 1,51) fill
+ next-listing
+
+  print ' '                                       (, 1,10)
+  print ' ------------------ 1  9  9  5 ------------------' (,+1,64)
+  print '---------------------------------- 1  9  9  6 ------------------------------------------------' (,67,81)
+ next-listing
+   print ' '                                                          (, 1,10)
+   print '            Περιόδου     ' (,+1,25)
+   print '          Προοδευτικό    ' (,+1,25)
+   print '                  Περιόδου             ' (,67,39)
+   print '                Προοδευτικό            ' (,+4,39)
+  next-listing
+
+  print 'Μήνας'  (,1,10)
+   print '    Ποσότητα         Αξία'               (,+1,25)
+   print '   Ποσότητα          Αξία'               (,+1,25)
+   print 'Ποσότητα  Ποσοστό         Αξία  Ποσοστό'  (,67,39)
+   print 'Ποσότητα  Ποσοστό         Αξία  Ποσοστό' (,+4,39)
+  next-listing
+
+  let $k = &k
+
+  do 199     
+
+from s_wh_stat01 a,wh_pvlomades b
+where a.kvdikos = b.pvlomada
+and   a.hmeromhnia between $apohm and $evshm
+order by kvdikos
+end-select
+  
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure print_sum    
+
+ next-listing need=20
+ print ' ΣΥΝΟΛΑ '                                   (, 1,10)
+ next-listing
+!    print '-'                                        (, 1,51) fill
+ next-listing
+
+  print ' '                                       (, 1,10)
+!                 1         2         3         4         5         6
+!        123456789012345678901234567890123456789012345678901234567890
+  print ' ------------------------ 1  9  9  5 ------------------------ ' (,+1,64)
+  print '----------------------------------- 1  9  9  6 --------------------------------------------------' (,+1,84)
+ next-listing
+   print ' '                                                          (, 1,10)
+   print '            Περιόδου     ' (,+1,25)
+   print '                   Προοδευτικό    ' (,+1,37)
+   print '                  Περιόδου             ' (,76,39)
+   print '                Προοδευτικό            ' (,+4,39)
+  next-listing
+
+  print 'Μήνας'  (,1,10)
+   print '    Ποσότητα             Αξία'               (,+1,29)
+   print '       Ποσότητα            Αξία'               (,+1,31)
+   print 'Ποσότητα  Ποσοστό         Αξία  Ποσοστό'  (,76,39)
+   print 'Ποσότητα  Ποσοστό         Αξία  Ποσοστό' (,+4,39)
+  next-listing
+
+  do 199_2   
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure 199
+   let #s_pvl_p_n = 0         
+   let #s_pvl_a_n = 0         
+   let #s_pvl_p_o = 0         
+   let #s_pvl_a_o = 0         
+begin-select distinct
+convert(datetime,a.hmeromhnia)   &hmer              () NOP   
+datename(MM,convert(datetime,a.hmeromhnia)) &lala     (  , 1,10) 
+
+  let $hmer = &hmer
+
+  
+  do 1994
+
+  do 1995
+ next-listing
+
+from s_wh_stat01_date a
+where   a.hmeromhnia between $apohm and $evshm
+and     a.hmeromhnia like "%1995%"
+order by a.hmeromhnia
+end-select
+    print '   ==========='  (,10,14)
+    print '=============='  (,+1,12)
+    print '   ==========='  (,61,14)
+    print ' ============'  (,+9,13)
+ 
+   next-listing
+
+   print 'ΣΥΝΟΛΑ : ' (, 1, 9)
+   print #s_pvl_p_o  (,14,10)   edit {MASK2}
+   print #s_pvl_a_o  (,+2,12)   edit {MASK5}
+   print #s_pvl_p_n  (,65,10)   edit {MASK2}
+   print #s_pvl_a_n  (,+9,13)   edit {MASK3}
+
+   next-listing
+   next-listing
+   next-listing need=15
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure end_month
+  execute app_geteom $hmer, $hmer out
+end-procedure
+! ******************************************************************************
+begin-procedure 199_2
+   let #s_pvl_p_n_sum   = 0
+   let #s_pvl_a_n_sum   = 0
+   let #s_pvl_p_o_sum   = 0
+   let #s_pvl_a_o_sum   = 0
+   let $hmer = ' '
+begin-select distinct
+convert(datetime,a.hmeromhnia)   &hmer_sum             () NOP   
+datename(MM,convert(datetime,a.hmeromhnia)) &lala_sum     (  , 1,10) 
+
+  let $hmer = &hmer_sum
+
+  
+  do 1994_2
+
+  do 1995_2
+ next-listing
+
+from s_wh_stat01_date a
+where    a.hmeromhnia between $apohm and $evshm
+and      a.hmeromhnia like "%1995%"
+order by a.hmeromhnia
+end-select
+    print '   ==========='  (,10,14)
+    print '=============='  (,+3,15)
+    print '   ==========='  (,70,14)
+    print ' ============'  (,+9,13)
+ 
+   next-listing
+
+   print 'ΣΥΝΟΛΑ : ' (, 1, 9)
+   print #s_pvl_p_o_sum  (,11,14)   edit {MASK3}
+   print #s_pvl_a_o_sum  (,+1,15)   edit {MASK6}
+   print #s_pvl_p_n_sum  (,74,10)   edit {MASK2}
+   print #s_pvl_a_n_sum  (,+9,13)   edit {MASK3}
+     next-listing
+   next-listing
+   next-listing
+   next-listing need=15
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure 1994               
+
+   let #pvl_p_o = 0         
+   let #pvl_a_o = 0         
+
+begin-select
+a.kvdikos                                             () NOP
+a.pvl_p         &pvl_p_o                              () NOP               
+a.pvl_a         &pvl_a_o                              () NOP               
+   let #pvl_p_o = &pvl_p_o
+   let #pvl_a_o = &pvl_a_o
+
+   let #s_pvl_p_o = #s_pvl_p_o + &pvl_p_o
+   let #s_pvl_a_o = #s_pvl_a_o + &pvl_a_o
+   
+
+
+from s_wh_stat01 a
+where a.kvdikos like $k
+and   a.hmeromhnia = $hmer
+order by a.hmeromhnia
+end-select
+    print         #pvl_p_o                              (,+3,11) edit {MASK2}
+    print         #pvl_a_o                              (,+2,11) edit {MASK2}
+    print         #s_pvl_p_o                            (,+1,11) edit {MASK2}
+    print         #s_pvl_a_o                            (,+2,12) edit {MASK5}
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure 1994_2
+
+   let #pvl_p_o_sum = 0         
+   let #pvl_a_o_sum = 0         
+
+begin-select
+convert(datetime,a.hmeromhnia) &date_sum_1   () NOP                       
+sum(a.pvl_p)        &pvl_p_o_sum                           () NOP               
+sum(a.pvl_a)        &pvl_a_o_sum                           () NOP               
+   
+   let #pvl_p_o_sum = &pvl_p_o_sum
+   let #pvl_a_o_sum = &pvl_a_o_sum
+
+   let #s_pvl_p_o_sum = #s_pvl_p_o_sum + #pvl_p_o_sum
+   let #s_pvl_a_o_sum = #s_pvl_a_o_sum + #pvl_a_o_sum
+   
+
+
+from s_wh_stat01 a
+where a.hmeromhnia = $hmer
+group by a.hmeromhnia
+order by a.hmeromhnia
+end-select
+    print        #pvl_p_o_sum                              (,  ,14) edit {MASK3}
+    print        #pvl_a_o_sum                              (,+1,15) edit {MASK6}
+    print        #s_pvl_p_o_sum                            (,+1,15) edit {MASK6}
+    print        #s_pvl_a_o_sum                            (,+1,15) edit {MASK6}
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure 1995
+
+   let #pvl_p_n = 0         
+   let #pvl_a_n = 0         
+
+begin-select
+dateadd(yy,+1,$hmer)  &hm1  () NOP           
+end-select
+ 
+  let $hm1=&hm1
+ 
+  execute app_geteom $hm1,  $hm1 out
+
+  let $EXIST = 'N'
+begin-select
+a.kvdikos     &s1       () NOP
+a.pvl_p         &pvl_p_n                              () NOP               
+a.pvl_a         &pvl_a_n                              () NOP               
+
+   let #pvl_p_n = &pvl_p_n
+   let #pvl_a_n = &pvl_a_n
+  let $EXIST = 'Y'
+
+   let #s_pvl_p_n = #s_pvl_p_n + &pvl_p_n
+   let #s_pvl_a_n = #s_pvl_a_n + &pvl_a_n
+
+from s_wh_stat01 a
+where a.kvdikos like $k
+and   a.hmeromhnia = $hm1 
+
+end-select
+begin-sql
+! delete from s_wh_stat01
+! where kvdikos = $k          
+! and   hmeromhnia = &hm1
+end-sql
+! ------------------------------------------------------------------------------
+    print         #pvl_p_n                              (,65,11) edit {MASK2}
+! 65
+        if #pvl_p_o != 0
+                 let #pos_p = ((#pvl_p_n*100)/#pvl_p_o)-100
+        else
+                 let #pos_p = 0                              
+        end-if
+     if $EXIST = 'N'
+        let #pos_p = 0                              
+     end-if
+
+        print         #pos_p                            (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+    print         #pvl_a_n                              (,+2,11) edit {MASK2}
+
+        if #pvl_a_o != 0
+                 let #pos_a = ((#pvl_a_n*100)/#pvl_a_o)-100
+        else
+                 let #pos_a = 0                              
+        end-if
+
+     if $EXIST = 'N'
+        let #pos_a = 0                              
+     end-if
+
+        print         #pos_a                            (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+ 
+ if $EXIST = 'N'
+    print         '0'                                   (,+1,11) edit {MASK2}
+ else
+    print         #s_pvl_p_n                            (,+1,11) edit {MASK2}
+ end-if
+        if #s_pvl_p_o != 0
+                 let #s_pos_p = ((#s_pvl_p_n*100)/#s_pvl_p_o)-100
+        else
+                 let #s_pos_p = 0                                      
+        end-if
+
+     if $EXIST = 'N'
+        let #s_pos_p = 0                              
+     end-if
+
+        print         #s_pos_p                          (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+ if $EXIST = 'N'
+    print         '0'                                   (,+2,11) edit {MASK2}
+ else
+    print         #s_pvl_a_n                            (,+1,12) edit {MASK5}
+ end-if
+        if #s_pvl_a_o != 0
+                 let #s_pos_a = ((#s_pvl_a_n*100)/#s_pvl_a_o)-100
+        else
+                 let #s_pos_a = 0                                      
+        end-if
+
+     if $EXIST = 'N'
+        let #s_pos_a = 0                              
+     end-if
+
+        print         #s_pos_a                          (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure 1995_2
+
+   let #pvl_p_n_sum = 0         
+   let #pvl_a_n_sum = 0         
+
+begin-select
+dateadd(yy,+1,$hmer)  &hm1_sum  () NOP           
+end-select
+
+  let $hm1_sum=&hm1_sum
+
+  execute app_geteom $hm1_sum, $hm1_sum out
+
+  let $EXIST = 'N'
+
+begin-select
+convert(datetime,a.hmeromhnia) &date_sum_2   () NOP                       
+sum(a.pvl_p)        &pvl_p_n_sum                              () NOP     
+sum(a.pvl_a)        &pvl_a_n_sum                              () NOP            
+
+   let #pvl_p_n_sum = &pvl_p_n_sum
+   let #pvl_a_n_sum = &pvl_a_n_sum
+
+  let $EXIST = 'Y'
+
+   let #s_pvl_p_n_sum = #s_pvl_p_n_sum + &pvl_p_n_sum
+   let #s_pvl_a_n_sum = #s_pvl_a_n_sum + &pvl_a_n_sum
+
+from    s_wh_stat01 a
+where   a.hmeromhnia = $hm1_sum
+group by a.hmeromhnia
+order by a.hmeromhnia
+end-select
+! ------------------------------------------------------------------------------
+   print         #pvl_p_n_sum                              (,+1,11) edit {MASK2}
+
+        if #pvl_p_o_sum != 0
+                 let #pos_p_sum = ((#pvl_p_n_sum*100)/#pvl_p_o_sum)-100
+        else
+                 let #pos_p_sum = 0                              
+        end-if
+     if $EXIST = 'N'
+        let #pos_p_sum = 0                              
+     end-if
+
+    print       #pos_p_sum                                (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+    print       #pvl_a_n_sum                              (,+2,11) edit {MASK2}
+
+        if #pvl_a_o_sum != 0
+                 let #pos_a_sum = ((#pvl_a_n_sum*100)/#pvl_a_o_sum)-100
+        else
+                 let #pos_a_sum = 0                              
+        end-if
+
+     if $EXIST = 'N'
+        let #pos_a_sum = 0                              
+     end-if
+
+       print         #pos_a_sum                            (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+ 
+ if $EXIST = 'N'
+    print         '0'                                   (,+1,11) edit {MASK2}
+ else
+    print         #s_pvl_p_n_sum                        (,+1,11) edit {MASK2}
+ end-if
+        if #s_pvl_p_o_sum != 0
+                 let #s_pos_p_sum = ((#s_pvl_p_n_sum*100)/#s_pvl_p_o_sum)-100
+        else
+                 let #s_pos_p_sum = 0                                      
+        end-if
+
+     if $EXIST = 'N'
+        let #s_pos_p_sum = 0                              
+     end-if
+
+       print         #s_pos_p_sum                          (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+ if $EXIST = 'N'
+    print         '0'                                   (,+2,11) edit {MASK2}
+ else
+    print         #s_pvl_a_n_sum                        (,+1,12) edit {MASK5}
+ end-if
+        if #s_pvl_a_o_sum != 0
+                 let #s_pos_a_sum = ((#s_pvl_a_n_sum*100)/#s_pvl_a_o_sum)-100
+        else
+                 let #s_pos_a_sum = 0                                      
+        end-if
+
+     if $EXIST = 'N'
+        let #s_pos_a_sum = 0                              
+     end-if
+      print         #s_pos_a_sum                          (,+1, 8) edit {MASK4}
+! ------------------------------------------------------------------------------
+end-procedure
+
+! ******************************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'ΠΩΛΗΣΕΙΣ ΕΜΠΟΡΕΥΜΑΤΩΝ ΑΝΑ ΜΗΝA'  (3,) Center
+end-heading

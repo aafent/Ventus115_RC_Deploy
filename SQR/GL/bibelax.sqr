@@ -1,0 +1,288 @@
+!***********************************************************************
+!***** REPORT      : bibelax.sqr                                    ****
+!***** DATE        : 22/03/07                                       ****
+!***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+!***** NOTE        : --- Βιβλίο Απογραφής               ---         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y                62
+#DEFINE   PAGE-X               100 
+#DEFINE   HEAD-SIZE              7
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   MASK1      9999,999,999.99c
+#DEFINE   MASK2                999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ create-array name=total_arr size=30 field=pre_xrevsh:number
+                                     field=pre_pistvsh:number
+			 	     field=xrevsh:number
+				     field=pistvsh:number
+				     field=b_pre_xrevsh:number
+				     field=b_pre_pistvsh:number
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+  input $flag_ueor   'Θεωρημένο n/o : '
+  unstring $flag_ueor by '"' into $filler $flag_ueor $filler
+
+  input $from_logar  'Από Λογαριασμό  : '
+  input $to_logar    'Eως Λογαριασμό  : '
+
+  input $flag_entypo 	'Εντυπο Πολ. Χρήσης '
+  input $page1 	        'Αρ. 1ης Σελίδας '
+ 
+
+ if $flag_ueor = 'n' or $flag_ueor='N' or $flag_ueor='ν' or $flag_ueor='Ν'
+    move 'Y' to $flag_ueor
+ else
+    move 'N' to $flag_ueor
+ end-if
+ 
+ unstring $from_logar by '"' into $filler $from_logar $filler
+ unstring $to_logar   by '"' into $filler $to_logar   $filler
+
+  !execute app_datecnv $ihm_apo, $hm_apo out, $hm_apo_pr out
+  !execute app_datecnv $ihm_evs, $hm_evs out, $hm_evs_pr out
+  unstring $flag_entypo by '"' into $filler $flag_entypo $filler
+  execute -C1 app_floatcnv  $page1,    #page_no output
+
+
+  if $flag_entypo = 'N' 
+     move 'Y' to  $flag_entypo
+  else
+     move 'N' to $flag_entypo
+  end-if
+
+
+
+ move '1 jan 1992' to $datestart
+ move $L_CID       to $cid
+ move $L_XRHSH     to #xrhsh
+ move 3            to $baumos_pr  ! c.a.
+ move 3            to #baumos 
+
+ 
+ move 'F' to $f_new_page
+ do get-company
+ do init
+ do main
+
+End-Report
+
+! ****************************************************************************
+begin-procedure init
+begin-select -C1
+xrhsh				() NOP
+convert(datetime, xrhsh_arxh)	&xrhsh_arxh 	() NOP
+convert(datetime, xrhsh_telos)	&xrhsh_telos	() NOP
+	move &xrhsh	    to #xrhsh
+    	move &xrhsh_arxh    to $xrhsh_arxh  
+    	move &xrhsh_telos   to $xrhsh_telos
+
+        move &xrhsh_arxh    to $apohm         ! ca 2/7/1999
+        move &xrhsh_telos   to $evshm         ! ca 2/7/1999
+        move &xrhsh_arxh    to $datestart
+
+         display $xrhsh_arxh
+         display $xrhsh_telos
+         display $apohm
+         display $evshm
+ from ap_xrhsh
+where cid = $cid
+   and xrhsh = #xrhsh
+ ! and $apohm between xrhsh_arxh and xrhsh_telos
+end-select
+
+ move #xrhsh to $xrhshup 9999
+ let $xrhshup=substr($xrhshup,3,2)
+
+end-procedure
+
+
+! ****************************************************************************
+
+begin-procedure main
+
+ move 0 to #gtot_xre
+ move 0 to #gtot_pis
+
+begin-select -C1
+a.logar             		() NOP
+a.frm_logar            		() NOP
+a.perigrafh         		() NOP
+
+     do getypol_full($cid, &a.logar, $xrhsh_arxh, $xrhsh_telos, #xrevsh, #pistvsh)
+     
+     let #ypoloipo = #xrevsh - #pistvsh
+     if #ypoloipo <> 0 
+        move &a.frm_logar  to  $logar
+        if length($logar) > 14
+            move &a.logar to $logar
+        end-if
+        print $logar                (,1,15)
+        print &a.perigrafh          (,+0,45)
+     
+        if #ypoloipo > 0 
+           print #ypoloipo               (,62,18)  edit {MASK1}
+           let #gtot_xre = #gtot_xre + #ypoloipo
+        else
+           let #ypoloipo = #ypoloipo * (-1)
+           print #ypoloipo               (,80,18)  edit {MASK1}
+           let #gtot_pis = #gtot_pis + #ypoloipo
+        end-if
+        next-listing
+     end-if
+
+ 
+from  gl_logar a
+where a.cid    = $cid
+  and a.xrhsh  = #xrhsh
+  and a.post_flag is not null
+  and a.logar between $from_logar and $to_logar
+  and exists (select 1 from gl_ypol b where b.cid = a.cid 
+                                        and b.hmeromhnia between &xrhsh_arxh and &xrhsh_telos 
+                                        and b.logar=a.logar)
+order by a.logar,a.baumos
+end-select
+
+ next-listing	
+ next-listing	
+ print 'ΓΕΝΙΚΑ ΣΥΝΟΛΑ'			(,17,28)
+
+ print #gtot_xre	    		(,62,18)  edit {MASK1}
+ print #gtot_pis	    		(,80,18)  edit {MASK1}
+
+end-procedure
+
+! ****************************************************************************
+
+
+! ****************************************************************************
+begin-procedure get-company
+begin-select -C1
+title 				() NOP
+	move &title 	    to $compname
+from ap_comp
+where cid = $cid
+end-select
+end-procedure
+! *****************************************************************************
+
+! ****************************************************************************
+
+begin-procedure getypol_full ($cid, $logar, $datestart, $evshm, :#pre_xrevsh, :#pre_pistvsh)
+
+
+  move 0 to #pre_xrevsh
+  move 0 to #pre_pistvsh  
+  
+  execute glp_getypol @cid      = $cid,
+                      @logar    = $logar,
+                      @hmer_apo = $datestart,
+                      @hmer_evs = $evshm,
+                      @xrevsh   = #pre_xrevsh  output,
+                      @pistvsh  = #pre_pistvsh output,
+                      @diafora  = #pre_diafora output,
+                      @no_isoz  = 8, ! ΚΛΠ
+                      @no_isoz2 = 9  ! ΔΛΠ
+                      
+  let #pre_diafora  =  #pre_xrevsh     -  #pre_pistvsh
+
+end-procedure
+
+
+begin-procedure getypol ($cid, $logar, $datestart, $evshm, :#pre_xrevsh, :#pre_pistvsh)
+
+
+  move 0 to #pre1_xrevsh, #pre2_xrevsh
+  move 0 to #pre1_pistvsh,#pre2_pistvsh
+  
+  
+  
+  execute glp_getypol @cid      = $cid,
+                      @logar    = $logar,
+                      @hmer_apo = $datestart,
+                      @hmer_evs = $evshm,
+                      @xrevsh   = #pre1_xrevsh  output,
+                      @pistvsh  = #pre1_pistvsh output,
+                      @diafora  = #pre1_diafora output,
+                      @isoz     = 1
+                      
+  execute glp_getypol @cid      = $cid,
+                      @logar    = $logar,
+                      @hmer_apo = $datestart,
+                      @hmer_evs = $evshm,
+                      @xrevsh   = #pre2_xrevsh  output,
+                      @pistvsh  = #pre2_pistvsh output,
+                      @diafora  = #pre2_diafora output,
+                      @isoz     = 2
+                      
+                        
+  let #pre_xrevsh   =  #pre1_xrevsh    +  #pre2_xrevsh
+  let #pre_pistvsh  =  #pre1_pistvsh   +  #pre2_pistvsh
+  let #pre_diafora  =  #pre_xrevsh     -  #pre_pistvsh
+                      
+
+end-procedure
+
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD03.inc"
+
+ move 'T' to $f_new_page
+ move '' to $msg
+ 
+ if $flag_ueor = 'N'
+  print  $compname          (2,1)
+  print  'BIBΛΙΟ ΑΠΟΓΡΑΦΗΣ' (2,) center
+ else
+  print  $compname          (4,1)
+  move '' to $page_txt
+  if $flag_entypo='Y'
+     let $msg='ΒΙΒΛΙΟ ΑΠΟΓΡΑΦΗΣ ΛΟΓΑΡΙΑΣΜΩΝ' 
+     move 'ΣΕΛΙΔΑ : ' to $page_txt
+     move #page_no to $tmp 99999
+     let $tmp=rtrim($tmp,' ')
+     let $page_txt = $page_txt || $tmp
+     let #page_no = #page_no + 1
+  end-if
+  
+  let #tmp = {PAGE-X} - 15
+  print $msg                                       (3,) center
+  print $page_txt                                  (3, #tmp )
+ end-if
+ 
+ let $msg = $logarup||'  '||$logarupperig || '   Χρήση: ' || '20' || $xrhshup
+ print $msg (4,) center
+   
+   print ' '                                  (5,1,15)
+   print ' '                                  (,+0,25)
+
+   print 'Λογαριασμός'                        (6,1,15)
+   print 'Περιγραφή Λογαριασμού'              (,+0,45)
+   print '   Χρέωση        -        Πίστωση'          (,+2,36)
+
+End-Heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	3	99	5150	bibelax	rs	X	01},TITLE{Βιβλίο Απογραφής Λογαριασμών}
+!	PARCOUNT{4}
+!	PAR1{Θεωρημένο	UEOR	1	ΝΑΙ/ΟΧΙ	char(1)		X}
+!	PAR2{Λογαριασμός	a.logar	2	ΑΠΟ-ΕΩΣ	char(25)		X}
+!	PAR3{Εντυπο Πολ. Χρήσης	ENTYPO	1	ΝΑΙ/ΟΧΙ	char(1)		X}
+!	PAR4{Αρ. 1ης Σελίδας ή 0	PAGE1	1	ΕΠΙΛΟΓΗ	int		X}
+!REPORTHELP{F}
+!</pcalib>

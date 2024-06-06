@@ -1,0 +1,211 @@
+!***********************************************************************
+!***** REPORT      : isozpa.sqr                                     ****
+!***** DATE        : 21/12/99                                       ****
+!***** APPLICATION : PAGIA                                          ****
+!***** NOTE        : --- коцистийо сведио цем. коц.    ----         ****
+!***** AUTHOR      : MANTH                                          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    60
+#DEFINE   PAGE-X    130
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999999999999.99c
+#DEFINE   MASK2     99,999c
+#DEFINE   MASK3     99999999.99c
+#DEFINE   MASK4	    9999999.99c
+#DEFINE   MASK5     999,999c
+#DEFINE   MASK6     99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $kat_apo ' KATHGORIA PAGIOY APO'
+ input $kat_evs	' KATHGORIA PAGIOY EVS'
+
+ unstring $kat_apo by '"' into $filler $kat_apo $filler
+ unstring $kat_evs by '"' into $filler $kat_evs $filler
+  
+   move 0 to #s_aj_agorvn
+   move 0 to #s_aj_aposb
+   move 0 to #s_ypol
+   move 0 to #t_aj_ag
+   move 0 to #t_aj_aposb
+   move 0 to #t_ypol
+ do main
+end-Report
+
+! ****************************************************************************
+
+begin-procedure main
+begin-select distinct
+aa.kathgoria &kat
+
+   do main1
+     print 'сумока ацояым йатгцояиас  :'     (+2,10,30)
+     print #s_aj_agorvn                        (,69,15) edit {MASK1}
+     print 'сумока апосбесеым йатгцояиас :'  (+1,10,30)
+     print #s_aj_aposb                         (,69,15) edit {MASK1}
+     print ' упокоипа йатгцояиас :'          (+1,10,30)
+        let #s_ypol=#s_aj_agorvn + #s_aj_aposb
+     print #s_ypol                             (,69,15) edit {MASK1}
+
+      let #t_aj_ag  = #t_aj_ag + #s_aj_agorvn
+      let #t_aj_aposb = #t_aj_aposb + #s_aj_aposb
+      let #t_ypol = #t_ypol + #s_ypol
+    show #t_ypol
+      move 0 to #s_aj_agorvn
+      move 0 to #s_aj_aposb
+      move 0 to #s_ypol
+    new-page
+from pa_mhtrvo aa
+where aa.kathgoria between $kat_apo and $kat_evs
+order by aa.kathgoria
+end-select
+
+   print ' цемийа сумока ацояым :'      (+2,10,30)
+   print #t_aj_ag                         (,69,15) edit {MASK1}
+   print ' цемийа сумока апосбесеым :'  (+1,10,30)
+   print #t_aj_aposb                      (,69,15) edit {MASK1}
+   print ' упокоипа :'                  (+1,10,30)
+   print #t_ypol                          (,69,15) edit {MASK1}
+end-procedure
+
+begin-procedure main1
+begin-select
+a.kvdikos       &kvd
+a.perigrafh     &per
+convert(char(10),convert(datetime,a.hm_enarjhs),103)    &hmen
+a.notes         &notes
+a.pososto       &pososto
+a.logar_gl      &logar
+  do ektyp
+  do kin
+from pa_mhtrvo a
+where a.kathgoria=&kat
+[$SQLCMD]
+end-select
+
+end-procedure
+
+
+
+begin-procedure ektyp
+next-listing
+next-listing
+print &kvd			         (+1,1,4)
+print &per				 (,+1,40)
+print &hmen				 (,+2,10)
+print &pososto				 (,+2,3)
+print &logar				 (,+2,11)
+print &notes				 (,+2,15)
+
+end-procedure
+
+begin-procedure kin
+move 0 to #ajia_agorvn
+move 0 to #ajia_aposbesevn
+move 0 to #posothta
+move 0 to #ypol_ajia
+  do kin_agores
+   print 'сумока ацояым :'  (+2,10,20)
+   print #posothta          (,62,6) edit {MASK2}
+   print #ajia_agorvn       (,69,11) edit {MASK3}
+    let #s_aj_agorvn= #s_aj_agorvn + #ajia_agorvn
+do kin_aposbeseis
+     print 'сумока апосбесеым :'  (+2,10,25)
+     print #ajia_aposbesevn (,69,11) edit {MASK3}
+     let #s_aj_aposb = #s_aj_aposb + #ajia_aposbesevn
+!do kin_pvlhseis
+  
+     let #ypol_ajia=#ajia_agorvn + #ajia_aposbesevn
+     print 'упокоипа пациоу' (+1,10,20)
+     print #ypol_ajia      (,69,11) edit {MASK3}
+end-procedure
+
+
+
+begin-procedure kin_agores
+begin-select
+b.kvdikos    &k1
+b.paparkvd   &kvdkin1
+b.aitia      &aitia1
+convert(char(10),convert(datetime,b.hm_parast),103) &hm_par1
+b.fpa_pos    &fpa_pos1
+b.ajia_fpa   &ajia_fpa1
+b.posothta   &posothta1
+b.ajia       &ajia1
+ let #ajia_agorvn = #ajia_agorvn + &ajia1
+ let #posothta = #posothta + &posothta1 
+
+  do ektyp1
+from pa_kin b 
+where b.kvdikos=&kvd and paparkvd='01'
+end-select
+end-procedure
+
+begin-procedure kin_aposbeseis
+begin-select
+b.kvdikos    &k3
+b.paparkvd   &kvdkin3
+b.aitia      &aitia3
+convert(char(10),convert(datetime,b.hm_parast),103) &hm_par3
+b.fpa_pos    &fpa_pos3
+b.ajia_fpa   &ajia_fpa3
+b.posothta   &posothta3
+b.ajia       &ajia3
+   let #ajia_aposbesevn = #ajia_aposbesevn + &ajia3
+   do ektyp3
+from pa_kin b 
+where b.kvdikos=&kvd and paparkvd='03'
+end-select
+end-procedure
+
+begin-procedure ektyp1
+print &kvdkin1     (+2,3,3)
+print &aitia1      (,+1,40)
+print &hm_par1     (,+2,10)
+print &posothta1   (,+2,7) edit {MASK5}
+print &ajia1       (,+2,10) edit {MASK4}
+print &fpa_pos1     (,+2,2)  edit {MASK6}
+print &ajia_fpa1    (,+2,10) edit {MASK4}
+end-procedure
+
+begin-procedure ektyp3
+print &kvdkin3     (+2,3,3)
+print &aitia3      (,+1,40)
+print &hm_par3     (,+2,10)
+print &posothta3   (,+2,7) edit {MASK5}
+print &ajia3       (,+2,10) edit {MASK4}
+print &fpa_pos3     (,+2,2)  edit {MASK6}
+print &ajia_fpa3    (,+2,10) edit {MASK4}
+end-procedure
+
+
+
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ let $msg='исофуцио пациым пеяиодоу '
+ print $msg (2,+1) center
+
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{PA	1	9	495	isozpa	rs	X	01},TITLE{иСОФЩЦИО пАЦъЫМ}
+!	PARCOUNT{1}
+!	PAR1{йАТГЦОЯъА	dump	2	BETWEEN	varchar		X}
+!REPORTHELP{F}
+!</pcalib>

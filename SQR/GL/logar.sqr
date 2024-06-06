@@ -1,0 +1,107 @@
+!***********************************************************************
+!***** REPORT      : logar.sqr                                      ****
+!***** DATE        : 12/04/93                                       ****
+!***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+!***** NOTE        : --- ΛΟΓΙΣΤΙΚΟ ΣΧΕΔΙΟ ΓΕΝ. ΛΟΓ.    ----         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     58
+#DEFINE   PAGE-X    100
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99,999,999,999
+#DEFINE   MASK2     999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ move $L_XRHSH to $xrhsh
+ ! input $xrhsh  'Χρήση: '
+ ! unstring $xrhsh by '"' into $filler $xrhsh $filler
+ move $xrhsh to #xrhsh
+
+move ' order by a.logar ' to $SQLORD
+!move ' order by a.perigrafh ' to $SQLORD
+
+ do main
+
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+
+
+
+next-listing
+
+begin-select
+a.baumos           (,1) on-break print=change/top-page after=levelbreak 
+a.logar           () NOP
+a.frm_logar       () NOP
+  move &a.frm_logar to $logarpr
+  print $logarpr  (,01,25)
+a.perigrafh       (,+1,40)
+a.nomisma         (,+1,03)
+a.serlogar        (,+1,25)
+a.post_flag       (,+1,01)
+
+   next-listing
+
+from gl_logar a
+where a.cid=$cid
+and xrhsh=#xrhsh
+[$SQLCMD]
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure levelbreak
+
+  next-listing 
+
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ΚΑΤΑΣΤΑΣΗ ΛΟΓΙΣΤΙΚΟΥ ΣΧΕΔΙΟΥ' (2,+1) center
+ let $msg = '(ΧΡΗΣΗ : ' || $xrhsh || ')'
+ print $msg			  (3,1) center	
+
+ print 'Λογαριασμός'              (5,1,25)
+ print 'Περιγραφή Λογαριασμού'    (,+1,40)
+ print 'NOM'                      (,+1,03)
+ print 'Λογ.Αναζήτησης'           (,+1,25)
+ print 'Ελ.'                      (,+0,03)
+
+
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	2	2	430	logar	rs	X	01},TITLE{Λογιστικό σχέδιο}
+!	PARCOUNT{5}
+!	PAR1{Λογαριασμός	a.logar	1	LIKE	varchar(25)	X	}
+!	PAR2{Οχι τους λογαρ/μούς	a.logar	1	NOT LIKE	varchar(25)	X	}
+!	PAR3{Περιγραφή Λογ/σμού	a.perigrafh	1	LIKE	varchar(40)	X	}
+!	PAR4{Βαθμός Ανάλυσης	a.baumos	2	BETWEEN	int	X	}
+!	PAR5{Λογαριασμός	a.logar	2	BETWEEN	varchar(25)		}
+!REPORTHELP{T},RNHELP{Δημιουργία Κατάστασης Λογιστικού Σχεδίου},
+!</pcalib>

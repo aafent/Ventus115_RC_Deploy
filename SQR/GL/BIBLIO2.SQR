@@ -1,0 +1,491 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : biblio2.sqr                                      ****
+! ***** DATE        : 31/05/95 - 21/06/95                              ****
+! ***** APPLICATION : Application environment                          ****
+! ***** AUTHOR      : ÁÖÅÍÔÁÊÇÓ ÁÍÄÑÅÁÓ                                ****
+! ***** NOTE        : Åêôığùóç Êáñôåëáò Ïìáä.1êáôá Áğïèçêç (èåùñçìåíï) ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     60
+#DEFINE   PAGE-X    133
+#DEFINE   HEAD-SIZE  11
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK      DD/MM/YY
+#DEFINE   DATEM         DD/MM
+
+#DEFINE   MASK5                99999
+#DEFINE   MASKK            9,999,999.9
+#DEFINE   MASKQ              9999999     ! size  7      999,999
+#DEFINE   MASKA            999999999     ! size 11  999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID  to $cid
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+ 
+ do getxrhsh
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select distinct
+a.cid                                           () NOP
+c.perigrafh                                     () NOP
+b.pvlomada                                      () NOP
+
+   move &c.perigrafh to $perigrafh
+   move &b.pvlomada  to $pvlomada
+
+   do print_details
+
+from wh_kint1 a, wh_eidh b, wh_pvlomades c
+where a.cid        = $cid				
+and   a.hmeromhnia   between $startdate and $evshm
+and   b.pvlomada   = c.pvlomada
+and   a.eidos      = b.kvdikos
+[$SQLCMD]
+order by a.cid, c.pvlomada
+end-select
+
+! do tot_apou
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getxrhsh
+
+begin-select 
+convert(datetime,xrhsh_arxh)  &xrhsh_arxh () NOP
+   move &xrhsh_arxh to $startdate
+from  ap_xrhsh
+where cid = $cid
+and   $apohm between xrhsh_arxh and xrhsh_telos
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal, :$epvnymia)
+
+   move '' to $epvnymia
+   if $synal = '' 
+      move ' ' to $synal
+   end-if
+
+begin-select
+a.epvnymia                 () NOP
+   move &a.epvnymia to $epvnymia
+from sy_synal a
+where a.synal = $synal
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure prev_totals
+
+begin-select
+sum(pvl_p) &pvl_qt       () NOP
+sum(pvl_a) &pvl_aj       () NOP
+sum(ago_p) &ago_qt       () NOP
+sum(ago_a) &ago_aj       () NOP
+sum(dia_p) &dia_qt       () NOP
+sum(gen_p) &gen_qt       () NOP
+sum(gen_a) &gen_aj       () NOP
+sum(apo_p) &apo_qt       () NOP
+sum(apo_a) &apo_aj       () NOP
+
+  move &pvl_qt to #s_pvl_qt 
+  move &pvl_aj to #s_pvl_aj 
+  move &ago_qt to #s_ago_qt     
+  move &ago_aj to #s_ago_aj
+  move &dia_qt to #s_dia_qt
+  move &apo_qt to #apo_qt
+  move &apo_aj to #apo_aj
+
+! (v) - 1.6.95 ôá ãåíéêá (ìåôáöïñåò) óôéò ğùëçóåéò (Å.ÄÉÁÌÁÍÔÇ - È.ÊÏÕÔÓÏÕĞÁÓ)
+  let  #s_pvl_qt = #s_pvl_qt - &gen_qt
+  let  #s_pvl_aj = #s_pvl_aj - &gen_aj
+! (^) -
+
+  let  #ypol = #apo_qt + #s_ago_qt - #s_pvl_qt + #s_dia_qt
+
+from  wh_kint1 a, wh_eidh b
+where a.eidos       = b.kvdikos
+and   a.cid         = $cid
+and   b.pvlomada    = $pvlomada
+and   a.hmeromhnia >= $startdate 
+and   a.hmeromhnia <  $apohm
+
+
+
+!     =-=-=-=-= and  a.eidos = 'D3OPHZ86-TS'
+  
+end-select
+
+  execute whp_getmsk3 @cid=$cid, @eidos=$pvlomada, @hmer=$evshm, @msk=#msk out
+
+!  print $pvlomada        (-3,01,15)
+!  print $perigrafh        (,+01,40)
+!  print 'Ì.Ó.Ê'           (,+02,06)
+!  print #msk              (,+01,11) edit {MASKK}
+!  print 'ÁğïãñáöŞ'        (,+02,20)
+!  print #apo_aj           (,+01,09) edit {MASKA}
+!  print #apo_qt           (,+01,07) edit {MASKQ}
+!
+!    next-listing
+!
+!  print '-'               (, 01,{PAGE-X}) fill
+
+    next-listing
+
+  print ' '             (+1,01,05)
+  print ' '               (,+1,02)
+  print ' '               (,+1,04)
+  print ' '               (,+1,02)
+  print ' '               (,+1,05)
+  print ' '               (,+1,08)
+  print 'Áğü ìåôáöïñÜ'    (,+1,30)
+  print ' '               (,+1,02)
+  print ' '               (,+1,02)
+  print ' '               (,+1,05)
+  print #s_ago_qt         (,+1,07) edit {MASKQ}
+  print #s_ago_aj         (,+1,09) edit {MASKA}
+  print #s_pvl_qt         (,+1,07) edit {MASKQ}
+  print #s_pvl_aj         (,+1,09) edit {MASKA}
+  print #s_dia_qt         (,+1,07) edit {MASKQ}
+  print #ypol             (,+1,07) edit {MASKQ}
+
+    next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_details
+  
+  do prev_totals
+
+begin-select
+convert(char(8),convert(datetime,a.hmeromhnia),3) &a.hmeromhnia   () NOP
+  print &a.hmeromhnia                           ( ,01,05)
+a.aa                                            () NOP
+a.parkvd                                        (,+01,02)
+b.syntmhsh                                      (,+01,04)
+a.seira                                         (,+01,02)
+a.parno                                         (,+01,05) edit {MASK5}
+isnull(a.synal,'')  &a.synal                    (,+01,08)
+a.aitia                                         () NOP   
+  if &a.synal = ''
+     print &a.aitia                             (,+01,30)
+  else
+     do getsynal(&a.synal, $epvnymia)
+     print $epvnymia                            (,+01,30)
+  end-if
+  do getsxet(&a.aa, $sx_seira, $sx_parno)
+  print ' '                                     (,+01,2)
+  print $sx_seira                               (,+01,2)
+  print $sx_parno                               (,+01,5) edit {MASK5}
+a.posothta                                      () NOP
+a.ajia                                          () NOP
+
+  do find_ajies_eidoys
+  print #ago_qt                                 (,+01,07) edit {MASKQ}
+  print #ago_aj        		                (,+01,09) edit {MASKA}
+  print #pvl_qt                                 (,+01,07) edit {MASKQ}
+  print #pvl_aj                                 (,+01,09) edit {MASKA}
+  print #dia_qt                                 (,+01,07) edit {MASKQ}
+  print #ypol                                   (,+01,07) edit {MASKQ}
+  display #ypol
+  next-listing
+
+from  wh_kin a, ap_par b, wh_eidh c
+where a.cid      = $cid
+and   a.eidos    = c.kvdikos
+and   c.pvlomada = $pvlomada
+and   a.parkvd   = b.parkvd
+and   a.hmeromhnia between $apohm and $evshm
+
+
+! -=-=-=-=-= and  a.parkvd in ('90','11','13','14')
+! -=-=-=-=-= and  a.eidos = 'D3OPHZ86-TS'
+  
+
+! -=-=-=-=-= and   a.synal    like  '0004[0,1]'
+
+! -=-=-=-=-= and   not exists 
+! -=-=-=-=-= (
+! -=-=-=-=-= select xx.parkvd 
+! -=-=-=-=-= from  ap_omadapar xx 
+! -=-=-=-=-= where a.parkvd = xx.parkvd 
+! -=-=-=-=-= and   xx.omada = 'ESVT-METAF'
+! -=-=-=-=-= )
+!    3 Lines NEW     ( 24 Jul   by Mal Nick )             --- AKYRON
+! and   not exists   (select d.parkvd from ap_omadapar d
+!                     where  a.parkvd   = d.parkvd
+!                     and    d.omada    ='APOGRAFH')
+order by a.hmeromhnia, a.parkvd, a.seira, a.parno
+end-select 
+
+  do synola_eidoys
+
+end-procedure
+					
+! ******************************************************************
+
+begin-procedure synola_eidoys
+    print ' '                              (,01,05)
+    print ' '                              (,+1,02)
+    print ' '                              (,+1,04)
+    print ' '                              (,+1,02)
+    print ' '                              (,+1,05)
+    print ' '                              (,+1,08)
+    print 'Óıíïëá Åßäïõò' 		   (,+1,30)
+    print ' '                              (,+1,02)
+    print ' '                              (,+1,02)
+    print ' '                              (,+1,05)
+    print #s_ago_qt                        (,+1,07) edit {MASKQ}
+    print #s_ago_aj                        (,+1,09) edit {MASKA}
+    print #s_pvl_qt                        (,+1,07) edit {MASKQ}
+    print #s_pvl_aj                        (,+1,09) edit {MASKA}
+    print #s_dia_qt                        (,+1,07) edit {MASKQ}
+    print #ypol                            (,+1,07) edit {MASKQ}
+    next-listing
+    print '='                              ( ,01,{PAGE-X}) fill
+    next-listing
+    let #s2_ago_qt = #s2_ago_qt + #s_ago_qt
+    let #s2_ago_aj = #s2_ago_aj + #s_ago_aj
+    let #s2_pvl_qt = #s2_pvl_qt + #s_pvl_qt
+    let #s2_pvl_aj = #s2_pvl_aj + #s_pvl_aj
+    let #s2_dia_qt = #s2_dia_qt + #s_dia_qt
+    let #s2_apo_qt = #s2_apo_qt + #apo_qt
+    let #s2_apo_aj = #s2_apo_aj + #apo_aj
+    let #s2_ypol   = #s2_ypol   + #ypol
+    move 0 to #s_ago_qt
+    move 0 to #s_ago_aj
+    move 0 to #s_pvl_qt
+    move 0 to #s_pvl_aj
+    move 0 to #s_dia_qt
+    move 0 to #ypol
+    new-page
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_ajies_eidoys
+
+begin-select
+c.syntel_a                                      () NOP
+c.syntel_p                                      () NOP
+c.f_eis                                         () NOP
+c.f_eja                                         () NOP
+
+from  ap_par c
+where c.parkvd = &a.parkvd
+end-select
+
+move '' to $omada
+
+begin-select
+d.omada   () NOP
+   move &d.omada to $omada
+from  ap_omadapar d
+where d.parkvd = &a.parkvd
+and   d.omada  in ('AGORES','PVLHSEIS','DIAKIN','APOGRAFH')
+end-select
+
+     move 0 to #pvl_qt
+     move 0 to #pvl_aj
+     move 0 to #ago_qt
+     move 0 to #ago_aj
+     move 0 to #dia_qt
+
+     let #pos = &a.posothta * &c.syntel_p
+     let #aji = &a.ajia     * &c.syntel_a
+ 
+     if &c.f_eis != ''
+        let #pos = #pos * (+1)
+        let #aji = #aji * (+1)
+     else
+        let #pos = #pos * (-1)
+        let #aji = #aji * (-1)
+     end-if
+  
+ evaluate $omada
+   when = 'PVLHSEIS'
+          let #pvl_qt  = #pos * (-1)
+          let #pvl_aj  = #aji * (-1)
+          break
+
+   when = 'AGORES'
+          let #ago_qt  = #pos 
+          let #ago_aj  = #aji
+          break
+
+   when = 'DIAKIN'
+          let #dia_qt  = #pos
+          let #dia_aj  = #aji
+          break
+
+   when = 'APOGRAFH'
+          let #ago_qt  = #pos 
+          let #ago_aj  = #aji
+          break
+           
+   when = ''
+          let #pvl_qt  = #pos * (-1)
+          let #pvl_aj  = #aji * (-1)
+          break
+
+ end-evaluate
+
+    let #s_ago_qt  = #s_ago_qt + #ago_qt
+    let #s_ago_aj  = #s_ago_aj + #ago_aj
+    let #s_pvl_qt  = #s_pvl_qt + #pvl_qt
+    let #s_pvl_aj  = #s_pvl_aj + #pvl_aj
+    let #s_dia_qt  = #s_dia_qt + #dia_qt
+    let #ypol      = #ypol + #ago_qt - #pvl_qt + #dia_qt
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure tot_apou
+    print 'ÁĞÏÃÑÁÖÇ :'                      ( ,01,11)
+    print #s2_apo_qt                        ( ,+1,07) edit {MASKQ}
+    print #s2_apo_aj                        ( ,+1,09) edit {MASKA}
+    print 'ÓÕÍÏËÁ ÁĞÏÈÇÊÇÓ  '               ( ,+3,20)
+    print ' '                               ( ,+1,02)
+    print ' '                               ( ,+1,02)
+    print ' '                               ( ,+1,05)
+    print #s2_ago_qt                        (, +1,07) edit {MASKQ}
+    print #s2_ago_aj                        (,+01,09) edit {MASKA}
+    print #s2_pvl_qt                        (,+01,07) edit {MASKQ}
+    print #s2_pvl_aj                        (,+01,09) edit {MASKA}
+    print #s2_dia_qt                        (,+01,07) edit {MASKQ}
+    print #s2_ypol                          (,+01,07) edit {MASKQ}
+
+    let #s3_ago_qt = #s3_ago_qt + #s2_ago_qt
+    let #s3_ago_aj = #s3_ago_aj + #s2_ago_aj
+    let #s3_pvl_qt = #s3_pvl_qt + #s2_pvl_qt
+    let #s3_pvl_aj = #s3_pvl_aj + #s2_pvl_aj
+    let #s3_dia_qt = #s3_dia_qt + #s2_dia_qt
+    let #s3_apo_qt = #s3_apo_qt + #s2_apo_qt
+    let #s3_apo_aj = #s3_apo_aj + #s2_apo_aj
+    let #s3_ypol   = #s3_ypol   + #s2_ypol
+
+    move 0 to #s2_ago_qt
+    move 0 to #s2_ago_aj
+    move 0 to #s2_pvl_qt
+    move 0 to #s2_pvl_aj
+    move 0 to #s2_dia_qt
+    move 0 to #s2_apo_qt
+    move 0 to #s2_apo_aj
+    move 0 to #s2_ypol
+    new-page
+end-procedure 
+
+! ******************************************************************
+
+begin-procedure gen_totals
+    next-listing
+    print 'ÁĞÏÃÑÁÖÇ:'                      ( ,01,09)
+    print #s3_apo_qt                       ( ,+1,07) edit {MASKQ}
+    print #s3_apo_aj                       ( ,+1,09) edit {MASKA}
+    print 'ÃÅÍÉÊÁ ÓÕÍÏËÁ '                 ( ,+2,17)
+    print #s3_ago_qt                       (, 56,07) edit {MASKQ}
+    print #s3_ago_aj                       (,+01,09) edit {MASKA}
+    print #s3_pvl_qt                       (,+01,07) edit {MASKQ}
+    print #s3_pvl_aj                       (,+01,09) edit {MASKA}
+    print #s3_dia_qt                       (,+01,07) edit {MASKQ}
+    print #s3_ypol                         (,+01,07) edit {MASKQ}
+end-procedure 
+
+! ******************************************************************
+
+begin-procedure getsxet(#aa, :$sx_seira, :$sx_parno)
+
+  move '' to $sx_seira
+  move '' to $sx_parno
+begin-select
+tim_seira                   () NOP
+tim_parno                   () NOP
+    move &tim_seira to $sx_seira 
+    move &tim_parno to $sx_parno {MASK5}
+from sy_parmas 
+where aa = #aa
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+!begin-footing {FOOT-SIZE}
+!#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+!end-footing
+
+begin-heading {HEAD-SIZE}
+!#INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print 'Áğü :'                           (5,49,05)
+  print $apohmpr                          (,+01,08)
+  print 'Åùò :'                           (,+04,05)
+  print $evshmpr                          (,+01,08)
+  print '-'                               (6,1,132) Fill
+
+  print $pvlomada                                  ( 7,01,15)
+  print $perigrafh                                  (,+01,40)
+  print 'Ì.Ó.Ê'                                     (,+02,06)
+  print #msk                                        (,+01,11) edit {MASKK}
+  print 'ÁğïãñáöŞ'                                  (,+12,10)
+  print #apo_aj                                     (,+01,09) edit {MASKA}
+  print #apo_qt                                     (,+01,07) edit {MASKQ}
+
+  print '-'                                         (8,1,132) Fill
+
+  print 'Çìåñ.'                                     (9,01,05)
+  print '|--Ğáñáóôáôéêü-|'                          (,+01,  )
+  print '|---- Ó õ í á ë ë á ó ü ì å í ï ò ----|'   (,+01,  )
+  print 'Áéôéïëïãéá '                               (,+01,  )
+  print '|--- ÅÉÓÁÃÙÃÇ --|'                         (,+01,  )
+  print '|--- ÅÎÁÃÙÃÇ ---|'                         (,+01,  )
+  print 'ÄÉÁÊÉÍ.'                                   (,+01,07)
+  print 'ÕĞÏËÏÉĞ'                                   (,+01,07)
+
+  print 'Åããñ.'                                    (10,01,05)
+  print 'Kä'                                        (,+01,02)
+  print 'ÓÕÍÔ'                                      (,+01,04)
+  print 'Ó.'                                        (,+01,02)
+  print 'Áñéèìüò'                                   (,+01,05)
+  print 'Êùäéêüò'                                   (,+01,08)
+  print 'Å ğ ù í õ ì ß á'                           (,+01,30)
+  print 'Åããñáöçò   '                               (,+01,  )
+  print 'Ğïóüôçô'                                   (,+01,07)
+  print '     Áîéá'                                 (,+01,09)
+  print 'Ğïóüôçô'                                   (,+01,07)
+  print '     Áîéá'                                 (,+01,09)
+  print 'Ğïóüôçô'                                   (,+01,07)
+  print 'Ğïóüôçô'                                   (,+01,07)
+  print $L_X1                                      (11,01,{PAGE-X}) Fill
+end-heading

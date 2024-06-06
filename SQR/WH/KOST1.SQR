@@ -1,0 +1,166 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC S.A.                                          ****
+! **** REPORT      : kost1.sqr                                              ****
+! **** DATE        :                                                        ****
+! **** APPLICATION : Αποθηκες                                               ****
+! **** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ - ΜΠΟΚΙΑΣ ΝΙΚΟΣ                      ****
+! **** NOTE        : --- Εκτύπωση για τον wh_kostos ---                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X         96
+#DEFINE   HEAD-SIZE        6
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        4
+
+#DEFINE   MASK1A  999,999,999.99c
+#DEFINE   MASK2P    99999999.999c
+#DEFINE   MASK2A    99999999.999c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_XRHSH to #xrhsh
+ move $L_CID   to $cid
+ do getxrhsh($cid,#xrhsh,$hm_apo,$hm_evs)
+ do main
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main
+begin-select 
+a.kathgoria                                 () on-break print=never
+                                               before=print_kat after=nxtlis 
+a.kvdikos                                   () nop
+a.perigrafh                                 () nop
+b.perigrafh                                 () nop
+a.energo                                    () nop
+
+
+      do getkostos($hm_apo,$hm_evs,&a.kvdikos,#ajia,#posothta,#mt)
+      if (#ajia <> 0 ) or (#posothta <> 0) or (#mt <> 0) 
+
+         print &a.kvdikos                    (,01,15)
+         print &a.perigrafh                  (,+1,30)
+         print &a.energo                     (,+1,1)
+         print #ajia                         (,+1,14) edit {MASK1A}
+         print #posothta                     (,+1,12) edit {MASK2P}
+         print #mt	                     (,+1,12) edit {MASK2A}
+
+         next-listing
+      end-if
+
+from  wh_eidh a, wh_fkeidhinf b
+where a.kathgoria *= b.inf
+  and b.kvdinf = 1 ! (<) KATHGORIA EIDVN
+[$SQLCMD]
+order by a.kathgoria, a.kvdikos
+end-select
+
+end-procedure
+
+begin-procedure print_kat
+   display '---' noline
+   display &a.kathgoria noline
+   display '===' noline
+   display $kat_save
+   print &a.kathgoria         (,5)
+   print ' '                  ()
+   print &b.perigrafh         ()
+   next-listing
+   next-listing
+end-procedure
+
+
+begin-procedure nxtlis
+  next-listing
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure getxrhsh($cid,#xrhsh,:$hm_apo,:$hm_evs)
+
+begin-select
+a.xrhsh_arxh   () nop
+a.xrhsh_telos  () nop
+
+   move &a.xrhsh_arxh  to $hm_apo
+   move &a.xrhsh_telos to $hm_evs
+
+from ap_xrhsh a
+where a.cid   = $cid
+  and a.xrhsh = #xrhsh
+end-select
+
+end-procedure
+
+
+! ******************************************************************************
+
+begin-procedure getkostos($hm_apo,$hm_evs,$eidos,:#ajia,:#posothta,:#mt)
+
+move 0 to #ajia
+move 0 to #posothta
+move 0 to #mt
+
+begin-select
+sum(k.ajia)                             &ajia     () nop
+sum(k.posothta)                         &posothta () nop
+round( sum(k.ajia)/sum(k.posothta), 3)	&mt       () nop
+
+  move &ajia     to #ajia
+  move &posothta to #posothta
+  move &mt       to #mt
+
+from wh_kostos k
+where k.hmer between $hm_apo and $hm_evs
+  and k.eidos = $eidos
+having sum(k.posothta)!=0
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************************
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'Κόστος προϊόντων (Μέση τιμή)'  (3,) Center
+  print 'Κωδικος'                   (5,01,15)
+  print 'Περιγραφη'                 (,+1,30)
+  print 'Ε'                         (,+1,1)
+  print '          Αξία'            (,+1,14)
+  print '    Ποσότητα'              (,+1,12)
+  print '   Μέση Τιμή'              (,+1,12)
+
+
+end-heading
+
+!<pcalib help>
+!Εκτύπωση πίνακα ενεργών ή όχι ειδών κατά κατηγορία και κωδικό είδους 
+!με τις αξίες, ποσότητες που διαμορφώνουν το κόστος του είδους.
+!Το κόστος εμφανίζει 4 δεκαδικά ψηφία
+!</pcalib help>
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{WH	5	11	5164	kost1	rs	X	01},TITLE{Κόστος προϊόντων (Μέση τιμή)}
+!	PARCOUNT{3}
+!	PAR1{Κωδικός Είδους	a.kvdikos	1	LIKE	varchar(15)	X	}
+!	PAR2{Περιγραφή Είδους	a.perigrafh	1	LIKE	varchar(40)	X	}
+!	PAR3{Ενεργό Είδος	a.energo	1	=	char(1)	X	}
+!REPORTHELP{F}
+!</pcalib>

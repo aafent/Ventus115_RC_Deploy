@@ -1,0 +1,262 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : paragpwl.sqr                                   ****
+!***** DATE        : 05/08/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHN                                 ****
+!***** NOTE        : йАТАСТАСГ ПАЯАЦЦЕКИЧМ ДЯОЛОКОЦИОУ              ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    59
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  4
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YYYY
+#DEFINE   MASK1     999,999,999c
+#DEFINE   MASK5     99999
+#DEFINE   MASK6     999999
+#DEFINE   MASK4_2   9,990.99c
+#DEFINE   MASK6_2   999,990.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ifort 'DROMOLOGIO '
+ unstring $ifort by '"' into $filler $fort $filler
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+  let #fill = {PAGE-X} - 12
+  let #cnt  = 0
+
+begin-select 
+
+a.aa                                () NOP
+
+  let #cnt = #cnt + 1
+
+a.synal                             (,01,10)
+  do getsynal (&a.synal,$epvnymia, $dieyuynsh, $polh, $thl, $epagg, $afm, #ypol)
+  print $epvnymia                   (,+1,50)
+  
+a.pvlhths                           () NOP 
+  do getpvlhths (&a.pvlhths, $pvlhths)
+  print 'пыкгтгс          :'	    (,90,18)
+  print $pvlhths                    (,+1,20)
+
+  next-listing
+
+  print $dieyuynsh                  (,12,50)
+  print 'упокоипо пекатоу :'        (,90,18)
+  print #ypoloipo                   (,+1,11) edit {MASK1}
+
+  next-listing
+
+  print 'тгк.:'                     (,12,05) 
+  print $thl                        (,+1,20)
+  
+  next-listing
+
+  print $epagg                      (,12,50)
+!  print 'аниа паяаццекиас :'        (,90,18)
+!  print #ajia                       (,+1,11) edit {MASK1}
+
+  next-listing
+
+  print 'а.ж.л. :'                  (,12,08)
+  print $afm                        (,+1,20)
+
+  next-listing
+  next-listing
+
+  print 'паяаццекиа'                (,12,10)
+  print 'глеяолгмиа'                (,+2,10)
+  print 'ояос йаи тяопос пкгяылгс'  (,+2,25)
+  next-listing
+  print '='                         (,12,#fill) fill
+  next-listing
+a.seira                             (,12,03)
+  print '/'                         (,+1,01)
+a.parno                             (,+1,05)
+convert(datetime,a.hmer_k) &a.hmer  (,+1,10) edit {DATEMASK}
+  
+a.tropos_plhr                       () NOP   
+  do getplhr (&a.tropos_plhr, $plhrvmh)
+  print $plhrvmh                    (,+2,50)
+
+  next-listing
+  next-listing
+
+  do print-detail
+ 
+  print '*'                         (,01,{PAGE-X}) fill
+  next-listing need = 7
+
+from sy_parag a, sy_parag_fort b, sy_synal c
+where a.aa = b.parag_aa
+  and a.synal = c.synal
+  and b.fortotikh = $fort
+[$SQLCMD]
+order by a.parkvd, a.seira, a.parno
+end-select
+
+  print 'аяихлос паяаццекиым'        			(,29,50)
+  print #cnt	                     			(,92,10) edit 99,999,999c
+  next-listing
+  print 'сумоко йахаягс аниас паяаццекиым'        	(,29,50)
+  print #s2_ajia                    			(,92,10) edit 99,999,999c
+  next-listing
+  print 'сумоко аниас ж.п.а. паяаццекиым'        	(,29,50)
+  print #s2_ajia_fpa                    		(,92,10) edit 99,999,999c
+  next-listing
+  print 'сумоко текийгс аниас паяаццекиым'        	(,29,50)
+  let #total = #s2_ajia + #s2_ajia_fpa
+  print #total                    			(,92,10) edit 99,999,999c
+
+end-procedure
+
+! ******************************************************************
+begin-procedure print-detail
+
+  print 'йыдийос'                   (,12,15)
+  print 'пеяицяажг'                 (,+2,30)
+  print ' X/KB'                     (,+2,05)
+  print '  посотгта'                (,+2,10)
+  print ' TIMH MON.'                (,+2,10)
+  print '      аниа'                (,+2,10)
+  print 'жпа (%)'                   (,+2,07)
+  print '  аниа жпа'                (,+2,10)
+  next-listing
+  print '-'                         (,12,#fill) fill
+  next-listing
+
+  let #s1_ajia		= 0
+  let #s1_ajia_fpa 	= 0
+
+begin-select
+
+d.eidos                             (,12,15)
+e.perigrafh                         (,+2,30)
+d.sysk                              (,+2,05) edit 9,999c
+d.posothta                          (,+2,10) edit 999,999.99c
+d.timh                              (,+2,10) edit 99,999,999c
+d.ajia                              (,+2,10) edit 99,999,999c
+d.fpapos                            (,+2,06) edit 9999
+  print '%'                         ()
+d.ajia_fpa                          (,+4,10) edit 99,999,999c
+
+  let #s1_ajia 		= #s1_ajia + &d.ajia
+  let #s1_ajia_fpa	= #s1_ajia_fpa + &d.ajia_fpa  
+  next-listing
+
+from sy_paragdet d, wh_eidh e
+where d.eidos = e.kvdikos
+and d.aa = &a.aa
+order by seira
+end-select
+
+  print '='                         (,12,#fill) fill
+  next-listing
+  print 'сумока паяаццекиас'        (,29,30)
+  print #s1_ajia                    (,92,10) edit 99,999,999c
+  print #s1_ajia_fpa                (,113,10) edit 99,999,999c
+  next-listing
+
+  let #s2_ajia 		= #s2_ajia + #s1_ajia
+  let #s2_ajia_fpa	= #s2_ajia_fpa + #s1_ajia_fpa
+
+end-procedure
+  
+! ******************************************************************
+
+begin-procedure getplhr(#plhr,:$perigrafh)
+  move '' to $perigrafh
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $perigrafh
+from sy_troposplhr
+where kvdikos = #plhr
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getpvlhths(#pvlhths,:$pvlhths)
+  move '' to $pvlhths
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $pvlhths
+from sy_pvlhtes
+where kvdikos = #pvlhths
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal, :$epvnymia, :$dieyuynsh, :$polh, :$thl, :$epagg, :$afm, :#ypol)
+  
+begin-select
+s.epvnymia                () NOP
+s.dieyuynsh               () NOP
+s.polh                    () NOP
+s.thl                     () NOP
+s.epaggelma               () NOP
+s.afm                     () NOP
+  move &s.epvnymia 	to $epvnymia
+  move &s.dieyuynsh 	to $dieyuynsh
+  move &s.polh		to $polh
+  move &s.thl		to $thl
+  move &s.afm		to $afm
+from sy_synal s
+where synal = $synal
+end-select
+
+  move '' to $epagg
+
+begin-select
+x.perigrafh		  () NOP
+  move &x.perigrafh 	to $epagg
+from ap_epaggelma x
+where kvdikos = &s.epaggelma
+end-select
+
+  move 0 to #ypol
+
+!  execute syp_getypol @synal    = $synal,
+!                      @hmer     = null, 
+!                      @cid      = null, 
+!                      @xrevsh   = null, 
+!                      @pistvsh  = null, 
+!                      @ypoloipo = #ypol output, 
+!                      @logar    = "30%", 
+!                      @klados   = null
+
+end-procedure
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = 'йатастасг паяаццекиым дяолокоциоу ' || $fort
+  print $msg (3,) center
+end-heading

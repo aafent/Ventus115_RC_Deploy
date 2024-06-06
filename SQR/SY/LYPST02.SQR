@@ -1,0 +1,244 @@
+
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : lypst02.sqr                                    ****
+!***** DATE        : 26/11/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHN                                 ****
+!***** NOTE        : Συγκεντρωτική Κατάσταση Υποβολής Στοιχείων     ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999,999,999c
+#DEFINE   MASK2     999
+#DEFINE   MASK3     99
+#DEFINE   MASK4     99,999c
+#DEFINE   MASK5     99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ixrhsh 'XRHSH :'
+ execute app_floatcnv $ixrhsh, #xrhsh output
+
+    do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+  move 0 to #aa
+begin-select 
+a.flag                                () NOP
+a.synal                               () NOP    
+a.epvnymia                            () NOP    
+a.epaggelma                           () NOP
+a.afm                                 () NOP  
+a.dieyuynsh                           () NOP  
+a.polh                                () NOP  
+a.taxkvd                              () NOP
+a.ar_tim                              () NOP
+a.ajia                                () NOP 
+
+  do getdoy(&a.synal, $doy_perig)
+  do getepagg(&a.epaggelma, $epag_per, $drast, $dras_per)
+
+     let #cnt_tot = #cnt_tot + &a.ar_tim
+     let #totals  = #totals  + &a.ajia
+
+  move 'T' to $print_flag
+  IF &a.flag = 'C'
+     if &a.epaggelma = '9965' or &a.epaggelma = '9944'
+        let #cnt_idivtes = #cnt_idivtes + &a.ar_tim
+        let #tot_idivtes = #tot_idivtes + &a.ajia 
+        move 'F' to $print_flag
+     else
+     if $drast = '0988' 
+        let #cnt_dhmosio = #cnt_dhmosio + &a.ar_tim
+        let #tot_dhmosio = #tot_dhmosio + &a.ajia 
+        move 'T' to $print_flag
+     else
+        let #cnt_rest = #cnt_rest + &a.ar_tim
+        let #tot_rest = #tot_rest + &a.ajia 
+        move 'F' to $print_flag
+     end-if
+     end-if
+  END-IF
+
+  if $print_flag = 'T'
+     let #aa = #aa + 1
+     print #aa                                    (,01,04) edit 9999
+     print &a.synal                               (,+2,05)  
+     print &a.epvnymia                            (,+2,40)  
+     print $epag_per                              (,+2,25)
+     print &a.afm                                 (,+2,25)
+     print &a.ar_tim                              (,+4,03) edit {MASK2}
+     print &a.ajia                                (,+5,11) edit {MASK1}
+
+     next-listing
+
+     print &a.dieyuynsh                           (,14,40)
+     print &a.polh                                (,+2,25)
+     print $doy_perig                             (,+2,20)
+
+     next-listing
+  end-if
+
+from sy_myf_tot a             
+Where a.cid = $cid
+  and a.xrhsh = #xrhsh                    
+[$SQLCMD]
+order by
+[$SQLORD]
+end-select
+  
+  IF &a.flag = 'C'
+     do tot_pwl
+  ELSE
+     do tot_ago
+  END-IF
+
+end-procedure
+
+! ******************************************************************
+begin-procedure tot_ago
+  next-listing     need = 2
+  print $L_X2                         (,01,{PAGE-X}) fill
+  next-listing
+  print 'Σ Υ Ν Ο Λ Ο    Α Γ Ο Ρ Ω Ν'              (,09,91)
+  print #cnt_tot                                  (,+9,06) edit {MASK4}
+  print #totals                                   (,+2,14) edit {MASK5}
+end-procedure
+! ******************************************************************
+begin-procedure tot_pwl
+  next-listing     need = 5
+  print $L_X2                         (,01,{PAGE-X}) fill
+  next-listing
+  print 'Πωλήσεις σε Γεωργούς, Δημόσιο κλπ'       (,09,91)
+  print #cnt_dhmosio                              (,+9,06) edit {MASK4}
+  print #tot_dhmosio                              (,+2,14) edit {MASK5}
+  next-listing
+  print 'Πωλήσεις σε Ιδιώτες'                     (,09,91)
+  print #cnt_idivtes                              (,+9,06) edit {MASK4}
+  print #tot_idivtes                              (,+2,14) edit {MASK5}
+  next-listing
+  print 'Πωλήσεις σε Πελάτες'                     (,09,91)
+  print #cnt_rest                                 (,+9,06) edit {MASK4}
+  print #tot_rest                                 (,+2,14) edit {MASK5}
+  next-listing
+  print 'Σ Υ Ν Ο Λ Ο    Π Ω Λ Η Σ Ε Ω Ν'          (,09,91)
+  print #cnt_tot                                  (,+9,06) edit {MASK4}
+  print #totals                                   (,+2,14) edit {MASK5}
+end-procedure
+! ******************************************************************
+begin-procedure getsum($cid, $synal, $hm_apo, $hm_evs, :#timol, :#ajia)
+  move 0 to #timol
+  move 0 to #ajia
+begin-select
+sum(c.ar_tim) &tim      () NOP
+sum(c.ajia)   &ajia     () NOP
+  move &tim   to #timol
+  move &ajia  to #ajia
+from sy_myf c
+where c.cid = $cid
+  and c.synal = $synal
+  and c.hmer between $hm_apo and $hm_evs
+  and c.flag = 'Π'
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getdoy($synal, :$doy_perig)
+  move '' to $doy_perig
+begin-select
+c.doy_perig            () NOP
+  move &c.doy_perig to $doy_perig
+from sy_synal c
+where c.synal = $synal
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getepagg($epagg,:$epagg_per,:$drast,:$dras_per)
+  move '' to $epagg_per
+  move '' to $drast
+  move '' to $drast_per
+  if $epagg = ''
+     move '9999' to $epagg
+  end-if
+begin-select
+a.perigrafh     () NOP
+a.drast         () NOP
+b.perigrafh     () NOP
+  move &a.perigrafh to $epagg_per
+  move &a.drast     to $drast
+  move &b.perigrafh to $dras_per
+from ap_epaggelma a, ap_drast b
+where a.kvdikos = $epagg and a.drast = b.kvdikos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getnomos(#nomos,:$nomos_per)
+  move '' to $nomos_per
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $nomos_per
+from ap_nomos
+where kvdikos = #nomos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getxvra(#xvra,:$xvra_per)
+  move '' to $xvra_per
+begin-select
+perigrafh     () NOP
+  move &perigrafh to $xvra_per
+from ap_xvra
+where kvdikos = #xvra
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΣΥΓΚΕΝΤΡΩΤΙΚΗ ΚΑΤΑΣΤΑΣΗ ΠΙΣΤΩΤΙΚΩΝ ΥΠΟΛΟΙΠΩΝ'
+  print $msg (3,) center
+  print 'A/A'                      (5, 1,04)
+  print 'Κωδικός '                 ( ,+2,05)
+  print 'Συναλλασόμενος'           ( ,+2,40)
+  print 'Επάγγελμα'                ( ,+2,25)
+  print 'Α.Φ.Μ.'                   ( ,+1,25)
+  print 'Αρ.Στοιχ.'                ( ,+2,10)
+  print '     Αξία'                ( ,+1,11)
+
+  print ''                         (6, 1,11)
+  print 'Διεύθυνση'                ( ,+2,40)
+  print 'Πόλη'                     ( ,+2,25)
+  print 'Δ.Ο.Υ.'                   ( ,+1,25)
+end-heading

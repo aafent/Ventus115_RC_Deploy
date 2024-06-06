@@ -1,0 +1,22 @@
+[GL]
+tab1=kat,Καταστάσεις
+
+[GL kat]
+0=Ειδικές Καταστάσεις: @(CUSTNAME)
+1=7,SQR01,GL->slkartda,Καρτέλα Κινήσεων βάσει ΔΑ
+2=7,SQR01,SY->fpa,Συγκέντρωση Φ.Π.Α. κατά πρωτοβάθμιο
+3=5,exit,gl000.men->gl000[kat],Επιστροφή
+
+;---------------------------------------------------------------------
+; Icons :
+; Icon #        Description
+; --------      -----------------------------------
+;   1           Procedure forms
+;   2           Data Entry forms
+;   3           Coding forms
+;   4           Option forms
+;   5           Menu items
+;   6           Report form or chart etc
+;   7           Reports on printer or spool file
+;   8           Customer Defined Item
+;4=5,cb{1,menu},gl000.ini->gl000,lala

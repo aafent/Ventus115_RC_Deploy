@@ -1,0 +1,124 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : timokat.sqr                                      ****
+! ***** DATE        : 04/07/94                                         ****
+! ***** APPLICATION : Wharehouse                                       ****
+! ***** AUTHOR      : THEOTOKAS JOHNNIE                                ****
+! ***** NOTE        : Εκτύπωση Τιμοκαταλόγου                           ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    80
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK2          99
+#DEFINE   MASK5       99999
+#DEFINE   MASK10    999,999.99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ do main
+ 
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+  
+  do find_timokatalogo(#timokat)
+
+begin-select 
+a.kvdikos                           (,01,05)
+a.perigrafh                         (,+3,30)        
+  ! a.monada                            (,+3,04)
+  ! a.eidos_sysk                        (,+3,04)
+a.kfpa                              () NOP
+  do getfpa(&a.kfpa, #fpa)
+  print #fpa                        (,+20,02)  edit {MASK2}
+  print '%'                         (,  ,01)
+
+  do gettimh(&a.kvdikos, #timokat, #timh)
+    ! print #timh                       (,+3,10)  edit {MASK10}
+  
+  next-listing 
+  print '-'                         (,01,80)  fill
+  next-listing 
+  next-listing 
+  next-listing 
+  next-listing 
+  next-listing 
+  print '-'                         (,01,80)  fill
+  next-listing  need=2
+
+from wh_eidh a
+where exists(select 1 from wh_kint1 b where b.eidos = a.kvdikos
+             and b.cid = $cid )
+[$SQLCMD]
+order by 
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_timokatalogo(:#timokat)
+begin-select
+tim                       () NOP
+   move &tim to #timokat    
+from wh_timokatalogoi
+where def_tim is not null 
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getfpa(#kfpa,:#posfpa)
+begin-select
+pososto                  () NOP
+   move &pososto to #posfpa 
+from ap_fpa  
+where kvdikos = #kfpa    
+  and kathgoria = '1'
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure gettimh($eidos, #timokat, :#timh)
+begin-select
+timh                     () NOP
+   move &timh to #timh
+from wh_timokat
+where tim = #timokat and eidos = $eidos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'Eίδος'                       (5,01,05)
+  print 'Περιγραφή'                   (,+03,30)
+! print 'Μ.Μ'                         (,+03,04)
+! print 'Συσκ'                        (,+03,04)
+  print 'ΦΠΑ'                         (,+20,03)
+  print '   Τιμή'                     (,+03,10)
+! print '='                           (9,01,132) Fill
+end-heading

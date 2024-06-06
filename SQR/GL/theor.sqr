@@ -1,0 +1,188 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : theor.sqr                                      ****
+!***** DATE        :  30/06/99                                      ****
+!***** APPLICATION : APPLICATION ENVIRONMENT                        ****
+!***** AUTHOR      : voula,adr
+!***** NOTE        : Εκτύπωση Εντύπων προς Θεώρηση                  ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    66
+#DEFINE   PAGE-X    80 !220 !132
+#DEFINE   HEAD-SIZE  4
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   MASK5     999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $inp_txt  'TITLOS 1  '
+ input $inp_txt2 'TITLOS 2  '
+ input $inp_apo  'a/a prwths selidas      '
+ input $inp_evs  'a/a teleytaias selidas  '
+
+
+ execute app_floatcnv   $inp_apo, #apo output
+ execute app_floatcnv   $inp_evs, #evs output
+ unstring $inp_txt  by '"' into $filler $inp_txt  $filler
+ unstring $inp_txt2 by '"' into $filler $inp_txt2 $filler
+
+
+ if $inp_txt2 = '*' 
+    move '' to $inp_txt2
+ end-if
+
+ move $inp_txt  to #kvd_biblioy
+ move $inp_txt2 to #uevrhsh
+ if #kvd_biblioy > 0 
+    do get_from_glkvdikas($L_CID,#kvd_biblioy,#uevrhsh,$inp_txt,$inp_txt2,#apo,#evs)
+ end-if
+
+ let #i = 0
+ let #selides = #evs - #apo + 1
+
+ DISPLAY 'APO : ' noline
+ display #apo
+ display 'EVS : ' noline
+ display #evs
+ display 'SELIDES : ' noline
+ display #selides
+
+ do main
+End-Report
+
+! *************************************************************************
+begin-procedure main
+
+begin-select
+a.ul1  
+a.ul2  
+a.ul3  
+a.ul4  
+
+from ap_comp a
+where cid =$cid
+end-select
+
+while #i < #selides
+     new-page 
+     let #i = #i +1   
+end-while
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printheader
+  let $msg=$inp_txt||$inp_txt2
+  print $msg      (2,1) center
+end-procedure
+
+! ******************************************************************
+
+begin-procedure get_from_glkvdikas($cid,#biblio,#uevrhsh,:$titlos1,:$titlos2,:#apo,:#evs)
+
+move '(ΑΓΝΩΣΤΟ ΘΕΩΡΗΜΕΝΟ)' to $titlos1
+move ' ' to $titlos2
+move 0 to #kvdapo, #kvdevs
+
+if #uevrhsh = 0 
+   do get_from_glkvdikas_fk(#biblio,$titlos1,$titlos2)
+else
+   do get_from_glkvdikas_fk(#biblio,$titlos1,$titlos2)
+   do get_from_glkvdikas_doit($cid,#biblio,#uevrhsh,#kvdapo,#kvdevs)
+end-if
+
+if #apo = 0
+   move #kvdapo to #apo
+end-if
+if #evs = 0 
+   move #kvdevs to #evs
+end-if
+
+end-procedure 
+!------------------------
+begin-procedure get_from_glkvdikas_fk(#biblio,:$titlos1,:$titlos2)
+begin-select -C1
+a.titlos1   () nop
+a.titlos2   () nop
+
+  move &a.titlos1 to  $titlos1
+  move &a.titlos2 to  $titlos2
+
+from gl_kvdikasfk a
+where a.kvdikos=#biblio
+end-select
+end-procedure
+!------------------------
+begin-procedure get_from_glkvdikas_doit($cid,#biblio,#uevrhsh,:#kvdapo,:#kvdevs)
+begin-select -C1
+b.ar_apo    () nop
+b.ar_evs    () nop
+
+  move &b.ar_apo    to  #kvdapo
+  move &b.ar_evs    to  #kvdevs
+
+  display &b.ar_apo
+  display &b.ar_evs
+
+from gl_kvdikas b
+where b.cid = $cid
+  and b.biblio=#biblio
+  and b.aa_uevrhshs = #uevrhsh
+end-select
+end-procedure
+
+
+
+! ******************************************************************
+
+
+begin-heading {HEAD-SIZE}
+ print &a.ul1            (1,1,60)
+ print &a.ul2            (2,1,60)
+ print &a.ul3            (3,1,60)
+ print &a.ul4            (4,1,60)
+
+ let #selida = #apo + #i
+ let #pos_sel = {PAGE-X} - 15
+ print 'ΣΕΛΙΔΑ :'               (2,#pos_sel,)
+ print #selida                  (2,+2)    edit {MASK5}
+! print $L_G3                    (3,1,40)
+ do printheader
+end-heading
+
+!<pcalib help>
+! Για την αρίθμηση σελίδων πρός θεώρηση υπάρχουν δύο επιλογές :
+! (1) Να πλητρολογίσετε έως 20 χαρακτήρες στις δύο πρώτες παραμέτρους
+!     (εάν αρκεί η πρώτη τότε στην δεύτερη πρέπει να υπάρχει μόνο το σύμβολο :*)
+!     Ο τίτλος του θεωρημένου θα είναι ο συνδιασμός των δύο τίτλων.
+!     (δηλ έως 20 χαρακτήρες)
+!     Στην συνέχεια νο πλητρολογίσετε το εύρος των αριθμών
+!     (πρώτη και τελευταία σελίδα) και τέλος να επιλέξετε συγγέντρωση.
+!
+! (2) Να πληκτρολογίσετε στη πρώτη παράμετρο τον ΚΩΔΙΚΟ ΘΕΩΡΗΜΕΝΟΥ και
+!     στη δεύτερη παράμετρο τον ΑΡΙΘΜΟ ΘΕΩΡΗΣΗΣ
+!     τότε εάν το εύρος των αριθμών είναι από 0 έως 0 θα τυπωθούν οι
+!     σελίδες που περιγράφει η οθόνη παρακολούθησης θεωρημένων.
+!     σε κάθε άλλη περίπτωση θα τυπωθούν οι σελίδες με τον τίτλο του
+!     θεωρημένου και με την αρίθμηση που έχει επιλεγεί στις παραμέτρους
+!
+!</pcalib help>
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	3	98	5151	theor	rs	X	01},TITLE{Προεκτύπωση Θεωρημένων}
+!	PARCOUNT{3}
+!	PAR1{Tίτλος ή Κωδ. Θεωρ.	inp_txt	1	ΕΠΙΛΟΓΗ	varchar(100)		X}
+!	PAR2{Τιτ2 ή Αρ. Θεώρησης	inp_txt2	1	*/ΕΠΙΛΟΓΗ	varchar(100)		X}
+!	PAR3{Aπό/Έως Σελίδα	SELIDES	2	BETWEEN	integer		X}
+!REPORTHELP{T},RNHELP{Επιλέξτε το πλήκτρο [ΒΟΗΘΕΙΑ] για οδηγίες},
+!</pcalib>

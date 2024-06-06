@@ -1,0 +1,371 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : kat-pvl.sqr                                            ****
+! **** DATE        : 14/10/97                                               ****
+! **** APPLICATION : пекатес - пыкгсеис                                     ****
+! **** AUTHOR      : хеотойас иыаммгс                                       ****
+! **** NOTE        : йатастасг пыкгхемтым еидым                             ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               134
+#DEFINE   HEAD-SIZE              8
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   MASK1          9999999.9c
+#DEFINE   MASK2        9999,999.99c
+#DEFINE   MASK3        9999,999.99c
+#DEFINE   MASK4                 99
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   DATEMASK2       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+ 
+ input $hmerapo 'апо гл/миа        '
+ input $hmerevs 'еыс гл/миа        '
+! input $logapou  'кОЦИСТИЙч аПОХчЙГ : '
+ input $itheor  'хеыяглемо (м/о) ? '
+ 
+ execute -C1 app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute -C1 app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+ unstring $itheor by '"' into $filler $theor $filler
+! unstring $logapou by '"' into $filler $logapou $filler
+
+ if ($theor = 'N') or ($theor = 'n') or ($theor = 'м') or ($theor = 'М')
+    move 'T' to $theor
+ else
+    move 'F' to $theor
+ end-if
+
+ move $L_CID to $cid
+
+ Do Main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+  move '' to $hmeromhnia
+  move  21 to #col1
+  move  87 to #col2
+  move 108 to #col3
+  move 131 to #col4
+
+begin-select -C1
+e.syntel_a			() NOP
+e.syntel_p			() NOP
+
+convert(datetime,a.hmeromhnia)     	()     		on-break print = never
+						        save  = $hmer
+							level = 1
+                                                        after = new-hmer
+
+a.apouhkh				()		on-break print = never
+  							save  = $apoth
+							level = 2
+                                                        after = tot-apoth
+
+a.eidos  				()		on-break print = never
+							save  = $eidos
+							level = 3
+                                                        before = new-eidos
+							after = tot-eidos
+
+b.perigrafh                             ()		on-break print = never
+							save  = $perigrafh
+							level = 3
+a.aux_code				() NOP
+c.perigrafh				(,#col1,25)
+a.aa                    &aa       	() NOP
+a.parkvd                &parkvd   	() NOP
+a.seira                 &seira          () NOP
+a.parno                 &parno          () NOP    
+  
+  move &parkvd to $parkvd
+  do set_flagaa (&aa,$parkvd,&seira,&parno)
+  do getsxet(&aa, $paragg)
+  do mkparast($parkvd,&seira,&parno,$parast)
+  
+  print $paragg				(,+1,13)
+  print $parast                         (,+1,16)
+
+a.posothta				() NOP
+a.ajia                                  () NOP
+
+  move &a.posothta to #posothta
+  move &a.ajia     to #ajia
+
+  if #posothta = 0 or #ajia = 0
+	let #timh = #ajia
+  else 
+  	let #timh = #ajia / #posothta
+  end-if
+
+  move #posothta to #ori_posothta
+  let #posothta = #posothta * &e.syntel_p
+  let #ajia     = #ajia * &e.syntel_a
+
+
+  if &e.syntel_p = 0 
+	move #ori_posothta to $posothta {MASK1}
+	let $posothta = '(' || rtrim(ltrim($posothta,' '),' ') || ')'
+	let $xx = substr('                   ',1, 9 - length($posothta) )
+	let $posothta = $xx || $posothta
+  else
+	move #posothta to $posothta {MASK1}
+  end-if
+
+
+  print #timh				(,+1,08)	edit {MASK1}
+
+  move &a.aux_code to $aux_code  
+  if &a.aux_code = '000'
+	print $posothta                   	(,#col2,09)
+  	print #ajia				(,+1,11)	edit {MASK2}
+  	let #s1_posot    = #s1_posot    + #posothta
+  	let #s1_ajia     = #s1_ajia     + #ajia
+  	let #s2_posot    = #s2_posot    + #posothta
+  	let #s2_ajia     = #s2_ajia     + #ajia
+  	let #s3_posot    = #s3_posot    + #posothta
+  	let #s3_ajia     = #s3_ajia     + #ajia
+  else
+        ! print #posothta                   	(,#col3,09)	edit {MASK1}
+	print $posothta                   	(,#col3,09)
+  	print #ajia				(,+1,11)	edit {MASK2}
+  	let #s1_posot_tr = #s1_posot_tr + #posothta
+  	let #s1_ajia_tr  = #s1_ajia_tr  + #ajia
+  	let #s2_posot_tr = #s2_posot_tr + #posothta
+  	let #s2_ajia_tr  = #s2_ajia_tr  + #ajia
+  	let #s3_posot_tr = #s3_posot_tr + #posothta
+  	let #s3_ajia_tr  = #s3_ajia_tr  + #ajia
+  end-if
+
+  print &a.aux_code			(,#col4,03)
+
+  next-listing
+
+  if (#current-line + 3) > {PAGE-Y}
+     do metafora
+  end-if
+
+from wh_kin a, wh_eidh b, wh_fkeidhinf c, ap_omadapar d, ap_par e
+where a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.parkvd     = d.parkvd
+and   a.parno      > 0
+and   a.parkvd     = e.parkvd
+and   a.parkvd     = e.parkvd
+ !and   e.stoixeio in ('01','02','03','99')
+ !and   d.omada      = 'PVLHSEIS'
+and   d.omada      = d.omada !'ELKATPVL'
+and   a.eidos      = b.kvdikos
+and   c.kvdinf     = 999
+and   a.aux_code   = c.inf
+
+and   a.cid        = $cid
+ ! and   exists (select 1 from wh_logandfys f 
+ !              where f.cid = $cid
+ !                and f.apouhkh = a.apouhkh
+ !                and f.logapou = $logapou )
+[$SQLCMD]
+order by a.hmeromhnia, a.apouhkh, a.eidos, a.aux_code
+End-Select
+End-Procedure
+
+! ******************************************************************************
+
+begin-procedure mkparast($parkvd,$seira,#parno,:$parast)
+
+  move #parno to $parast 0000B
+  let $parast = substr($parkvd,1,5) || '.' || substr($seira,1,3) || '.' || $parast
+
+End-Procedure
+
+! ******************************************************************************
+
+
+begin-procedure getsxet (#aa, :$sxetiko)
+  move '' to $sxetiko
+begin-select
+s.parkvd		() NOP
+s.seira			() NOP
+s.parno			() NOP
+
+  do mkparast(&s.parkvd,&s.seira,&s.parno,$sxetiko)
+
+from sy_parsxet s
+where s.aa = #aa
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-hmer
+	new-page
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure tot-apoth
+
+  print 'сумока апохгйгс.........:'		(,47,25)
+  print #s2_posot				(,#col2,09)	edit {MASK1}
+  print #s2_ajia				(,+1,11)	edit {MASK2}
+  print #s2_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s2_ajia_tr				(,+1,11)	edit {MASK2}
+  next-listing
+
+  move 0 to #s2_posot
+  move 0 to #s2_ajia
+  move 0 to #s2_posot_tr
+  move 0 to #s2_ajia_tr
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-eidos
+
+  print &a.apouhkh				(,01,03)
+  print &a.eidos				(,+1,15)
+  print &b.perigrafh				(,#col1,25)
+  next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+
+begin-procedure tot-eidos
+  print 'сумока еидоус...........:'		(,47,25)
+  print #s1_posot				(,#col2,09)	edit {MASK1}
+  print #s1_ajia				(,+1,11)	edit {MASK2}
+  print #s1_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s1_ajia_tr				(,+1,11)	edit {MASK2}
+  next-listing
+
+  move 0 to #s1_posot
+  move 0 to #s1_ajia
+  move 0 to #s1_posot_tr
+  move 0 to #s1_ajia_tr
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure metafora
+  
+  print 'се летажояа (еидос).....:'		(,47,25)
+  print #s1_posot				(,#col2,09)	edit {MASK1}
+  print #s1_ajia				(,+1,11)	edit {MASK2}
+  print #s1_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s1_ajia_tr				(,+1,11)	edit {MASK2}
+
+  next-listing
+
+  print 'се летажояа (Aпохгйг)...:'		(,47,25)
+  print #s1_posot				(,#col2,09)	edit {MASK1}
+  print #s1_ajia				(,+1,11)	edit {MASK2}
+  print #s1_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s1_ajia_tr				(,+1,11)	edit {MASK2}
+
+  new-page
+
+  print 'апо летажояа (еидос)....:'		(,47,25)
+  print #s1_posot				(,#col2,09)	edit {MASK1}
+  print #s1_ajia				(,+1,11)	edit {MASK2}
+  print #s1_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s1_ajia_tr				(,+1,11)	edit {MASK2}
+
+  next-listing
+
+  print 'апо летажояа (Aпохгйг)..:'		(,47,25)
+  print #s1_posot				(,#col2,09)	edit {MASK1}
+  print #s1_ajia				(,+1,11)	edit {MASK2}
+  print #s1_posot_tr				(,#col3,09)	edit {MASK1}
+  print #s1_ajia_tr				(,+1,11)	edit {MASK2}
+
+  next-listing
+
+  move 'F' to $apo_met
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure set_flagaa (#aa,$parkvd,$seira,#parno)
+
+ execute -C2 syp_aaflag @FE='SQL', @aa=#aa, @job='S', @flag_no = 2, @flag_val = 'X', 
+			@parkvd=$parkvd, @seira=$seira, @parno=#parno
+
+end-procedure
+
+begin-procedure get_flagaa (#aa,:$flag)
+
+ move '' to $flag
+ execute -C2 syp_aaflag @FE='SQL', @aa=#aa, @job='G', @flag_no = 2, @flag_val = $flag output
+
+ 
+end-procedure
+
+
+! ******************************************************************
+
+
+Begin-Footing {FOOT-SIZE}
+  
+  if $theor = 'F'
+     #INCLUDE "{$L_GDATA}\sqr\FOOT01.inc"
+  end-if
+
+End-Footing
+
+! ------------------------------------------------------------------------------
+
+Begin-Heading {HEAD-SIZE}
+
+  if $theor = 'F'
+     #INCLUDE "{$L_GDATA}\sqr\HEAD01.inc"
+     print 'йатастасг пыкгхемтым еидым' (3,) Center
+  end-if
+ 
+  print 'тгс'					(4,#col3)
+  print $hmer					(,+1) 		edit {DATEMASK} 
+
+  print '='					(5,01,{PAGE-X})	fill
+
+  print 'йыд'                                 	(6,1,03) 
+  print '[-------------- е и д о с --------------]'              (,+1,41) 
+  print 'д.апостокгс'                          	(,+1,13) 
+  print 'паяастатийо'                          	(,+1,16) 
+  print '     тилг'           			(,+1,09) 
+  print '[- пяоиомта  идиым -]'         	(,+1,21) 
+  print '[ пяоиомта   тяитым ]'         	(,+1,21) 
+  print 'идиой'           			(,+1,05) 
+
+  print 'ап.'                                 	(7,1,03) 
+  print 'йыдийос'                            	(,+1,15) 
+  print 'пеяицяажг'                            	(,+1,25) 
+  print 'паяаццекиа'           			(,+1,13) 
+  print 'пыкгсгс'           			(,+1,16) 
+  print '  ломадас'           			(,+1,09) 
+  print ' посотгта'           			(,+1,09) 
+  print '    аниа'           			(,+1,11) 
+  print ' посотгта'           			(,+1,09) 
+  print '    аниа'           			(,+1,11) 
+  print 'тгтгс'           			(,+1,05) 
+
+  print '='					(8,01,{PAGE-X})	fill
+
+End-Heading              
+

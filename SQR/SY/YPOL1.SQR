@@ -1,0 +1,315 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : ypol1.sqr                                      ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Υπολοιπα πελατων με αναλυση τιμολογιων         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     9999999999
+! #DEFINE   MASK3     999,999,999c
+#DEFINE   MASK3     999,999,999
+#DEFINE   MASK2     999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $ihm_evs 'evs hmeromhnia '
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+ move 'T' to $first_page
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.nomos                                () on-break print=never
+                                                   before=printnomos
+                                                   after=subtotals
+a.synal                                () NOP   
+a.thl                                  () NOP   
+a.dieyuynsh                            () NOP
+a.polh                                 () NOP
+a.taxkvd                               () NOP
+c.epvnymia                             () NOP
+
+  move &a.synal to $synal
+  do getoik($cid,$synal,#ypol_arx,#tzi_1,#ypoloipo,#tzi,#timol,$hte)
+
+  !  print $cid                        (, 1, 2)
+  !  print &a.synal                    (,+1,05)
+  !  print #ypol_arx                   (,+1,10)  edit {MASK1}
+  !  print #tzi_1                      (,+1,10)  edit {MASK1}
+  !  print #ypoloipo                   (,+1,10)  edit {MASK1}
+  !  print #tzi                        (,+1,10)  edit {MASK1}
+  !  print #timol                      (,+1,10)  edit {MASK1}
+  !  print $hte                        (,+1,10)   edit {DATEMASK}
+  !  next-listing
+
+  if #ypoloipo != 0
+     let #subtot = #subtot + #ypoloipo  
+     print &a.synal                    (,01,05)
+
+     let #epvn_col = #current-column + 1
+  !  do getepvn($synal, $epvnymia) 
+  !  print $epvnymia                   (,+1,28)
+     print &c.epvnymia                 (,+1,28)
+     print &a.thl                      (,+1,16)
+     print $L_X3                       (,+1,1)
+
+     print #ypol_arx                   (,+12,10) edit {MASK1}
+     print 'Αρ.Τιμολ.:'                (,107,10)
+     print #timol                      (,+1,10) edit {MASK1}
+
+     next-listing
+
+     let $dieyuynsh = &a.dieyuynsh||' - '||&a.polh||' TK: '||&a.taxkvd
+     print $dieyuynsh                  (,#epvn_col,45)
+     print $L_X3                       (,+1,1)
+
+     print #tzi_1                      (,+1,10) edit {MASK1}
+     print #tzi                        (,+1,10) edit {MASK1}
+     print 'Υπόλοιπο :'                (,107,10)
+     print #ypoloipo                   (,+1,11) edit {MASK3}
+
+     let #timol_col = 95                     
+
+     next-listing
+     print $L_X2                       (,01,{PAGE-X}) fill
+     next-listing
+
+     do gethmplhr($cid, $synal, $hmplhr)
+     print $hmplhr                     (,01,40)
+
+     do getpvlinf($cid, $synal, $plhr, $prakt)
+     ! print $prakt                      (,+1,25)
+     print $plhr                       (,+1,25)
+     print 'Τελ.Εισπρ.:'               (,+1,13)
+     print $hte                        (,+1,08) edit {DATEMASK}
+
+     do printtimol($cid,$synal,#ypoloipo,#timol_col)
+
+     next-listing
+     print $L_X1                         (,1,{PAGE-X}) fill
+     next-listing
+  end-if
+
+from sy_synaleidos b, sy_synaltopos a, sy_synal c
+ where b.eidos = 'PVLHSEIS'
+   and a.synal = b.synal
+   and b.synal = a.synal
+   and a.topos = 0
+   and a.synal = c.synal
+   and b.synal = c.synal 
+[$SQLCMD]
+order by a.nomos
+[$SQLORD]
+end-select
+
+  next-listing
+  print 'Γ Ε Ν Ι Κ Α   Σ Υ Ν Ο Λ Α  :'     (,80,25)
+  print #total                             (,+1,11) edit {MASK3}
+
+end-procedure
+
+! ******************************************************************
+begin-procedure subtotals
+  let #total = #total + #subtot
+  print 'Σ Υ Ν Ο Λ Α   Ν Ο Μ Ο Υ :'     (,80,25)
+  print #subtot                         (,+1,11) edit {MASK3}
+  next-listing
+  print $L_X1                           (,01,{PAGE-x}) fill
+  next-listing
+  let #subtot = 0
+end-procedure
+! ******************************************************************
+
+begin-procedure getpvlinf($cid, $synal, :$plhr, :$prakt)
+  move '' to $plhr
+  move '' to $prakt
+
+  execute syp_getpvlinf @cid        = $cid,
+                        @synal      = $synal,
+                        @tr_plhr    = #tr_plhr   out,
+                        @plhr_txt   = $plhr_txt  out,
+                        @prakt      = $prakt     out,
+                        @epvn_prakt = $epvn      out
+
+  move #tr_plhr to $plhr 99
+  let $plhr  = $plhr||' '||$plhr_txt
+  let $prakt = $prakt||' '||$epvn
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printtimol($cid,$synal,#ypoloipo,#timol_col)
+
+move 0 to #ajia
+
+begin-select 
+b1.parkvd                                  (,#timol_col,02)
+b1.seira                                   (,+1,03)
+b1.parno                                   (,+1,06) edit {MASK2}
+convert(datetime,b1.hmeromhnia,3) &b1.hmer (,+1,8) edit {DATEMASK}
+b1.ajia                                    (,+1,11) edit {MASK3}
+
+  let #ajia = #ajia + &b1.ajia
+
+  if #ajia >= #ypoloipo
+     exit-select
+  end-if
+
+  next-listing
+
+from sy_kin b1
+where b1.synal=$synal
+  and b1.cid  =$cid
+  and exists(select 1 from ap_par b2 where b1.parkvd = b2.parkvd
+             and (b2.stoixeio in ('01','02','04') or b2.parkvd = 'ΧΠ'))
+  !                 and (b2.omada  = 'PVLHSEIS' or b2.omada = 'AKYRVTIKO'))
+
+order by b1.hmeromhnia desc
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getoik($cid,$synal,:#ypol_arx,:#tzi_1,:#ypoloipo,:#tzi,:#timol,:$hte)
+
+ execute syp_getoik1 @cid=$cid, @synal=$synal, 
+         @arxiko_ypoloipo = #ypol_arx  out,
+         @k_tziros_1      = #tzi_1  out, 
+         @ypoloipo        = #ypoloipo  out, 
+         @plhuos_tim      = #timol out,
+         !@miktos_tziros   = #tzi output,
+         @tel_eisp        = $hte out,
+         @job='RET'
+
+! 
+ execute syp_getoik1 @cid=$cid, @synal=$synal, 
+         @miktos_tziros   = #tzi output,
+         @job='RET'
+
+ !
+ ! unremark for debug
+ ! move 1 to #ypol_arx
+ ! move 2 to #tzi_1
+ ! move 3 to #ypoloipo
+ ! move 4 to #tzi
+ ! move 5 to #timol
+ ! move 'Jun 11 1994 12:24PM' to $hte 
+ !
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getepvn($synal,:$epvnymia)
+
+move '' to $epvnymia
+
+begin-select
+a.epvnymia             () NOP
+  move &a.epvnymia to $epvnymia
+from sy_synal a
+where a.synal = $synal
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure printnomos
+ if &a.nomos > 0
+    do printnomos_doit
+  end-if
+end-procedure
+
+begin-procedure printnomos_doit
+
+move '' to $nomos
+begin-select
+a1.perigrafh     () NOP
+  move &a1.perigrafh to $nomos
+from ap_nomos a1
+where a1.kvdikos = &a.nomos
+end-select
+
+ move &a.nomos to $knomos 99
+ let $nomos=$L_X3||' ΝΟΜΟΣ : ('||$knomos||') '||$nomos||' '||$L_X3
+ let #sz = length($nomos)
+
+ if $first_page = 'T'
+    move 'F' to $first_page
+ else
+    new-page  
+ end-if
+ print $L_X2   (,45,#sz) fill
+ next-listing 
+ print $nomos  (,45) 
+ next-listing 
+ print $L_X2   (,45,#sz) fill
+ next-listing 
+ print $L_X1                         (,1,{PAGE-X}) fill
+ next-listing
+
+end-procedure
+
+! ******************************************************************
+begin-procedure gethmplhr($cid, $synal, :$hmplhr_str)
+  move '' to $hmplhr_str 
+  move '' to $hmplhr_num 
+  move '' to $eispraktor
+begin-select
+b.perigrafh                                  () NOP
+  move &b.perigrafh to $eispraktor
+isnull(a.hmer_str,' ') &hmer_str             () NOP
+  if &hmer_str <> ' '
+     let $hmplhr_str = $hmplhr_str||' ('||&hmer_str||')'
+  end-if
+isnull(a.hmer_num,0)    &hmer_num            () NOP
+  if &hmer_num <> 0
+     move &hmer_num to $hmer_num
+     let $hmplhr_num = $hmplhr_num||' ('||$hmer_num||')'
+  end-if
+from sy_synalprog a, sy_pvlhtes b
+where a.cid = $cid
+  and a.synal = $synal
+  and a.pvlhths = b.kvdikos
+end-select
+  let $hmplhr_str = $eispraktor||' : '||$hmplhr_str||' '||$hmplhr_num
+end-procedure
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΥΠΟΛΟΙΠΑ ΠΕΛΑΤΩΝ ΜΕ ΗΜΕΡΟΜΗΝΙΑ : '||$evshmpr
+  print $msg (3,) center
+  print $L_X3                                      (5,53,01)
+  print 'Αρ. Τιμολ.'                               ( ,+1,10)
+  print 'Αρχ. Υπολ.'                               ( ,+1,10)
+  print 'Ανάλυση τιμολογίων'                       ( ,+1   )
+  print 'Συναλλασόμενος / Διεύθυνση / Τηλέφωνα'    (6,01,51)
+  print $L_X3                                      ( ,+1,01)
+  print 'Περ.Τζίρος'                               ( ,+1,10)
+  print 'Φετ.Τζίρος'                               ( ,+1,10)
+
+end-heading

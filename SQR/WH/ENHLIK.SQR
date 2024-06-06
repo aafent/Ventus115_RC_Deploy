@@ -1,0 +1,283 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        :                                                ****
+! ***** APPLICATION : Αποθήκη                                        ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                              - ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y         62
+#DEFINE   PAGE-X        132
+#DEFINE   HEAD-SIZE       8
+#DEFINE   FOOT-SIZE       1
+#DEFINE   HEAD-LINE       5
+
+#DEFINE   MASK1       9,999,999   
+#DEFINE   MASK2     999,999,999   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##pvl(aa int,hmeromhnia datetime,posothta float)
+end-sql
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $evs_hm    'Εως Ημερόμηνια'
+ execute app_datecnv $evs_hm, $date_evs output, $evshmpr output
+  
+ move  $L_CID       to $cid
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.pvlomada   &pvlomada  () NOP
+a.perigrafh  &p         () NOP
+    
+   let $pvlomada = &pvlomada 
+   let $where = 'main'
+
+    do find_other_pvlomada
+    do getypol 
+      print $pvlomada (, 2,20)
+      print $pvlomada2 (,21,20)
+      print &p        (,41,28)
+      print #rnd_msk  (,60,10) EDIT {MASK1} 
+      print #ypol     (,81,15) EDIT {MASK2} 
+      
+  !    ΠΩΛΗΣΕΙΣ  
+       let #pvl = 0
+       let $pvl = $pvlomada
+       do get_pvlhseis
+       let #pvl = #pvlhseis
+    if $pvlomada2 <> '0'
+       let $pvl = $pvlomada2
+       do get_pvlhseis
+       let #pvl = #pvlhseis + #pvl
+    end-if
+      print #pvl      (,97,10) EDIT {MASK1} 
+
+   do get_apografh
+
+   next-listing
+
+   do truncate
+   do find_eisagvges   
+   do find_other_eisagvges
+   do print_eisagvges
+
+
+from   wh_pvlomades a
+where  exists ( select f.pvlomada
+                from wh_eidhmore g,wh_eidh f
+                where a.pvlomada = f.pvlomada
+                and   f.kvdikos  = g.eidos
+                and   g.energo is not null   )
+[$SQLCMD]
+order by a.perigrafh,a.pvlomada
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure get_pvlhseis
+
+
+     execute  whp_enhlik   @eidos       = $pvl          ,
+                           @cid         = $cid          ,
+                           @hmeromhnia  = $date_evs     , 
+                           @msk         = #msk       out,
+                           @pvl_p       = #pvl_p     out,
+                           @gen_p       = #gen_p     out
+
+     let #pvlhseis = #pvl_p - #gen_p
+
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_other_pvlomada
+
+  let $pvlomada2 = '0'
+
+begin-select
+c.pvlomada       &pvlomada2 () NOP
+    
+    let $pvlomada2 = &pvlomada2
+
+from  wh_eidh a,tmp_eidh c
+where a.kvdikos    = c.kvd_2
+and   a.pvlomada   = $pvlomada
+and   a.kvdikos    = c.kvd_2
+group by c.pvlomada
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure get_apografh       
+
+begin-select
+b.aa                                &aa_ap    () NOP
+convert(datetime,b.hmeromhnia)      &hmer_ap  () NOP
+sum(isnull(b.posothta,0))           &pvl3     () NOP
+
+   let #aa   = &aa_ap
+   let $hmer = &hmer_ap
+   let #pos  = &pvl3 
+   if #pos <> 0
+      do insert
+   end-if
+from wh_eidh a,wh_kin b,tmp_eidh c
+where c.kvdikos    = b.eidos
+and   b.parkvd     = '90'
+and   b.hmeromhnia = '3 Jan 1994' 
+and   a.pvlomada   = $pvlomada
+and   a.kvdikos    = c.kvd_2
+group by b.aa,b.hmeromhnia
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure truncate
+
+begin-sql -C1
+truncate table ##pvl
+end-sql
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure getypol
+  if $where = 'main'
+     execute  whp_getmsk5  @eidos       = $pvlomada     ,
+                           @cid         = $cid          ,
+                           @hmeromhnia  = $date_evs     , 
+                           @msk         = #msk      out ,
+                           @ypoloipo    = #ypol     out
+  let #rnd_msk = round(#msk,0)
+  end-if
+  if $where = 'print_eis'
+     execute  whp_getmsk5  @eidos       = $pvlomada     ,
+                           @cid         = $cid          ,
+                           @hmeromhnia  = $hm_print     , 
+                           @msk         = #msk_print out 
+  let #rnd_msk_print = round(#msk_print,0)
+  end-if
+                     
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure find_eisagvges
+begin-select
+b.aa                                &aa1        () NOP
+b.parkvd                            &par1       () NOP
+a.pvlomada                                      () NOP
+convert(datetime,b.hmeromhnia)      &hmer       () NOP
+sum(b.posothta)                     &pos        () NOP
+
+     let #aa   = &aa1    
+     let $hmer = &hmer
+     let #pos  = &pos
+
+     if #pos <> 0
+        do insert
+     end-if
+
+from wh_eidh a,wh_kin b
+where a.kvdikos    = b.eidos
+and   b.parkvd     in  ('11','14')
+and   a.pvlomada   = $pvlomada
+group by b.aa,b.parkvd,a.pvlomada,b.hmeromhnia
+end-select
+end-procedure
+! ==============================================================================
+begin-procedure find_other_eisagvges
+ let #pos  = 0
+ let $hmer = ''
+begin-select
+b.aa                                &aa2         () NOP
+b.parkvd                            &par2        () NOP
+a.pvlomada                          &lala        () NOP
+convert(datetime,b.hmeromhnia)      &hmer_other  () NOP
+sum(b.posothta)                     &pos_other   () NOP
+
+     let #aa   = &aa2
+     let $hmer = &hmer_other
+     let #pos  = &pos_other
+
+     if #pos <> 0
+        do insert
+     end-if
+
+from wh_eidh a,wh_kin b,tmp_eidh e
+where a.kvdikos    = e.kvd_2
+and   e.kvdikos    = b.eidos
+and   a.pvlomada   = $pvlomada
+and   b.parkvd     in  ('11','14')
+group by b.aa,b.parkvd,a.pvlomada,b.hmeromhnia
+end-select
+end-procedure
+! ==============================================================================
+begin-procedure insert
+begin-sql -C1
+insert into ##pvl(aa,hmeromhnia,posothta)
+values           (#aa,$hmer     ,#pos    )
+end-sql
+end-procedure
+! ==============================================================================
+begin-procedure print_eisagvges
+begin-select -C1
+a.aa                              &aa_print   () NOP
+convert(datetime,a.hmeromhnia)    &hm_print   () NOP
+a.posothta                        &pos_print  () NOP
+
+      let #pos_print = &pos_print
+      let $hm_print  = &hm_print
+       if #pvl < 0 
+          let #pvl = 0
+       end-if
+      let #pvl       = #pvl - #pos_print
+            
+      if #pvl <= 0
+          let #pos_pr = #pvl * -1
+          print &aa_print       ( , 2,12)
+          print $hm_print       ( ,15,12)
+          print #pos_pr         ( ,28,20) EDIT {MASK2}
+             let $where = 'print_eis'
+          let #rnd_msk_print = 0
+             do getypol
+          print #rnd_msk_print        ( ,50,10) EDIT {MASK1} 
+          next-listing 
+      end-if
+from ##pvl a
+order by hmeromhnia
+end-select
+   next-listing 
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  
+  print 'Ενηλικίωση '         (3,      ) center
+  print 'Εως Ημ/νια : '       (4, 52,13)
+  print $evshmpr              (4, 66,20)
+      print 'Ομάδα Πώλησης'   (7,  2,20)
+      print 'Ομάδα Πώλησης Π-'(7, 21,20)
+      print 'Περιγραφή'       (7, 41,28)
+      print 'Μ.Σ.Κ.'          (7, 75,10) 
+      print 'Υπόλοιπο'        (7, 86,15) 
+      print 'Πωλήσεις'        (7,102,10) 
+
+End-heading

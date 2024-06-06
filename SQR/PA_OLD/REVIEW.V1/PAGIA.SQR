@@ -1,0 +1,162 @@
+!***********************************************************************
+!***** REPORT      : pagia.sqr                                      ****
+!***** DATE        : 02/04/1998                                     ****
+!***** APPLICATION : ΠΑΓΙΑ ΣΤΟΙΧΕΙΑ                                 ****
+!***** AUTHOR      : ΤΡΙΠΕΡΙΝΑ ΓΕΩΡΓΙΑ                              ****
+!***** NOTE        : --- Ευρετήριο  Παγίων  ----                    ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+ 
+ move $TAX to $tax
+ input $tax    'taxinomhsh'
+ unstring $tax by '"' into $filler $tax $filler1
+ if $tax='1'
+    let $SQLORD='order by kvdikos'
+ else
+   let $SQLORD='order by perigrafh'
+ end-if
+ do main
+
+End-Report
+
+
+!()  on-break  print=never level=1  after=change_synet  
+! ****************************************************************************
+
+begin-procedure main
+ move '' to $aitia1
+begin-select         
+a.kvdikos        ()  nop
+a.perigrafh      ()  nop 
+convert(char(10),convert(datetime,hm_enarjhs),103) &hm_enarjhs  
+a.kathgoria      ()  nop
+a.pososto        ()  nop
+a.mh_energo      ()  nop
+a.notes          ()  nop
+a.logar_gl       ()  nop
+a.logar_aposb    ()  nop
+          !do kathgoria_pagioy
+          !do logar_gl
+          !do logar_aposb
+          add 1 to #aa
+          move &a.notes to $notes 
+          let $aitia1=substr($notes,1,70)
+          let $aitia2=substr($notes,71,141)
+          let $aitia3=substr($notes,142,212)
+          let $aitia4=substr($notes,213,255)
+          do ektyp
+          next-listing
+from pa_mhtrvo a
+where 1=1 
+[$SQLCMD]
+[$SQLORD]
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure kathgoria_pagioy
+begin-select
+d.perigrafh
+
+from pa_kathgories d
+where kathgoria=&a.kathgoria
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure logar_gl
+begin-select
+b.perigrafh 
+
+from gl_logelax b
+where logar=&a.logar_gl
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure logar_aposb
+begin-select
+c.perigrafh 
+
+from gl_logelax c
+where logar=&a.logar_aposb
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure ektyp1
+begin-document (+1,4)
+ Κωδικός Παγίου   :&a.kvdikos      Περιγραφή Παγίου        :&a.perigrafh        
+ Κατηγορία        :&a.kathgoria    Περιγραφή Κατηγορίας    :&d.perigrafh
+ Ποσοστό Απόσβεσης:&a.pososto      Ημ.Εναρξης Αποσβέσεων   
+ Λογαριασμός Γ.Λ. :&a.logar_gl     Περιγραφή Λογ/σμου Γ.Λ  :&b.perigrafh       
+ Λογαριασμός Aποσβ:&a.logar_aposb  Περιγραφή Λογ/σμού Αποσβ:&c.perigrafh 
+ Aιτιολογία       : &a.notes            
+end-document
+end-procedure
+! ****************************************************************************
+begin-procedure ektyp
+ print #aa                   (,1,3)  edit 999 
+ print &a.kvdikos            (,+1,25)
+ print &a.perigrafh          (,+1,40)
+ print &hm_enarjhs           (,+1,10)
+ print &a.kathgoria          (,+1,10)
+ print &a.pososto            (,+1,7)  edit 999.99 
+ print 'ΚΤΗΣΗ:'              (,102,6)
+ print &a.logar_gl           (,+1) 
+ 
+ if $aitia1<>''
+    print $aitia1               (+1,31,70)
+    print 'ΑΠΟΣΒ:'              (,102,6)
+    print &a.logar_aposb        (,+1) 
+ else
+    print 'ΑΠΟΣΒ:'              (+1,102,6)
+    print &a.logar_aposb        (,+1) 
+ end-if
+ if $aitia2<>''
+   print $aitia2              (+1,31,70)
+ end-if
+ if $aitia3<>''
+   print $aitia3               (+1,31,70)
+ end-if
+ if $aitia4<>''
+   print $aitia4               (+1,31,70)
+ end-if
+ 
+ !Aιτιολογία       : &a.notes    
+end-procedure
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'Ευρετήριο Παγίων'    (3,+1) center
+ print 'A/A'                 (6,1,3)  
+ print 'KΩΔΙΚΟΣ ΠΑΓΙΟΥ'      (,+1,25)
+ print 'ΠΕΡΙΓΡΑΦΗ'           (,+1,40)
+ print 'ΕΝΑΡΞΗ ΑΠ.'          (,+1,10)
+ print 'ΚΑΤΗΓΟΡΙΑ'           (,+1,10)
+ print '%ΑΠΟΣΒ.'             (,+1,7)   
+ print 'ΛΟΓ/ΣΜΟΣ'            (,102,6)
+ print '/ΑΙΤΙΟΛΟΓΙΑ'         (+1,30)   
+End-Heading

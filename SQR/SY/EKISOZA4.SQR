@@ -1,0 +1,285 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : ekisoza4.sqr                                           ****
+! **** DATE        : 1/9/99                                                 ****
+! **** APPLICATION : пекатес - пыкгсеис                                     ****
+! **** AUTHOR      : A.A.		                                    ****
+! **** NOTE        : хеыяглемо лгмиаио исофуцио апохгйгс                    ****
+! ******************************************************************************
+ 
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X     232
+#DEFINE   HEAD-SIZE  15
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   MASK1P     999,999,999,999c
+#DEFINE   MASK1A     9999,999,999.99c
+#DEFINE   MASK2      B9999999999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+! ******************************************************************
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+!	input $et   'дысе етаияеиа'
+	input $ikata 'дысе йатастгла'
+        input $ihm_apo
+	input $ihm_evs
+	unstring $ikata by '"' into $filler $kata $filler
+        execute  app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+        execute  app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+	move $L_XRHSH to #xrhsh
+  	do getxrhsh($cid,#xrhsh, $hmapog)
+  	display 'HM APOGRAFHS : ' noline
+  	display $hmapog
+
+	move 0 to #e
+	move 0 to #x
+	move 0 to #y
+	move 0 to #aposoeise
+	move 0 to #aaxiaeise
+	move 0 to #aposoexae
+	move 0 to #aaxiaexae
+	move 0 to #aposoeism
+	move 0 to #aaxiaeism
+	move 0 to #aposoexam
+	move 0 to #aaxiaexam
+	move 0 to #aposoypol
+	move 0 to #a
+	do eidh1
+	move 'ей летажояас' to $sxolio
+!	do eidh
+	move 'еис летажояаN  '	to $sxolio
+	do synola
+	do synola1
+
+End-Report
+
+begin-procedure eidh1
+begin-select
+sum(apo_p + ago_p) &mposeis,sum(apo_a + ago_a) &maxeis ,sum(pvl_p + dia_p + gen_p) &mposex,
+sum(pvl_a + dia_a + gen_a) &maxex,perigrafh ,eidos
+
+		do eidh2
+
+from wh_kint1,wh_eidh
+where cid=$cid and hmeromhnia between $apohm and $evshm and apouhkh=$kata
+and kvdikos=eidos
+!and eidos='138'
+group by eidos,perigrafh
+order by eidos
+end-select
+!	do eidh2
+!	do eidh1
+end-procedure
+
+! ******************************************************************
+
+begin-procedure eidh2
+begin-select
+sum(apo_p + ago_p) &eposeis,sum(apo_a + ago_a) &eaxeis,
+sum(pvl_p + dia_p + gen_p) &eposex,sum(pvl_a + dia_a + gen_a)  &eaxex
+
+		show &eposeis
+		let #eposeis=&eposeis
+		let #eaxeis=&eaxeis
+		do ektyp
+
+
+from wh_kint1
+where cid=$cid and hmeromhnia>=$hmapog and hmeromhnia<$apohm
+and eidos=&eidos and apouhkh=$kata
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure ektyp
+
+let #ypol=(#eposeis+&mposeis)-(&eposex+&mposex)
+let #ypol1=&eposeis - &eposex
+!if &mposeis!=0 or &maxeis!=0 or &mposex!=0 or &maxex!=0
+!	add 1 to #x
+
+!if #ypoll < 0
+
+print  &eidos	(+1,1,9)
+print  &perigrafh	(,+1,35)
+print  &eposeis		(,+1,15)	edit {MASK1P}
+print  &eaxeis		(,+1,15)	edit {MASK1A}
+print  &eposex		(,+1,15)	edit {MASK1P}
+print  &eaxex		(,+1,15)	edit {MASK1A}
+print  #ypol1		(,+1,15)	edit {MASK1P}
+print  &mposeis		(,+1,15)	edit {MASK1P}
+print  &maxeis		(,+1,15)	edit {MASK1A}
+print  &mposex		(,+1,15)	edit {MASK1P}
+print  &maxex		(,+1,15) 	edit {MASK1A}
+print  #ypol		(,+1,15)	edit {MASK1P}
+
+add  #eposeis  to #seposeis
+add  #kostos to #skostos
+add  #eaxeis  to #seaxeis
+add  &eposex  to #seposex
+add  &eaxex	  to #seaxex
+add  &mposeis  to #smposeis
+add  &maxeis  to #smaxeis
+add  &mposex  to #smposex
+add  &maxex  to #smaxex
+	if #current-line >53
+		move 'еис летажояам'  to $sxolio
+		do synola
+		new-page
+		move 'ей летажояас'	to $sxolio
+		do synola
+	end-if
+goto nn2
+!end-if
+if &mposeis=0 and &maxeis=0 and &mposex=0 and &maxex=0
+	add 1 to #y
+add  #eposeis  to #sseposeis
+add  #eaxeis  to #sseaxeis
+add  &eposex  to #sseposex
+add  &eaxex	  to #sseaxex
+goto nn2
+end-if
+display &eidos
+nn2:
+end-procedure
+
+! ******************************************************************
+
+begin-procedure synola
+let #sypol=(#seposeis+#smposeis)-(#seposex+#smposex)
+let #sypol1=#seposeis - #seposex
+		print '*' (+1,1,233)  fill
+		print $sxolio (+1,34,12)
+print  #seposeis	(,+1,10)	edit {MASK1P}
+print  #seaxeis		(,+1,15)	edit {MASK1A}
+print  #seposex		(,+1,15)	edit {MASK1P}
+print  #seaxex		(,+1,15)	edit {MASK1A}
+print  #sypol1		(,+1,15)	edit {MASK1P}
+print  #smposeis	(,+1,15)	edit {MASK1P}
+print  #smaxeis		(,+1,15)	edit {MASK1A}
+print  #smposex		(,+1,15)	edit {MASK1P}
+print  #smaxex		(,+1,15) 	edit {MASK1A}
+print  #sypol		(,+1,15)	edit {MASK1P}
+!print  #skostos         (,+13,11)        edit {MASK1P}
+		print '*' (+1,1,233) fill
+end-procedure
+
+! ******************************************************************
+
+begin-procedure synola1
+begin-select
+sum(apo_a + ago_a)  &etaxeis,  sum(pvl_a + dia_a + gen_a)  &etaxex
+from wh_kint1
+where cid=$cid and hmeromhnia between $hmapog and $evshm	 ! adr-bugfix hmapog it was 1 jan 2000
+and apouhkh=$kata
+end-select
+show &etaxeis
+show &etaxex
+let #sypol=(#sseposeis-#sseposex)
+let #sseaxeis=&etaxeis - (#smaxeis + #seaxeis)
+let #sseaxex=&etaxex - (#smaxex + #seaxex)
+
+
+		print '*' (+1,1,233)  fill
+move 'коипа еидг поу дем йимгхгсам'  to $sxolio
+		print $sxolio (+1,10,52)
+!print  #sseposeis		(,+1,10)	edit {MASK1P}
+print  #sseaxeis		(,+1,15)	edit {MASK1A}
+!print  #sseposex		(,+1,10)	edit {MASK1P}
+print  #sseaxex			(,+1,15)	edit {MASK1A}
+!print  #smposeis		(,+1,10)	edit {MASK1P}
+!print  #smaxeis		(,+1,11)	edit {MASK1A}
+!print  #smposex		(,+1,10)	edit {MASK1P}
+!print  #smaxex			(,+1,11) 	edit {MASK1A}
+!print  #sypol			(,+1,10)	edit {MASK1P}
+		print '*' (+1,1,233) fill
+!let #eis1=#seposeis+#smposeis+#sseposeis
+!let #eis2=#seaxeis+#smaxeis+#sseaxeis
+!let #ex1=#seposex+#smposex+#sseposex
+!let #ex2=#seaxex+#smaxex+#sseaxex
+!if #mhnas!=0
+!print  #eis1		(+3,1,15)	edit {MASK2}
+!print  #eis2		(,+1,15)	edit {MASK2}
+!print  #ex1		(,+1,15)	edit {MASK1P}
+!print  #ex2		(,+1,15)	edit {MASK1P}
+!		print '*' (+1,1,233) fill
+!end-if
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getxrhsh($cid,#xrhsh, :$hmapog)
+begin-select
+isnull(hm_apografhs,xrhsh_arxh) &hm_apografhs
+from ap_xrhsh
+where cid=$cid 
+  and xrhsh=#xrhsh
+end-select
+
+move &hm_apografhs to $hmapog
+
+
+
+end-procedure
+
+! *************************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+	print 'йатастгла ' (4,1)
+	print $kata (,20)
+	print $katono (,30)
+!	print 'лгмас ' (7,58)
+!	print $mhnono (,+1,20)
+	print 'глеяолгмиа апо: '(7,20)
+	print $apohmpr  (,+1,12)
+        print 'еыс:'	(,+1,5)
+	print $evshmpr (,+1,12)
+
+	print $etos (,+1)
+	print '*' (8,1,233) fill
+	print ' йыдийос   ' (9,1,10)
+	print 'пеяицяажг           ' (,+10,20)
+	print '  еисацыцес       пеяиодоу   ' (,+12,30)
+	print '  енацыцес        пеяиодоу   ' (,+1,30)
+        print ' упокоипо  '		 (,+1,15)
+	print '  еисацыцес         лгмос   ' (,+1,30)
+	print '  енацыцес          лгмос         упокоипо' (,+1,60)
+	print ' укийоу    ' (10,1,10)
+	print 'укийоу              ' (,+10,20)
+	print '  посотгта         а н и а ' (,+14,30)
+	print '  посотгта         а н и а ' (,+1,30)
+	print '  посотгта         а н и а ' (,+15,30)
+	print '  посотгта         а н и а       посотгтас' (,+1,45)
+	print '*' (+1,1,233) fill
+end-heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	3	98	5201	ekisoza4	rs	X	01},TITLE{хЕЫЯГЛщМО лГМИАъО иСОФЩЦИО аПОХчЙГР}
+!	PARCOUNT{2}
+!	PAR1{аПОХчЙГ	APOU	1	=	char(1)		X}
+!	PAR2{гЛЕЯОЛГМъА	HMER	2	апо-еыс	datetime		X}
+!REPORTHELP{F}
+!</pcalib>

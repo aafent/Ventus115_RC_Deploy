@@ -1,0 +1,52 @@
+[VENTUS]
+tab1=ventus,Εφαρμογές @(ANAME)
+permit file=modmenu.setup,@(CUSTID)
+default content=@(APATH)/menu/test2.jpg
+
+[VENTUS ventus]
+0=Εφαρμογές :                                        @(TODAY)
+content=@(APATH)/menu/test2.jpg
+1=8,tvmenu,#PERSONAL->#PERSONAL,Προσωπικές Επιλογές Χρήστη
+2=5,menu,porders01.men->porders01,pOrders
+3=5,menu,sy000.men->sy000,Συναλλαγές
+4=5,menu,gl000.men->gl000,Οικονομική Διαχείριση
+5=5,menu,aj000.men->aj000,Αξιόγραφα
+6=5,menu,cc000.men->cc000,Credit Control
+7=5,menu,pa001.men->pa000,Πάγια Στοιχεία
+8=5,menu,pr000.men->pr000,Πρωτόκολλο
+9=5,MESSAGEBOX,Αυτή η επιλογή δεν έχει εγκατασταθεί,Μισθοδοσία Προσωπικού
+10=5,menu,op000.men->op000,Εφαρμογές Οπτικών
+11=5,menu,eg000.men->eg000,Εγγυητικές Επιστολές
+12=5,menu,dl000.men->dl000,Δημόσιο Λογιστικό
+13=5,menu,pr000.men->pr000,Πρωτόκολλο
+
+14=5,cb{3,menu},CU_@(CUSTID).men->Ventus,Ventus
+15=5,cb{3,menu},plessas.men->PLESSAS,Χρήστες
+16=5,cb{3,menu},las.men->las,Χρήστες
+17=5,cb{3,menu},glo.men->glo,Χρήστες
+
+;20=5,sheet,w_cupca01,Cards
+;20=5,sheet,pandora_dialog_macro_editor NAME(marika) PROTOTYPE(actions.prot),Pandora Macro Editor
+;20=5,sheet,pandora_dialog_prepare_deployment,Pandora Prepare Deployment
+;20=8,sheet,w_remote_portal,Portal
+;20=5,sheet,w_search1,Search
+
+
+;5=5,menu,paragejo.ini->sy000,Παραγγελίες Εμπορευμάτων
+;6=5,menu,parag.ini->sy000,Παραγγελίες Πελατών
+;8=5,menu,lianikh.ini->sy000,Λιανική Πώληση
+;9=5,menu,stoxoi.ini->sy000,Στόχοι Πωλητών
+
+;---------------------------------------------------------------------
+; Icons :
+; Icon #        Description
+; --------      -----------------------------------
+;   1           Procedure forms
+;   2           Data Entry forms
+;   3           Coding forms
+;   4           Option forms
+;   5           Menu items
+;   6           Report form or chart etc
+;   7           Reports on printer or spool file
+;   8           Customer Defined Item
+;4=5,cb{1,menu},gl000.ini->gl000,lala

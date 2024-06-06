@@ -1,0 +1,20 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2006-01-27 **/
+select a.eidos as "Ειδος", a.log_ypol as "Λογ.Υπολ",a.posothta as "Πρ.Υπολ",
+a.log_ypol - a.posothta as "Διαφ. Αποργ." , a.msk as "Τ.Τ.Κ.",
+round(a.msk*a.log_ypol,2) as "ΤΤΚ*Λογ.Υπολ"
+from wh_apografh a
+where a.apouhkh='16'
+and a.xrhsh=2005
+and a.cid  ='10'
+and not exists(select 1 from wh_kin b
+where a.eidos = b.eidos
+and b.hmeromhnia between '1 jan 2005' and '31 dec 2005'
+and b.apouhkh = a.apouhkh
+and b.cid     = a.cid
+and b.parkvd not in (select parkvd
+from ap_omadapar
+where omada='APOGRAFH'))
+and a.log_ypol !=0
+//and a.posothta != a.log_ypol
+order by a.eidos

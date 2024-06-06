@@ -1,0 +1,7 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2009-01-09 **/
+select  * from wh_timesv1 where cid='10'  and pvlhsh <= agora and kostos is not null
+UNION
+select  * from wh_timesv1 where cid='10'  and kostos > agora and kostos is not null
+UNION
+select  * from wh_timesv1 where cid='10'  and pvlhsh <= kostos and kostos is not null

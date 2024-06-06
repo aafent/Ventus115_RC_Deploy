@@ -1,0 +1,322 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : ajhmerol.sqr                                   ****
+!***** DATE        : 01/06/94                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Εκτύπωση Ημερολογίου Επιταγών/Συναλλαγματικών  ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+
+#DEFINE   MASK1    99999,999,999
+#DEFINE   MASK3    999
+#DEFINE   MASK6    999999
+#DEFINE   MASK7    9999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ create-array name=total_arr size=4 field=eis:number
+                                    field=eja:number
+                                    field=diak:number
+                                    field=epis:number
+
+ ! Θέση 0 Προοδευτικά
+ ! Θέση 1 Κίνηση Περιόδου
+ ! Θέση 2 Κίνηση Ημέρας
+ ! Θέση 3 Κίνηση Κωδικού Μεταβολής
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ieidos   'eidos ajiogr'
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+
+ unstring $ieidos by '"' into $filler $eidos $filler
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+show $cid
+
+ if $eidos = 'Ε' or
+    $eidos = 'E'
+     move    '0'      to $typ_ajio
+     move    'Eπιτ. ' to $typos
+ end-if
+ if $eidos = 'Σ' or
+    $eidos = 'S'
+     move    '1'      to $typ_ajio
+     move    'Συναλ.' to $typos
+ end-if
+ if $typ_ajio = ''
+     show clear-screen (24,1) 'Λαθος Τύπος Αξιογράφου' beep
+     stop
+ end-if
+
+  let #col1 = 105
+  let #col2 = 119
+
+!  do find_typohmer($cid,$typ_ajio,$per_hmer)
+ do apo_metafora
+ do main
+ do se_metafora
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select DISTINCT
+
+convert(datetime,c.hm_metab) &c.hm_metab () On-Break print  = never
+                                                     Level  = 1
+                                                     save   = $day
+                                                     after  = day_totals
+
+c.kvdmetab                               () on-break print = never
+                                                     level = 2
+                                                     save  = $metab
+                                                     after = metab_totals
+
+a.aa_ajio                                       (, 01,06) edit {MASK6}
+c.logarx                                        (,+1,08)
+c.synalx                                        (,+1,05)
+    do find_logarper($cid, &c.logarx, &c.synalx, $perigrafh)
+    print $perigrafh                            (,+1,30)
+a.aa_epitaghs                                   (,+1,20)
+convert( datetime, a.hm_ekd)  &a.hm_ekd         (,+02,08) edit {DATEMASK}
+convert( datetime, a.hm_lhjh) &a.hm_lhjh        (,+02,08) edit {DATEMASK}
+
+  print &c.kvdmetab                             (,+02,02) 
+
+c.ar_eis                                        (,+1,05) edit 99999
+
+  next-listing
+
+c.logarp                                        (, 08,08)
+c.synalp                                        (,+01,05)
+    do find_logarper($cid, &c.logarp, &c.synalp, $perigrafh)
+    print $perigrafh                            (,+1,30)
+a.ekdoths                                       (,+01,20)
+a.toposplhr                                     (,+01,17)
+c.ajia                                          () NOP
+b.flag_eis                                      () NOP
+b.flag_eja                                      () NOP
+b.flag_diak                                     () NOP
+b.flag_epis                                     () NOP
+  
+  if &b.flag_eis = 'X'
+          array-add &c.ajia to total_arr(3) eis
+          print &c.ajia                         (,#col1,13) edit {MASK1}
+          end-if
+  if &b.flag_eja = 'X'
+          array-add &c.ajia to total_arr(3) eja
+          print &c.ajia                         (,#col2,13) edit {MASK1}
+          end-if
+  if &b.flag_diak = 'X'
+          array-add &c.ajia to total_arr(3) diak
+          print &c.ajia                         (,#col2,13) edit {MASK1}
+          end-if
+  if &b.flag_epis = 'X'
+          array-add &c.ajia to total_arr(3) epis
+          print &c.ajia                         (,#col1,13) edit {MASK1}
+          end-if
+
+  next-listing
+
+from aj_kin c, aj_mas a, aj_metab b
+where a.cid      = $cid
+  and b.cid      = $cid
+  and c.cid      = $cid
+  and a.typ_ajio = $typ_ajio
+  and b.typ_ajio = $typ_ajio
+  and c.typ_ajio = $typ_ajio
+  and c.typ_ajio = a.typ_ajio
+  and c.kvdmetab = b.kvdikos
+  and c.aa_ajio  = a.aa_ajio
+  and a.cid      = b.cid
+  and a.cid      = c.cid
+  and b.cid      = c.cid
+  and c.hm_metab between $apohm and $evshm
+order by c.hm_metab, c.kvdmetab, a.aa_ajio
+end-select
+
+end-procedure
+
+! ******************************************************************
+! begin-procedure find_typohmer($cid,$typ_ajio,:$per_hmer)
+! begin-select
+! perigrafh         () NOP
+!     move &perigrafh to $per_hmer
+! from aj_mhxar
+! where kvdikos = $typ_ajio
+! and   cid     = $cid
+! end-select
+! end-procedure
+! 
+! ******************************************************************
+begin-procedure apo_metafora
+   put 0 0 0 0 into total_arr (0) eis eja diak epis
+begin-select
+sum(a1.eisagvges)  &eis         () NOP
+sum(a1.ejagvges)   &eja         () NOP
+sum(a1.diakinhsh)  &diak        () NOP
+sum(a1.epistrofes) &epis        () NOP
+   array-add &eis &eja &diak &epis to total_arr(0) eis eja diak epis
+   print 'Σύνολο από μεταφορά'           (, 23,20)
+   print &eis                            (,#col1,13) edit {MASK1}
+   print &diak                           (,#col2,13) edit {MASK1}
+   next-listing
+   print &epis                           (,#col1,13) edit {MASK1}
+   print &eja                            (,#col2,13) edit {MASK1}
+   next-listing
+from aj_hmer a1
+where a1.cid      = $cid
+  and a1.typ_ajio = $typ_ajio
+  and a1.hmer_e   <= $apohm 
+  and a1.hmer_e   > '25 dec 1998'
+end-select
+ 
+end-procedure
+
+! ******************************************************************
+begin-procedure se_metafora
+  get #eis #eja #diak #epis from total_arr(1) eis eja diak epis
+  execute ajp_updtotals $cid $typ_ajio $apohm $evshm #eis #eja #diak #epis 
+  array-add #eis #eja #diak #epis to total_arr(0) eis eja diak epis
+  get #eis #eja #diak #epis from total_arr(0) eis eja diak epis
+  print 'Σύνολο σε μεταφορα'            (, 23,20)
+  print #eis                            (,#col1,13) edit {MASK1}
+  print #diak                           (,#col2,13) edit {MASK1}
+  next-listing
+  print #epis                           (,#col1,13) edit {MASK1}
+  print #eja                            (,#col2,13) edit {MASK1}
+  next-listing
+end-procedure
+
+! ******************************************************************
+begin-procedure find_logarper($cid, $logar, $synal, :$perigr)
+  move '' to $perigr
+begin-select
+a1.perigrafh                     () NOP
+   move &a1.perigrafh to $perigr
+from gl_logar a1
+where a1.logar = $logar and a1.cid = $cid
+end-select
+
+  if $synal = ''
+     goto next
+  end-if
+
+begin-select
+a2.epvnymia                     () NOP
+     move &a2.epvnymia to $perigr
+from sy_synal a2      
+where a2.synal = $synal
+end-select
+ 
+next:
+ 
+end-procedure
+
+! ******************************************************************
+begin-procedure flag_metab($cid,$kvdmetab,:$x,:$p)
+begin-select
+flag_eis         () NOP
+flag_eja         () NOP
+    move &flag_eis to $x
+    move &flag_eja to $p
+from aj_metab
+where kvdikos = $kvdmetab
+  and cid     = $cid
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure metab_totals
+  next-listing
+  if $metab = ''
+     move '-' to $metab
+  end-if
+begin-select
+m1.perigrafh                            () NOP
+  move &m1.perigrafh to $perigrafh
+from aj_metab m1
+where m1.kvdikos = $metab 
+  and m1.cid     = $cid
+end-select
+  print 'Σύνολο  ['                     ( ,23,10)
+  print $perigrafh                      (,+01,)
+  print ']'                             (,+01,01)
+  get #eis #eja #diak #epis from total_arr(3) eis eja diak epis
+  print #eis                            (,#col1,13) edit {MASK1}
+  print #diak                           (,#col2,13) edit {MASK1}
+  next-listing
+  print #epis                           (,#col1,13) edit {MASK1}
+  print #eja                            (,#col2,13) edit {MASK1}
+  next-listing
+  next-listing
+  array-add #eis #eja #diak #epis to total_arr(2) eis eja diak epis
+  put 0 0 0 0  into total_arr(3) eis eja diak epis
+end-procedure
+
+! ******************************************************************
+begin-procedure day_totals
+  print 'Σύνολο Ημερομηνίας'            (, 23,20)
+  print '['                             (,+01,01)
+  print $day                            (,+01,08) edit {DATEMASK}
+  print ']'                             (,+01,01)
+  get #eis #eja #diak #epis from total_arr(2) eis eja diak epis
+  print #eis                            (,#col1,13) edit {MASK1}
+  print #diak                           (,#col2,13) edit {MASK1}
+  next-listing
+  print #epis                           (,#col1,13) edit {MASK1}
+  print #eja                            (,#col2,13) edit {MASK1}
+  next-listing
+  next-listing
+  array-add #eis #eja #diak #epis to total_arr(1) eis eja diak epis
+  put 0 0 0 0  into total_arr(2) eis eja diak epis
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  ! #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = $per_hmer||' ['||'από '||$apohmpr||' εως '||$evshmpr||']'
+  print  $msg                  (4,01)
+  print $L_X1                  (5,01,{PAGE-X}) fill
+  print 'Αριθμ.'               (6,01,06)
+  print 'Χρεούμενος '          ( ,+1,15)
+  print 'Εκχωρητής  '          ( ,+1,30)
+  print 'Αρ.Επιταγής'          ( ,+1,20)
+  print '  Εκδοση'             ( ,+1,08)
+  print '    Λήξη'             ( ,+1,08)
+  print 'Αρ.Εισόδου'           ( ,+1,11)
+  print 'Αξια/Εισαγ'           ( ,+2,13)
+  print '  Διακίνηση'          ( ,+1,13)
+
+  print $typos                 (7,01,06)
+  print 'Πιστούμενος'          ( ,+1,15)
+  print ''                     ( ,+1,30)
+  print 'Eκδότης'              ( ,+1,20)
+  print 'Τόπος Πληρωμής'       ( ,+1,17)
+  print '      '               ( ,+1,11)
+  print '  Επιστροφή'          ( ,+1,13)
+  print '    Εξαγωγή'          ( ,+1,13)
+  print $L_X1                  (8,01,{PAGE-X}) fill
+end-heading

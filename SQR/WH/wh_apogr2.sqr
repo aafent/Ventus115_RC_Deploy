@@ -1,0 +1,313 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 18/02/97                                       ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      : Mal Nick                                       ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    146
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2   9,999.9999
+#DEFINE   MASK3 9999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK6      999999
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $ihm  '«ÏÂÒÔÏÁÌﬂ· ¡Ô„Ò·ˆﬁÚ' 
+ execute app_datecnv    $ihm, $hm output, $hmpr output
+
+   let #POS_POS = 105
+   let #L_MASK3 =  12
+   let #POS_MSK = #POS_POS + #L_MASK3 + 1
+   let #POS_AJI = #POS_MSK + #L_MASK3 + 1
+
+   let $CONDITION = 'and  ( a.msk =  a.old_msk or b.tmhma <> 3 ) '
+   do main01
+
+             let  #posothta    = 0
+             let  #msk         = 0
+             let  #ajia        = 0
+             let  #s_posothta  = 0
+             let  #s_ajia      = 0
+             let  #ss_posothta = 0
+             let  #ss_ajia     = 0
+
+   let $CONDITION = 'and    a.msk <> a.old_msk and b.tmhma = 3  '
+    new-page
+   let   $msg2    = '  ¡–¡Œ…ŸÃ≈Õœ ”‘œ  Àœ√Ÿ –¡À¡…œ‘«‘œ”'
+   do main01
+             next-listing 
+             next-listing 
+             print '============' (,#POS_POS,#L_MASK3) 
+             print '============' (,#POS_AJI,#L_MASK3) 
+             next-listing
+             print '”’ÕœÀœ ¡–œ»« ŸÕ' (,56,40)
+             print #sss_posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+             print #sss_ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main01
+
+begin-select
+a.apouhkh      &apouhkh01  () NOP
+b.pvlomada     &pvlomada01 () NOP
+a.cid          &cid01      () NOP
+a.eidos        &eidos01    () NOP
+a.posothta     &posothta   () NOP
+a.msk          &msk        () NOP
+
+  let $apouhkh       = &apouhkh01
+  if $prev_pvlomada <> &pvlomada01 and $prev_pvlomada != ''
+   do total_pvlomada
+  end-if
+
+  if $prev_apouhkh <> &apouhkh01  and $prev_apouhkh != ''
+    do total_apouhkh 
+  end-if 
+
+      do find_apouhkh
+
+  if $prev_pvlomada <> &pvlomada01  
+     print &pvlomada01 (, 1,15)
+  end-if
+
+  print &eidos01    (,17,15)
+
+  let $prev_apouhkh  = &apouhkh01
+  let $cid01         = &cid01
+  let $prev_pvlomada = &pvlomada01
+  let $eidos01       = &eidos01
+  let #posothta      = &posothta 
+  let #msk           = round(&msk,0)
+  let #ajia          = #posothta * round(#msk,0)
+
+  let #s_posothta  = #s_posothta + #posothta
+  let #s_ajia      = #s_ajia     + #ajia 
+  let #ss_posothta = #ss_posothta + #posothta
+  let #ss_ajia     = #ss_ajia     + #ajia 
+  let #sss_posothta = #sss_posothta + #posothta
+  let #sss_ajia     = #sss_ajia     + #ajia 
+
+
+     do main02
+
+  print #posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+  print #msk      (,#POS_MSK,#L_MASK3)  EDIT {MASK3}
+  print #ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+
+
+
+  next-listing
+
+   if {PAGE-Y} - #current-line <= 7 
+    next-listing
+      print '============' (,#POS_POS,#L_MASK3) 
+      print '============' (,#POS_AJI,#L_MASK3) 
+      next-listing
+      print '”≈ Ã≈‘¡÷œ—¡' (,1,15)
+      print #ss_posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+      print #ss_ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+      new-page
+      next-listing
+      print '¡–œ Ã≈‘¡÷œ—¡' (,1,15)
+      print #ss_posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+      print #ss_ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+
+      !   let #ss_ajia     = 0
+      !   let #ss_posothta = 0
+
+      next-listing
+      next-listing
+
+   end-if
+
+
+from wh_apogr2 a,wh_eidh01 b
+where a.cid       = '1'
+and   a.eidos     = b.eidos
+and   a.posothta <> 0
+and   a.hmer      = $hm
+   !   and   a.eidos     like '1B%'
+[$CONDITION]
+order by a.apouhkh,b.tmhma,pvlomada,a.eidos
+end-select
+   do total_pvlomada
+   do total_apouhkh 
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure total_pvlomada
+
+       if #s_posothta <> 0 or #s_ajia <> 0
+             print '============' (,#POS_POS,#L_MASK3) 
+             print '============' (,#POS_AJI,#L_MASK3) 
+             next-listing
+             print '”’ÕœÀœ' (,56,40)
+             print #s_posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+             print #s_ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+             let  #s_posothta  = 0
+             let  #s_ajia      = 0
+             next-listing
+             next-listing
+        end-if
+       
+end-procedure
+
+! *************************************************************************
+
+begin-procedure total_apouhkh
+       display #ss_posothta 
+       display #ss_ajia  
+
+       if #ss_posothta <> 0 or #ss_ajia <> 0
+             print '============' (,#POS_POS,#L_MASK3) 
+             print '============' (,#POS_AJI,#L_MASK3) 
+             next-listing
+             print '”’ÕœÀ¡ ¡–œ»« «”' (,56,40)
+             print #ss_posothta (,#POS_POS,#L_MASK3)  EDIT {MASK3}
+             print #ss_ajia     (,#POS_AJI,#L_MASK3)  EDIT {MASK3}
+             let   #ss_posothta  = 0
+             let   #ss_ajia      = 0
+             new-page
+        end-if
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main02
+
+begin-select
+c.eidos      &eidos    () NOP   
+
+c.logar      &logar    () NOP 
+
+   let $eidos = &eidos 
+   let $logar = &logar 
+
+   do find_logar_per
+   do make_logar
+
+   print $pr_logar (,34,20)
+
+
+from  wh_eidhmore c
+where c.cid     = $cid
+and   c.eidos   = $eidos01
+end-select
+  
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_logar
+  execute glp_logfrm $cid, $logar, $pr_logar output
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_eidos_per
+
+begin-select
+a.perigrafh   (,17,40)
+
+from wh_eidh a
+where a.kvdikos = $eidos
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_apouhkh
+
+begin-select
+a.kvdikos      &kvd_apou    () NOP
+a.perigrafh    &apouhkh_txt () NOP
+    let $kvd_apou = &kvd_apou
+    let $apouhkh_txt = &apouhkh_txt
+from wh_apouhk a
+where cid     = $cid
+and   kvdikos = $apouhkh
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_pvlomada
+
+begin-select
+a.pvlomada   &pvlomada () NOP
+
+  let $pvlomada = &pvlomada
+
+from wh_eidh a
+where a.kvdikos = $eidos01
+end-select
+
+end-procedure
+
+! *************************************************************************
+begin-procedure find_logar_per
+
+begin-select
+a.perigrafh  &2 (,56,40)
+
+from gl_logar a
+where a.logar = $logar
+end-select
+
+end-procedure
+
+! *************************************************************************
+Begin-Footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = '≈Ÿ” : ' || $hmpr
+  let   $msg1 = '≈Ÿ” : 31/12/96 '
+
+  let   $msg3 = '¡–œ»« « : [' || $kvd_apou || '] ' || $apouhkh_txt   
+
+  print $msg1                   (4,100)
+  print $msg2                   (2, ) Center
+  print $msg3                   (4,1)
+    
+  print '-'          (5,       1,{PAGE-X}) fill
+  print '   ˘  ‰  È  Í  ¸  Ú    ≈ Ï  Ô Ò Â ˝ Ï · Ù Ô Ú' (6,       1,54) 
+
+  print '–  Â  Ò  È  „  Ò  ·  ˆ  ﬁ'  ( ,      56,40) 
+  print '    –ÔÛ¸ÙÁÙ·'( ,#POS_POS,#L_MASK3) 
+  print '‘ÈÏﬁ  ¸ÛÙÔıÚ'( ,#POS_MSK,#L_MASK3) 
+  print ' ¸ÛÙÔÚ ’ÔÎ.'( ,#POS_AJI,#L_MASK3) 
+
+  print '-'          (7,       1,{PAGE-X}) fill
+
+
+End-Heading              

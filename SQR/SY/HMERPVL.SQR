@@ -1,0 +1,512 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : hmerpvl/sqr                                            ****
+! **** DATE        : 13/04/95                                               ****
+! **** APPLICATION : –≈À¡‘≈” - –ŸÀ«”≈…”                                     ****
+! **** AUTHOR      : Ã–œ …¡” Õ… œ”                                          ****
+! **** NOTE        : «Ã≈—œÀœ√…œ –ŸÀ«”≈ŸÕ                                    ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               132
+#DEFINE   HEAD-SIZE              7
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   MASK2            999,999
+#DEFINE   MASK3        999,999,999
+#DEFINE   MASK4                 99
+#DEFINE   MASK5          999999999
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   DATEMASK2       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ create-array name=syntel_fpa size=100 field=fpa:number
+                                       field=ajia_fpa:number
+                                       field=ajia_kau:number
+                                       field=epib_kau:number
+                                       field=epib_fpa:number
+                                       field=total_kau:number
+                                       field=total_fpa:number
+                                       field=total_epib_kau:number
+                                       field=total_epib_fpa:number
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ 
+ input $hmerapo '¡–œ «Ã/Õ…¡ : '
+ input $hmerevs '≈Ÿ” «Ã/Õ…¡ : '
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ Do Main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+  move '' to $hmeromhnia
+  move 0  to #lastnum
+  move 0  to #totalxre
+  move 0  to #totalpis
+  move 0  to #totalkau
+  move 0  to #totalfpa
+  move 0  to #non_syntel
+  move 0  to #allxre
+  move 0  to #allpis
+  move 0  to #allkau
+  move 0  to #allfpa
+  move 0  to #allnon
+  move 0  to #epibar_ajia_kau
+  move 0  to #epibar_ajia_fpa
+  move 0  to #allepibkau
+  move 0  to #allepibfpa
+  move 0  to #hmeres
+
+begin-select 
+convert(datetime,a.hmeromhnia) &a        ()       on-break print=never
+                                                           after=printtotals
+a.aa                           &aa       ()       NOP
+convert(datetime,a.hmeromhnia)           (, 1, 5) edit {DATEMASK2}
+a.parkvd                                 (,+1, 2)
+a.seira+'/'            &seira            (,+1, 4)
+a.parno                                  (,  , 9)
+a.aitia + ' ' + b.epvnymia               (,+1,44)
+a.ajia                                   ()        NOP
+a.ajia_kauarh                            ()        NOP
+a.ajia_fpa                               ()        NOP
+! isnull(convert(smallint,a.fpa),-1) &fpa()        NOP
+c.f_xrevsh                               ()        NOP
+c.f_pistvsh                              ()        NOP
+c.syntel_xp                              ()        NOP
+a.aa                                     ()        NOP
+
+  let #fpa = 0
+  do gettimtotals (&aa,#fpa)
+
+  move 0   to #eak
+  move 0   to #eaf
+
+  do findepibar(&aa,#eak,#eaf,#ef)
+
+  let #ajia        = ( &a.ajia        * &c.syntel_xp)
+  let #ajia_kauarh = ( &a.ajia_kauarh * &c.syntel_xp)
+  let #ajia_fpa    = ( &a.ajia_fpa    * &c.syntel_xp)
+
+  let #eak         = ( #eak           * &c.syntel_xp)
+  let #eaf         = ( #eaf           * &c.syntel_xp)
+  
+  let #ajia        = round(#ajia,0)
+  let #ajia_kauarh = round(#ajia_kauarh,0)
+  let #ajia_fpa    = round(#ajia_fpa,0)
+
+  let #eak         = round(#eak,0)
+  let #eaf         = round(#eaf,0)
+  
+  let #totalkau = #totalkau + #ajia_kauarh
+  let #totalfpa = #totalfpa + #ajia_fpa
+
+  let #epibar_ajia_kau = #epibar_ajia_kau + #eak
+  let #epibar_ajia_fpa = #epibar_ajia_fpa + #eaf
+
+  if &c.f_xrevsh <> ''
+    let #ajia_pr        = #ajia        * ( 1 )
+    let #ajia_kauarh_pr = #ajia_kauarh * ( 1 )
+    let #ajia_fpa_pr    = #ajia_fpa    * ( 1 )
+
+    print #ajia                   (,+01,11) edit {MASK3}
+    print #ajia_kauarh_pr         (,+13,11) edit {MASK3}
+    print #ajia_fpa_pr            (,+01,11) edit {MASK3}
+    if #eak <> 0
+    or #eaf <> 0
+      let #eak_pr = #eak * ( 1 )
+      let #eaf_pr = #eaf * ( 1 )
+
+      print #eak_pr                 (,+01,07) edit {MASK2}
+      print #eaf_pr                 (,+01,07) edit {MASK2}
+    end-if
+    let #totalxre = #totalxre + #ajia
+    if #fpa=0
+      let #non_syntel = #non_syntel + #ajia
+    else
+      do putfpa     (1,#fpa,#ajia_fpa,#ajia_kauarh,#lastnum)
+      do putfpaepib (1,#ef, #eaf,     #eak,        #lastnum)
+    end-if
+  else 
+    if &c.f_pistvsh <> '' 
+      let #ajia_pr        = #ajia        * ( -1 )
+      let #ajia_kauarh_pr = #ajia_kauarh * ( -1 )
+      let #ajia_fpa_pr    = #ajia_fpa    * ( -1 )
+
+      print #ajia                 (,+13,11) edit {MASK3}
+      print #ajia_kauarh_pr       (,+01,11) edit {MASK3}
+      print #ajia_fpa_pr          (,+01,11) edit {MASK3}
+      if #eak <> 0
+      or #eaf <> 0
+        let #eak_pr = #eak * ( -1 )
+        let #eaf_pr = #eaf * ( -1 )
+
+        print #eak_pr               (,+01,07) edit {MASK2}
+        print #eaf_pr               (,+01,07) edit {MASK2}
+      end-if
+      let #totalpis = #totalpis + #ajia
+      if #fpa=0
+        let #non_syntel = #non_syntel + #ajia
+      else
+        do putfpa     (2,#fpa,#ajia_fpa,#ajia_kauarh,#lastnum)
+        do putfpaepib (2,#ef, #eaf,     #eak,        #lastnum)
+      end-if
+
+    else 
+      print '.'                     (,+01,11)
+    end-if
+  end-if
+
+  next-listing
+
+from sy_kin a, sy_synal b, ap_par c
+where a.synal     =     b.synal  
+and   a.parkvd    =     c.parkvd
+and   a.logar     =    '3000001'
+and   a.cid       =     $L_CID
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and  (c.f_xrevsh is not null or c.f_pistvsh is not null)
+[$SQLCMD]
+order by a.hmeromhnia, a.seira, a.parno  
+End-Select
+
+if #hmeres > 1
+  next-listing
+  print '=========== =========== =========== =========== ======= =======' (,69,)
+  next-listing
+  print '”’ÕœÀ¡ –≈—…œƒœ’    :'          (,48,)
+  print #allxre                         (,+1,11) edit {MASK3}
+  print #allpis                         (,+1,11) edit {MASK3}
+  print #allkau                         (,+1,11) edit {MASK3}
+  print #allfpa                         (,+1,11) edit {MASK3}
+  print #allepibkau                     (,+1,07) edit {MASK2}
+  print #allepibfpa                     (,+1,07) edit {MASK2}
+  if #lastnum>1
+    let #nol=#lastnum + 4
+  else
+    let #nol=#lastnum + 2
+  end-if
+  next-listing need=#nol
+  move 1 to #i
+  move 0 to #n
+  move 0 to #ttkk
+  move 0 to #ttff
+  move 0 to #ttek
+  move 0 to #ttef
+  move 0 to #nof
+  while #i <= #lastnum
+    get #tmpfpa      from syntel_fpa(#i) fpa
+    get #totajia_fpa from syntel_fpa(#i) total_fpa
+    get #totajia_kau from syntel_fpa(#i) total_kau
+    get #totepib_fpa from syntel_fpa(#i) total_epib_fpa
+    get #totepib_kau from syntel_fpa(#i) total_epib_kau
+    if #totajia_fpa <> 0
+    or #totajia_kau <> 0
+    or #totepib_kau <> 0
+    or #totepib_kau <> 0
+      next-listing
+      print '”’ÕœÀ¡ ¡Œ…ŸÕ –≈—…œƒœ’ Ã≈ ”’Õ‘. ÷.–.¡.: ' (,48,)
+      print #tmpfpa                                   (,+1,2)  edit {MASK4}
+      print '%'                                       (,+1,)
+      print #totajia_kau                              (,+1,11) edit {MASK3}
+      print #totajia_fpa                              (,+1,11) edit {MASK3}
+      print #totepib_kau                              (,+1,07) edit {MASK2}
+      print #totepib_fpa                              (,+1,07) edit {MASK2}
+      add #totajia_kau to   #ttkk
+      add #totajia_fpa to   #ttff
+      add #totepib_kau to   #ttek
+      add #totepib_fpa to   #ttef
+      add 1            to   #nof
+    end-if
+    add 1 to #i
+  end-while
+  if #nof>1
+    next-listing
+    print '                        ----------- -----------' (,69,)
+    next-listing
+    print '”’ÕœÀ¡ ¡Œ…ŸÕ –≈—…œƒœ’                : '         (,48,)
+    print #ttkk                                    (,+6,11) edit {MASK3}
+    print #ttff                                    (,+1,11) edit {MASK3}
+    print #ttek                                    (,+1,07) edit {MASK2}
+    print #ttef                                    (,+1,07) edit {MASK2}
+    next-listing
+    next-listing
+  else
+    next-listing
+    next-listing
+  end-if
+  if #allnon<>0
+    print '”’ÕœÀ¡ ¡Œ…ŸÕ –≈—…œƒœ’    ◊Ÿ—…” ÷.–.¡.: '       (,48,)
+    print #allnon                                         (,+6,11) edit {MASK3}
+  end-if
+  new-page
+end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure gettimtotals (#aa,:#fpa)
+
+! Õ· ·ÌÙÈÏÂÙ˘ÈÛÙÂÈ Á ÂÒÈÙ˘ÛÁ ÂÒÈÛÛÔÙÂÒ˘Ì ÙÔı ÂÌÔÚ ÔÛÔÛÙÔı ÷–¡ ÛÙÔ È‰ÈÔ 
+! ·Ò·ÛÙ·ÙÈÍÔ, ÏÂ #tmp ÈÌ·Í· Í·È insert Ù˘Ì Â„„Ò·ˆ˘Ì ·Ô ÙÔÌ master
+
+begin-select
+fpa      () NOP
+  let #fpa = &fpa
+from sy_partotals
+where aa = #aa
+and   kvdikos = 4
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+ 
+begin-procedure printtotals
+  add 1 to #hmeres
+  print '----------- ----------- ----------- ----------- ------- -------' (,69,)
+  next-listing
+  print '”’ÕœÀ¡ «Ã≈—œÃ«Õ…¡” :'            (,48,)
+  print #totalxre                         (,+1,11) edit {MASK3}
+  print #totalpis                         (,+1,11) edit {MASK3}
+  print #totalkau                         (,+1,11) edit {MASK3}
+  print #totalfpa                         (,+1,11) edit {MASK3}
+  print #epibar_ajia_kau                  (,+1,07) edit {MASK2}
+  print #epibar_ajia_fpa                  (,+1,07) edit {MASK2}
+  if #lastnum>1
+    let #nol=#lastnum + 4
+  else
+    let #nol=#lastnum + 2
+  end-if
+  next-listing need=#nol
+  move 1 to #i
+  move 0 to #n
+  move 0 to #ttkk
+  move 0 to #ttff
+  move 0 to #ttek
+  move 0 to #ttef
+  move 0 to #nof
+  while #i <= #lastnum
+    get #tmpfpa      from syntel_fpa(#i) fpa
+    get #tmpajia_fpa from syntel_fpa(#i) ajia_fpa
+    get #tmpajia_kau from syntel_fpa(#i) ajia_kau
+    get #tmpepib_fpa from syntel_fpa(#i) epib_fpa
+    get #tmpepib_kau from syntel_fpa(#i) epib_kau
+    if #tmpajia_fpa != 0
+    or #tmpajia_kau != 0
+    or #tmpepib_fpa != 0
+    or #tmpepib_kau != 0
+
+      get #totajia_fpa from syntel_fpa(#i) total_fpa
+      get #totajia_kau from syntel_fpa(#i) total_kau
+      get #totepib_fpa from syntel_fpa(#i) total_epib_fpa
+      get #totepib_kau from syntel_fpa(#i) total_epib_kau
+
+      put #n             into syntel_fpa(#i) ajia_fpa
+      put #n             into syntel_fpa(#i) ajia_kau
+      put #n             into syntel_fpa(#i) epib_fpa
+      put #n             into syntel_fpa(#i) epib_kau
+      next-listing
+      print '”’ÕœÀ¡ ¡Œ…ŸÕ «Ã/Õ…¡” Ã≈ ”’Õ‘. ÷.–.¡. : ' (,48,)
+      print #tmpfpa                                   (,+1,2)  edit {MASK4}
+      print '%'                                       (,+1,)
+      print #tmpajia_kau                              (,+1,11) edit {MASK3}
+      print #tmpajia_fpa                              (,+1,11) edit {MASK3}
+      print #tmpepib_kau                              (,+1,07) edit {MASK2}
+      print #tmpepib_fpa                              (,+1,07) edit {MASK2}
+
+      add #tmpajia_kau to   #ttkk
+      add #tmpajia_fpa to   #ttff
+      add #tmpepib_kau to   #ttek
+      add #tmpepib_fpa to   #ttef
+      add #tmpajia_kau to   #totajia_kau
+      add #tmpajia_fpa to   #totajia_fpa
+      add #tmpepib_kau to   #totepib_kau
+      add #tmpepib_fpa to   #totepib_fpa
+      put #totajia_kau into syntel_fpa(#i) total_kau
+      put #totajia_fpa into syntel_fpa(#i) total_fpa
+      put #totepib_kau into syntel_fpa(#i) total_epib_kau
+      put #totepib_fpa into syntel_fpa(#i) total_epib_fpa
+      add 1            to   #nof
+    end-if
+    add 1 to #i
+  end-while
+  if #nof>1
+    next-listing
+  print '                        ----------- ----------- ------- -------' (,69,)
+    next-listing
+    print '”’ÕœÀ¡ ¡Œ…ŸÕ «Ã≈—œÃ«Õ…¡”             : ' (,48,)
+    print #ttkk                                     (,+6,11) edit {MASK3}
+    print #ttff                                     (,+1,11) edit {MASK3}
+    print #ttek                                     (,+1,07) edit {MASK2}
+    print #ttef                                     (,+1,07) edit {MASK2}
+    next-listing
+    next-listing
+  else
+    next-listing
+    next-listing
+  end-if
+  if #non_syntel!=0
+    print '”’ÕœÀ¡ ¡Œ…ŸÕ «Ã≈—œÃ«Õ…¡” ◊Ÿ—…” ÷.–.¡.: '       (,48,)
+    print #non_syntel                                     (,+6,11) edit {MASK3}
+    add   #non_syntel to #allnon
+    move  0           to #non_syntel
+  end-if
+  add #totalxre        to #allxre
+  add #totalpis        to #allpis
+  add #totalkau        to #allkau
+  add #totalfpa        to #allfpa
+  add #epibar_ajia_kau to #allepibkau
+  add #epibar_ajia_fpa to #allepibfpa
+  move               0 to #totalxre
+  move               0 to #totalpis
+  move               0 to #totalkau
+  move               0 to #totalfpa
+  move               0 to #epibar_ajia_kau
+  move               0 to #epibar_ajia_fpa
+  new-page
+end-procedure
+ 
+! ------------------------------------------------------------------------------
+
+begin-procedure findepibar(#aa,:#eak,:#eaf,:#ef)
+
+begin-select
+ajia    ()  NOP
+fpa     ()  NOP
+  let #eaf = (&ajia * &fpa) / 100
+  move  &ajia to #eak
+  move  &fpa  to #ef
+from  sy_partotals
+where aa      = #aa
+and   kvdikos = 3
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure putfpa(#j,#f,#af,#ak,:#lastnum)
+  move 0 to #eof
+  move 0 to #existfpa
+  move 1 to #i
+  
+  
+  while #eof = 0
+    get #tmpfpa from syntel_fpa(#i) fpa
+    if  #tmpfpa=#f
+      get #tmpajia_fpa from syntel_fpa(#i) ajia_fpa
+      get #tmpajia_kau from syntel_fpa(#i) ajia_kau
+      if #j=1
+      else
+        if #j=2
+          let #af = #af * -1
+          let #ak = #ak * -1
+        end-if
+      end-if
+      add #af to #tmpajia_fpa
+      add #ak to #tmpajia_kau
+      put #tmpajia_fpa into syntel_fpa(#i) ajia_fpa
+      put #tmpajia_kau into syntel_fpa(#i) ajia_kau
+      move 1 to #existfpa
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+  if #existfpa=0
+    add 1 to #lastnum
+    put #f  into syntel_fpa(#lastnum) fpa
+    if #j=1
+    else
+      if #j=2
+        let #af=#af * -1
+        let #ak=#ak * -1
+      end-if
+    end-if
+    put #af into syntel_fpa(#lastnum) ajia_fpa
+    put #ak into syntel_fpa(#lastnum) ajia_kau
+  end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure putfpaepib(#j,#f,#af,#ak,:#lastnum)
+  move 0 to #eof
+  move 0 to #existfpa
+  move 1 to #i
+  while #eof = 0
+    get #tmpfpa from syntel_fpa(#i) fpa
+    if  #tmpfpa=#f
+      get #tmpajia_fpa from syntel_fpa(#i) epib_fpa
+      get #tmpajia_kau from syntel_fpa(#i) epib_kau
+      if #j=1
+      else
+        if #j=2
+          let #af = #af * -1
+          let #ak = #ak * -1
+        end-if
+      end-if
+      add #af to #tmpajia_fpa
+      add #ak to #tmpajia_kau
+      put #tmpajia_fpa into syntel_fpa(#i) epib_fpa
+      put #tmpajia_kau into syntel_fpa(#i) epib_kau
+      move 1 to #existfpa
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+  if #existfpa=0
+    add 1 to #lastnum
+    put #f  into syntel_fpa(#lastnum) fpa
+    if #j=1
+    else
+      if #j=2
+        let #af=#af * -1
+        let #ak=#ak * -1
+      end-if
+    end-if
+    put #af into syntel_fpa(#lastnum) epib_fpa
+    put #ak into syntel_fpa(#lastnum) epib_kau
+  end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print '«Ã≈—œÀœ√…œ –ŸÀ«”≈ŸÕ' (3,) Center
+  let $hmer_str='¡–œ : ' || $hmerapopr || '  ≈Ÿ” : ' || $hmerevspr
+  print $hmer_str             (4,) center
+  print '«Ï›Ò.'                                 (6, 1, 5) 
+  print '–·Ò·ÛÙ·ÙÈÍ¸'                            (,+1,16) 
+  print '¡  È  Ù  È  Ô  Î  Ô  „  ﬂ  ·'           (,+1,44) 
+  print '     ◊Ò›˘ÛÁ'                            (,+1,11)
+  print '    –ﬂÛÙ˘ÛÁ'                            (,+1,11)
+  print '    ‹Ë.¡Óﬂ·'                            (,+1,11)
+  print '     ÷.–.¡.'                            (,+1,11)
+  print '≈È‚·Ò.'                                (,+1,07)
+  print '÷–¡ ≈.'                                (,+1,07)
+End-Heading              

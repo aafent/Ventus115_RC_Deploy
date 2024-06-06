@@ -1,0 +1,7 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2005-06-08 **/
+select aux_code,eidos, sum(eis_pos), sum(eja_pos), sum(eis_pos)- sum(eja_pos)
+from wh_kinv1 where aux_code > '000'
+and hmeromhnia between '1 jan 2004' and '31 dec 2004'
+group by aux_code, eidos
+having sum(eis_pos)- sum(eja_pos)!= 0

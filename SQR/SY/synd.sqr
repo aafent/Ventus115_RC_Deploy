@@ -1,0 +1,108 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : synd.sqr                                       ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : SYNAL                                          ****
+!***** AUTHOR      : ажемтайгс амдяеас                              ****
+!***** NOTE        : --- сумдесеис ле тг коцистийг             ---  ****
+!***********************************************************************
+
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  4
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select
+a.modelo                () on-break print=never before=printhead level=4
+                                                after=nea_page
+a.omada_parkvd          () on-break print=never level=3
+a.perioxh               () on-break print=never level=2
+a.omada_eggr            () on-break print=never level=1
+
+a.kvdikos               (,01,02) 
+c.perigrafh             (,+1,20) 
+a.fpa_pos               (,+4,02) edit 99
+a.kk                    (,+4,02)
+a.logar                 (,+4,12)
+b.perigrafh             (,+1,35)
+
+  next-listing
+
+from sy_ael1 a, gl_logar b, sy_partotparfk c
+where a.logar  *= b.logar
+  and a.cid     = $cid
+  and a.cid    *= b.cid
+  and a.kvdikos =c.kvdikos
+[$SQLCMD]
+order by a.modelo,a.omada_parkvd,a.perioxh,a.omada_eggr,a.kvdikos,a.logar,a.fpa_pos
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure nea_page
+  new-page
+end-procedure
+
+begin-procedure printhead
+
+ print 'ломтеко            : '     (,30)
+ print &a.modelo                   ()
+
+ next-listing
+
+ print 'олада паяастатийоу : '     (,30)
+ print &a.omada_parkvd             ()
+
+ next-listing
+
+ print 'пеяиовг            : '     (,30)
+ print &a.perioxh                  ()
+
+ next-listing
+
+ print 'олада еццяажым     : '     (,30)
+ print &a.omada_eggr               ()
+
+
+ next-listing
+ next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'пимайас сумдесеым ломтекым еццяажым ле тг коцистийг' (3,) Center
+end-heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	11	20	469	synd	rs	X	01},TITLE{сУМДщСЕИР ЛЕ ТГ кОЦИСТИЙч}
+!	PARCOUNT{1}
+!	PAR1{кОЦАЯИАСЛЭР	a.logar	1	LIKE	varchar(10)	в	}
+!REPORTHELP{F}
+!</pcalib>

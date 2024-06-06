@@ -1,0 +1,324 @@
+! PREPEI NA MPEI O PARAKATV INDEX STON SY_SYNAL
+! create index i2 on sy_synal (afm,synal)
+!
+
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : myf_disk.sqr                                   ****
+!***** DATE        : 03/08/2000                                     ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : Μουτσόπουλος Αλέξανδρος                        ****
+!*****             : Αφεντάκης Ανδρέας                              ****
+!*****             : Ηλίας Συκουτρής                                ****
+!***** NOTE        : Υποβολή Στοιχείων (Stream File)                ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     60
+#DEFINE   PAGE-X    150
+
+#DEFINE   SMALLDATE DD/MM			
+#DEFINE   DATEMASK  YY/MM/DD     		
+! EURO : #DEFINE   MASK1     0000000000000.00c
+! GRD  : #DEFINE   MASK1     0000000000000000c
+#DEFINE   MASK1     0000000000000000c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ no-formfeed
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ move $L_XRHSH to #xrhsh
+
+ input $hmer_apo  'Από Ημερομηνία  : ' 
+ input $hmer_evs  'Eως Ημερομηνία  : ' 
+ input $file_type '1=χρεωστικά, 2=πιστωτικά' 
+
+ execute app_datecnv   $hmer_apo, $hmer_a output, $hmer_ap output
+ execute app_datecnv   $hmer_evs, $hmer_e output, $hmer_ev output
+ unstring $file_type by '"' into $filler $file_type $filler
+ 
+ if $file_type<>'2' 
+    move '1' to $file_type
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+  !display '$rec_id'  noline
+  !display '   '      noline
+  !display '$flag_id' noline
+  !display '   '      noline
+  !display '$flag'    noline
+  !display '   '      noline
+  !display '$afm'     noline
+  !display '   '      noline
+  !display '$synal_stoixeia'
+
+  if $file_type='1'
+     move 'IL01' to $file_name
+  else
+     move 'IL01.PIS' to $file_name
+  end-if
+
+  do head_comp_01
+
+  do zero_vars
+  move '2' to $flag_id               ! *** ΠΩΛΗΣΕΙΣ
+  move '2' to $rec_id
+  do find_details  
+  do print_tot_pvl
+
+  do zero_vars
+  move '-' to $flag_id               ! *** ΑΓΟΡΕΣ ΑΝΑΛΩΣΙΜΩΝ - ΕΞΟΔΑ
+  move '4' to $rec_id
+  do find_details  
+
+  move '1' to $flag_id               ! *** ΑΓΟΡΕΣ ΕΜΠΟΡΕΥΜΑΤΩΝ
+  move '4' to $rec_id
+  do find_details
+  do print_tot_ago    ! (to synolo paei kai gia flag_id='1' kai flag_id='-')
+
+end-procedure
+
+! *************************************************************************
+begin-procedure zero_vars
+  move 0 to #aa
+  move 0 to #tot_dhmosio
+  move 0 to #tot_ejoda
+  move 0 to #tot_ar_tim
+  move 0 to #tot_ajia
+
+  move '' to $afm
+  move '' to $group_cid
+  move '' to $flag
+  move '' to $synal_stoixeia
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_details
+
+begin-select -C1
+a.group_cid			  () NOP
+a.flag                            () NOP
+b.afm                             () NOP
+       
+       move &a.group_cid   to $group_cid
+       move &a.flag        to $flag
+       move &b.afm         to $afm
+       do get_synal_from_afm($afm,$synal_stoixeia)
+       do print_details  
+
+from sy_myf a, sy_synal b
+where a.group_cid = $cid
+  and a.hmer between $hmer_a and $hmer_e                   
+  and a.ar_tim != 0
+!  and a.ajia < 0
+ and b.synal = a.synal
+ and a.flag  = $flag_id
+! and b.afm IN ('DE 812387448','VATEL:2226100221')
+!
+! prosoxh : se kathe allagh toy where ua prepei na ginei kai h antistoixh allagh
+!           sto where sto print_details  
+!
+[$SQLCMD]
+group by a.group_cid,a.flag,b.afm
+order by a.group_cid,a.flag,b.afm
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure print_details 
+begin-select -C2
+sum(a.ar_tim)    &a.ar_tim        () NOP
+sum( a.ajia )    &a.ajia          () NOP
+
+  move &a.ajia to #ajia
+  if $file_type = '1'  ! IL01 THETIKA   
+     if #ajia > 0 
+	do printout_lines
+     end-if
+  end-if
+  if $file_type = '2'  ! IL01.PIS ARNHTIKA
+     if #ajia < 0 
+        let #ajia = abs(#ajia)
+	do printout_lines
+     end-if
+  end-if
+
+from sy_myf a
+where a.group_cid = $group_cid
+  and a.hmer between $hmer_a and $hmer_e                   
+  and a.ar_tim != 0
+! and a.ajia < 0
+  and a.flag  = $flag_id
+!
+! prosoxh : se kathe allagh toy where ua prepei na ginei kai h antistoixh allagh
+!           sto where sto main
+!
+  and a.synal in (select synal from sy_synal where afm = $afm)
+end-select
+
+end-procedure
+! *************************************************************************
+
+begin-procedure printout_lines
+
+  do get_synal_info1($synal_stoixeia,$sepvnymia,$tmp,$tmp, $sepagg,$spolh,$sdieyuynsh,$stk,$tmp,$tmp,$tmp)
+
+  let $drast = ' '
+!  do getepagg(&b.epaggelma, $epag_per, $drast, $dras_per)
+
+   let $afm3 = substr($afm,1,3)
+
+  if $afm3 = '090' 
+     let #tot_dhmosio = #tot_dhmosio + #ajia 
+  end-if
+
+  if $flag = 'A'
+     let #tot_ejoda = #tot_ejoda + #ajia
+  end-if
+
+  let #aa = #aa + 1
+  let #tot_ar_tim = #tot_ar_tim + &a.ar_tim
+  let #tot_ajia   = #tot_ajia   + #ajia
+
+  print $rec_id                     (,1,1)
+  print #aa                         (,,05) edit 99999
+  print $afm                        (,,09)
+  print $sepvnymia                  (,,27)
+  print $sepagg                     (,,15)
+  print '0'			    (,,1)
+  print $spolh                      (,,10)
+  print $sdieyuynsh                 (,,19)
+  print $stk                        (,,05) 
+  print &a.ar_tim                   (,,07) edit 0000000
+  print #ajia                       (,,16) edit {MASK1}
+  next-listing
+
+end-procedure
+
+! *************************************************************************
+begin-procedure print_tot_pvl
+
+  print '3'                         (,1,1)
+  print '999999011'                 (,+0,09)
+  print #tot_dhmosio                (,+0,16)   edit {MASK1}
+  print '999999999'                 (,+0,09)
+  print #tot_ar_tim                 (,+0,16)   edit {MASK1}
+  print #tot_ajia                   (,+0,16)   edit {MASK1}
+  next-listing
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure print_tot_ago
+
+  print '5'                         (,1,1)
+  print '999999011'                 (,,09)
+  print #tot_dhmosio                (,,16)   edit {MASK1}
+  print '999999023'                 (,,09)
+  print #tot_ejoda                  (,,16)   edit {MASK1}
+  print '999999999'                 (,,09)
+  print #tot_ar_tim                 (,,16)   edit {MASK1}
+  print #tot_ajia                   (,,16)   edit {MASK1}
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+begin-procedure head_comp_01
+
+  do get_cid_info($cid,#xrhsh,#etos_xrhshs,$titlos,$afm,$tmp,$epagg,$polh,$dieyuynsh,$tk,$thl,$fax,$email)
+
+  ! (v) to programma IL.EXE thelei gia ton elegxo to entos na einai to epimeno apo ayto ths xrhshs
+  add 1 to #etos_xrhshs
+
+  print '0'                       (1,1,1)
+  print $file_name                (,,08)
+
+  move #etos_xrhshs to $tmp 9999
+  let $tmp=$tmp||'0520'
+  print $tmp                      (,,08)  
+  print #etos_xrhshs              (,,04) edit 9999
+
+  do get_synal_doy($afm,$doy,$doy_perig)
+
+  next-listing
+
+   print '1'                       (,1,1)
+   print #etos_xrhshs		   (,,04) edit 9999
+!  print '8888'                    (,,04)  ! kvdikos DOY  ΠΑΛΙΑ ΔΑΤΑ
+   print $doy                      (,,04)
+   print '      '                  (,,06)  ! Ar. fakeloy AE ΠΑΛΙΑΛΑΙΑ 
+   print $titlos		   (,,18)
+   print $afm			   (,,09)
+   print $epagg                    (,,16)
+   print $polh			   (,,10)
+
+   print $dieyuynsh		   (,,19)
+   print $tk			   (,,05)
+   print $thl			   (,,09)
+   print $fax			   (,,09)
+   print $email		           (,,40)
+
+   next-listing
+
+end-procedure
+
+! *******************************************************************
+
+begin-procedure get_synal_from_afm($afm,:$synal)
+
+move '' to $synal
+begin-select -C3 LOOPS=1
+synal               () nop
+    move &synal to $synal
+    exit-select
+from sy_synal
+where afm = $afm
+end-select
+
+end-procedure
+
+! ****************************************** VENTUS LIBRARY ********
+#INCLUDE "{$L_GDATA}/sqr/ventus01.inc"
+! ******************************************************************
+
+!<pcalib help>
+!ΚΑΤΑΣΤΑΣΗ ΚΕΠΥΟ (ΜΥΦ) ΓΙΑ ΤΗΝ ΕΦΟΡΙΑ (FILE)
+!Μετά τη συγκέντρωση της κατάστασης θα πρέπει το αρχείο
+!@(LDIR)/myf_disk.lis να αντιγραφεί σε μιά άδεια δισκέτα 
+!με το όνομα IL01 για τα χρεωστικά (πχ: A:\IL01)
+! ή
+!με το όνομα IL01.PIS για τα πιστωτικά (πχ: A:\IL01.PIS)
+!(Προσοχή : χρεωστικά είναι αυτά που παράγουν θετικό άθροισμα και 
+!           πιστωτικά είναι αυτά που παράγουν αρνητικό άθροισμα )
+!η οποία θα υποβληθεί στην Δ.Ο.Υ.
+!</pcalib help>
+
+
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	3	12	5088	myf_disk	rs	X	01},TITLE{Αρχείο ΚΕΠΥΟ (Σε Δισκέττα)}
+!	PARCOUNT{2}
+!	PAR1{Ημ/νιακή Περίοδος	HMER	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{1=Χρεωστ.,2=Πιστωτ.	XREPIS	1	ΕΠΙΛΟΓΗ	char(1)		X}
+!REPORTHELP{T},RNHELP{Το αρχείο θα πρέπει να αντιγραφεί στη δισκέτα (Πάτα το [Βοήθεια])},RNVER{4},RNMODDT{2002-09-26},
+!</pcalib>

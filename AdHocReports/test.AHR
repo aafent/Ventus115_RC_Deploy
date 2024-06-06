@@ -1,0 +1,8 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2004-12-03 **/
+/* PCA*LIB AdHoc-Reports */
+/* Saved : 2004-12-03 */
+select cid,logar,count(*)
+from sy_synaleidos
+group by cid, logar
+having count(*) > 1

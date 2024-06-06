@@ -1,0 +1,321 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : apogr_xrewst.sqr                               ****
+!***** DATE        : 13/02/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHN                                 ****
+!***** NOTE        : Κατάσταση Απογραφής Χρεωστών                   ****
+!***** MODIFICATION: 29/8/2017 by aafent
+!***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    130
+#DEFINE   HEAD-SIZE   7
+#DEFINE   HEAD-LINE   4
+#DEFINE   FOOT-SIZE   1
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  YY/MM/DD     
+#DEFINE   MASK1     9999,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ihm_apo		'Από Ημ/νία '
+ input $ihm_evs 	'Εως Ημ/νία '
+ 
+ input $logar_like     	'Λογαριασμός Like '
+
+ input $flag_entypo 	'Εντυπο Πολ. Χρήσης '
+ input $page1 	        'Αρ. 1ης Σελίδας '
+ 
+ execute app_datecnv $ihm_apo, $hm_apo out, $hm_apo_pr out
+ execute app_datecnv $ihm_evs, $hm_evs out, $hm_evs_pr out
+ unstring $flag_entypo by '"' into $filler $flag_entypo $filler
+ unstring $logar_like by '"' into $filler $logar_like $filler
+ execute -C1 app_floatcnv  $page1,    #page_no output
+
+ if $flag_entypo = 'N' 
+    move 'Y' to  $flag_entypo
+ else
+    move 'N' to $flag_entypo
+ end-if
+
+ move '@NORMAL' to $dataset1
+ if ($logar_like = '@EKTAPOGRAFH') or ( $logar_like = '@EKTGLAPOGRAFH' ) or ( $logar_like = '@NOP' )
+   move $logar_like to $dataset1
+   move '%' to $logar_like
+ end-if
+ 
+ do init
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure init
+begin-select
+x.xrhsh		() NOP		   
+   move &x.xrhsh to #xrhsh
+from ap_xrhsh x
+where cid = $cid
+  and $hm_apo between xrhsh_arxh and xrhsh_telos
+end-select
+
+if ($dataset1 = '@EKTAPOGRAFH') or ( $dataset1 = '@EKTGLAPOGRAFH' )
+    move #xrhsh to $tmp_xrhsh 9999
+    let $SQLCMD = $SQLCMD || ' and a.logar in (select gl.logar from gl_logar gl, gl_autosynal sy where gl.cid="'||$cid||'" and gl.xrhsh='||$tmp_xrhsh||' and substring(gl.logar,1,datalength(sy.logar))=sy.logar and sy.ekt_apografh is not null)'
+    display 'NEW CMD: ' noline
+    display $SQLCMD
+ end-if
+
+
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure main
+
+display 'DATASET1: ' noline
+display $dataset1
+
+begin-select  -C1
+a.logar                           () NOP
+a.synal                           () NOP
+b.epvnymia                        () NOP
+sum(a.xrevsh)   &xrevsh           () NOP
+sum(a.pistvsh)  &pistvsh          () NOP
+
+  do find_lhjh($cid,#xrhsh,$hm_apo,$hm_evs,&a.logar,&a.synal, #lhjh_xre, #lhjh_pis)  
+
+  if ($dataset1 = '@EKTGLAPOGRAFH') 
+     display 'PATH.A-->' noline
+     display &a.logar noline
+     display '/' noline
+     display &a.synal
+
+     do find_glypol($cid,#xrhsh,$hm_apo,$hm_evs,&a.logar,&a.synal, #xre, #pis)
+     let #xrevsh  = #xre  - #lhjh_xre
+     let #pistvsh = #pis - #lhjh_pis
+     let #ypoloipo = #xrevsh - #pistvsh
+  
+  else 
+  if $dataset1 = '@NOP'  
+     display 'PATH.NOP-->' noline
+     display &a.logar noline
+     display '/' noline
+     display &a.synal
+
+     move 0 to #xrevsh
+     move 0 to #pistvsh
+     move 0 to #ypoloipo
+
+  else 
+     display 'PATH.B-->' noline
+     display &a.synal
+      
+     let #xrevsh  = &xrevsh  - #lhjh_xre
+     let #pistvsh = &pistvsh - #lhjh_pis
+     let #ypoloipo = #xrevsh - #pistvsh
+  end-if
+  end-if
+
+  
+
+  if #xrevsh <> #pistvsh 
+ 
+    print &a.logar ()   on-break print=never
+                                 after=prtot    
+  
+    do form_logar($cid, #xrhsh, &a.logar, $logar)
+    print &a.logar                  (,01,18)
+
+    let $msg = &a.synal ||' ' || &b.epvnymia
+    print $msg                      (,+2,47)
+    !print &a.synal                  (,+2,05)
+    !print &b.epvnymia               (,+2,40)
+  
+    if  #xrevsh > #pistvsh
+        print #ypoloipo             (,+01,15) edit {MASK1}
+        let #s_xrevsh = #s_xrevsh + #ypoloipo
+    else
+        let #ypoloipo = #ypoloipo * (-1)
+        print #ypoloipo             (,+47,15) edit {MASK1}
+        let #s_pistvsh = #s_pistvsh + #ypoloipo
+    end-if
+
+    
+    next-listing
+  end-if
+
+from sy_kint2 a, sy_synal b
+where a.cid = $cid
+  and a.synal = b.synal
+  and a.hmer  between $hm_apo and $hm_evs
+  and a.synal not in (select synal from sy_fakesynal)
+  and a.logar like $logar_like
+! and a.synal in ('000022','505600')
+[$SQLCMD]
+group by a.cid, a.logar, a.synal, b.epvnymia
+!having sum(a.xrevsh) != sum(a.pistvsh)
+end-select
+
+
+  next-listing
+  print $logar                         (,01,18)
+  print ' '                            (,+2,05)
+  print 'Γενικά Σύνολα '               (,+2,40)
+  print #g_xrevsh                      (,+1,15) edit {MASK1}
+  print #g_pistvsh                     (,+31,15) edit {MASK1}
+
+end-procedure
+
+! ******************************************************************
+
+!begin-procedure save
+!begin-sql
+!insert into tmp values (&a.logar,&a.synal,&xrevsh,&pistvsh)
+!end-sql
+!end-procedure
+
+! ******************************************************************
+begin-procedure form_logar($cid, #xrhsh, $inlogar, :$outlogar)
+
+  move ' ' to $outlogar
+  execute glp_logfrm $cid, #xrhsh, '', $inlogar, $outlogar output
+
+end-procedure
+! ******************************************************************
+begin-procedure prtot  
+
+  next-listing
+  print $logar                         (,01,18)
+  print ' '                            (,+2,05)
+  print 'Σύνολα Λογαριασμού '          (,+2,40)
+  print #s_xrevsh                      (,+1,15) edit {MASK1}
+  print #s_pistvsh                     (,+31,15) edit {MASK1}
+  next-listing
+  next-listing
+  let #g_xrevsh = #g_xrevsh + #s_xrevsh
+  let #g_pistvsh = #g_pistvsh + #s_pistvsh
+  move 0 to #s_xrevsh
+  move 0 to #s_pistvsh
+
+end-procedure prtot
+
+! ******************************************************************
+
+begin-procedure find_lhjh($cid,#xrhsh,$hm_apo,$hm_evs,$logar,$synal, :#lhjh_xre, :#lhjh_pis)
+
+move 0 to #lhjh_xre, #lhjh_pis
+
+begin-select -C2
+sum(a.xrevsh)   &lhjh_xre   () NOP
+sum(a.pistvsh)  &lhjh_pis   () NOP
+
+  move &lhjh_xre to #lhjh_xre
+  move &lhjh_pis to #lhjh_pis
+
+from sy_kin a
+where a.cid = $cid
+  and a.hmeromhnia between $hm_apo and $hm_evs
+  and a.synal = $synal
+  and a.logar = $logar
+  and a.parkvd in ('7')
+  
+end-select
+
+end-procedure
+! ******************************************************************
+
+
+! ******************************************************************
+begin-procedure find_glypol($cid,#xrhsh,$hm_apo,$hm_evs,$logar,$synal, :#xre, :#pis)
+
+move 0 to #xre, #pis
+move 0 to #ypol 
+
+!execute -C2 
+!       glp_getypol   @cid      = $cid,
+!                      @logar    = $logar,
+!                     @hmer_apo = $hm_apo,
+!                      @hmer_evs = $hm_evs,
+!                     @xrevsh   = #xre  output,
+!                     @pistvsh  = #pis output,
+!                     @diafora  = #ypol output,
+!                     @synal    = $synal
+! 
+
+execute -C2       glp_getypolsynal
+ @FE            = 'SQL',
+ @cid           = $cid,
+ @logar         = $logar,
+ @synal         = $synal,
+ @hmerapo       = $hm_apo,
+ @hmerevs       = $hm_evs,
+ @xrevsh        = #xre out,
+ @pistvsh       = #pis out,
+ @ypoloipo      = #ypol out
+
+
+
+end-procedure
+! ******************************************************************
+
+
+
+
+begin-footing {FOOT-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+  ! #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  move '' to $page_txt
+  let $msg=' ΤΗΣ ' || $hm_evs_pr
+  if $flag_entypo='Y'
+     let $msg='ΒΙΒΛΙΟ ΑΠΟΓΡΑΦΗΣ ' || $msg
+     move 'ΣΕΛΙΔΑ : ' to $page_txt
+     move #page_no to $tmp 99999
+     let $tmp=rtrim($tmp,' ')
+     let $page_txt = $page_txt || $tmp
+     let #page_no = #page_no + 1
+  end-if
+  let #tmp = {PAGE-X} - 15
+  print $msg                                       (3,) center
+  print $page_txt                                  (3, #tmp )
+
+!  print ' ΑΠΟΣΧΙΣΘΕΙΣ ΚΛΑΔΟΣ'                       (4,01,26) Center
+  print 'Λογαριασμός'                              (5,01,10)
+  print 'Συναλλασόμενος'                           ( ,+1,62)
+  !print 'ΑΠΟΣΧΙΣΘΕΙΣ ΚΛΑΔΟΣ'                       ( ,+1,20)
+  print 'Χρεωστικό'                                ( ,+1,15)
+  print 'Πιστωτικό'                                ( ,+15,15)
+  print $L_X1                                      (6,01,{PAGE-X}) fill
+
+end-heading
+! ******************************************************************
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	1	99	6047	aposyn	rs	X	01},TITLE{Απογραφή Συναλλασσομένων}
+!	PARCOUNT{2}
+!	PAR1{Μήνας (1/Μ/Ε-31/Μ/Ε)	MHNAS	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{Λογαριασμός	a.logar	1	LIKE	varchar(25)	Χ	}
+!REPORTHELP{T},RNHELP{Όριο2=Τελευταία ημέρα του μήνα},RNVER{.},RNCREDT{1998-04-02},RNMODDT{1998-04-02},
+!</pcalib>
+
+
+

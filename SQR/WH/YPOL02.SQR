@@ -1,0 +1,175 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : ypol02.sqr                                     ****
+! ***** DATE        : 20/04/95                                       ****
+! ***** APPLICATION : Αποθήκη                                        ****
+! ***** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                  ****
+! ***** NOTE        : ΥΠΟΛΟΙΠΑ ΑΠΟΘΗΚΩΝ ---------------------------- ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y         62
+#DEFINE   PAGE-X        132
+#DEFINE   HEAD-SIZE       8
+#DEFINE   FOOT-SIZE       1
+#DEFINE   HEAD-LINE       5
+
+#DEFINE   MASK2     999,999.99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $apo_hm    'Από Ημερόμηνια'
+ input $evs_hm    'Εως Ημερόμηνια'
+ input $inapouhkh 'Αποθήκη ή *'
+ input $apoypoloi 'Απο Υπολοιπ'
+ input $evsypoloi 'Εως Υπολοιπ'
+
+ unstring $inapouhkh by '"' into $fill1 $apouhkh $fill1
+ unstring $apoypoloi by '"' into $fill1 $apoypol $fill1
+ unstring $evsypoloi by '"' into $fill1 $evsypol $fill1
+
+ execute app_datecnv $apo_hm, $date_apo output, $apohmpr output
+ execute app_datecnv $evs_hm, $date_evs output, $evshmpr output
+
+ move  $L_CID       to $cid
+
+ move  $apoypol     to #apo_ypol
+ move  $evsypol     to #evs_ypol
+
+ do main0($SQLCMD,$SQLORD,$apouhkh,$date_apo,$date_evs,#apo_ypol,#evs_ypol)
+End-Report
+
+! *************************************************************************
+
+begin-procedure main0($SQLCMD,$SQLORD,$apouhkh,$date_apo,$date_evs,#apo_ypol,#evs_ypol)
+
+  let #tot_tot_ypo = 0
+  let #tot_tot_apo = 0
+
+begin-select 
+a.pvlomada   &pvlomada  () NOP
+a.perigrafh  &p         () NOP
+
+ do main ($SQLCMD,$apouhkh,$date_apo,$date_evs,#apo_ypol,#evs_ypol,&pvlomada,             #apog_oma,#ypol_oma)
+
+ let   #ypol_pra= #apog_oma+ #ypol_oma
+ if #ypol_pra <> 0 
+    print &pvlomada   (, 1,15)
+    print &p          (,+1,40)
+    print ' '         (,+1, 2)
+    print #apog_oma   (,+1,10) edit {MASK2}
+    print #ypol_oma   (,+1,10) edit {MASK2}
+    print #ypol_pra   (,+1,10) edit {MASK2}
+ next-listing
+ let #tot_tot_apo = #tot_tot_apo + #apog_oma
+ let #tot_tot_ypo = #tot_tot_ypo + #ypol_oma
+ end-if
+
+ 
+from  wh_pvlomades a
+where 1 = 1
+[$SQLCMD]
+end-select
+
+ next-listing
+ print '=' (,1,{PAGE-X}) fill
+ next-listing
+ print ' '         (, 1,15)
+ print 'ΣΥΝΟΛΑ : ' (,+1,40)
+ print ' '         (,+1, 2)
+ print #tot_tot_apo    (,+1,10) edit {MASK2}
+ print #tot_tot_ypo    (,+1,10) edit {MASK2}
+
+ let   #tot_tot_pra = #tot_tot_apo + #tot_tot_ypo
+
+ print #tot_tot_pra    (,+1,10) edit {MASK2}
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure main ($SQLCMD,$apouhkh,$date_apo,$date_evs,#apo_ypol,#evs_ypol,$pvlomada,             :#tot_apo,:#tot_ypo)
+
+  let #tot_ypo = 0
+  let #tot_apo = 0
+
+begin-select 
+a.kvdikos    &e  () NOP
+a.perigrafh  &p  () NOP
+
+ if $apouhkh = '*'
+    do printrest1 (&e,&p,         $date_apo,$date_evs,#ypol,#apog,                                 #apo_ypol,#evs_ypol)
+ else
+    do printrest2 (&e,&p,$apouhkh,$date_apo,$date_evs,#ypol,#apog,                                 #apo_ypol,#evs_ypol)
+ end-if
+
+ let #tot_ypo = #tot_ypo + #ypol
+ let #tot_apo = #tot_apo + #apog
+  
+from  wh_eidh a, wh_pvlomades b
+where a.pvlomada = b.pvlomada
+and   a.pvlomada =  $pvlomada
+[$SQLCMD]
+end-select
+end-procedure
+
+! ==============================================================================
+
+begin-procedure printrest1 ($eid,$per,$date_apo,$date_evs,:#ypol,:#apog,#apo_ypol,#evs_ypol)
+
+  execute  whp_getypol2 @eidos       = $eid,
+                        @cid         = $cid
+                        @hmeromhnia  = $date_evs, 
+                        @hm_getxrhsh = $date_evs, 
+                        @ypoloipo    = #ypol          out,
+                        @apografh    = #apog          out
+                     
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure printrest2 ($eid,$per,$apouhkh,$date_apo,$date_evs,:#ypol,:#apog,#apo_ypol,#evs_ypol)
+
+  execute  whp_getypol2 @eidos       = $eid,
+                        @cid         = $cid
+                        @hmeromhnia  = $date_evs, 
+                        @hm_getxrhsh = $date_evs, 
+                        @apouhkh     = $apouhkh,
+                        @ypoloipo    = #ypol          out,
+                        @apografh    = #apog          out
+
+end-procedure
+
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  
+  let $msg='ΥΠΟΛΟΙΠΑ ΟΜΑΔΩΝ ΠΩΛΗΣΗΣ '
+  if $apouhkh = '*'
+     let $msg=$msg||' ΓΙΑ ΟΛΕΣ ΤΙΣ ΑΠΟΘΗΚΕΣ'
+  else
+     let $msg=$msg||' ΓΙΑ ΤΗΝ ΑΠΟΘΗΚΗ : '||$apouhkh
+  end-if
+  print $msg    (3,) center
+
+  let $msg='ΠΕΡΙΟΔΟΥ : '||$apohmpr||' - '||$evshmpr
+  let $msg=$msg || ' ... ΚΑΙ ΓΙΑ ΥΠΟΛΟΙΠΟ ΑΠΟ : '||$apoypol||' ΕΩΣ : '||$evsypol
+  print $msg    (4,) center
+  print 'Κωδ.Ομάδος'   (7, 01,15)
+  print 'Περιγραφή'    ( ,+01,40)
+  print 'ΑΠ'           ( ,+01,02)
+  print '  Απογραφή'   ( ,+01,10)
+  print '    Κίνηση'   ( ,+01,10)
+  print '  Υπόλοιπο'   ( ,+01,10)
+End-heading

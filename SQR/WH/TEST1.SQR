@@ -1,0 +1,188 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : ΠΕΛΑΤΕΣ ΑΤΤΙΚΗΣ ΟΠΤΙΚΟΙ                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     99
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1      999,999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $hmer 'Ημερομηνια'
+
+ execute app_datecnv  $hmer, $hm out, $hmp out
+
+ execute app_getsom $hm, $apohm out
+ execute app_geteom $hm, $evshm out
+
+ display $apohm
+ display $evshm
+
+     do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+   let #cnt=1
+begin-select
+   
+a.pvlomada    &pvlomada      () NOP
+b.eidos       &eidos         () NOP
+convert(datetime,hmeromhnia)    &hmeromhnia    () NOP
+sum(pvl_p)    &pvl           () NOP
+   let $ff = &pvlomada
+   let $ee = &eidos
+
+
+    if $ff != $pr_pvlomada and #cnt <> 1
+      let #cnt = 1
+    end-if
+
+   if $ee != $pr_eidos and $pr_eidos != ''     
+     print #ss  (,90, 8) edit {MASK1}
+     let #Fss = #Fss + #ss
+     let #ss = 0
+     next-listing
+   end-if
+
+   if #cnt = 1 
+      if $pr_pvlomada != ''
+         print 'ΣΥΝΟΛΑ' (,10,10)
+         print #1ss           ( ,20, 8) edit {MASK1}
+         print #2ss           ( ,30, 8) edit {MASK1}
+         print #3ss           ( ,40, 8) edit {MASK1}
+         print #4ss           ( ,50, 8) edit {MASK1}
+         print #5ss           ( ,60, 8) edit {MASK1}
+         print #6ss           ( ,70, 8) edit {MASK1}
+         print #7ss           ( ,80, 8) edit {MASK1}
+         print #Fss           ( ,90, 8) edit {MASK1}
+         let #1ss = 0
+         let #2ss = 0
+         let #3ss = 0
+         let #4ss = 0
+         let #5ss = 0
+         let #6ss = 0
+         let #7ss = 0
+         let #Fss = 0
+         new-page
+      end-if
+      print &pvlomada   (,1,12)
+      next-listing
+    let $pr_pvlomada = &pvlomada
+    let #cnt = 2
+   end-if
+   print &eidos (,10,10)
+
+     print '|'  (,29,1)   
+     print '|'  (,39,1)   
+     print '|'  (,49,1)   
+     print '|'  (,59,1)   
+     print '|'  (,69,1)   
+     print '|'  (,79,1)   
+     print '|'  (,89,1)   
+
+   if &hmeromhnia = 'Jan 31 1996 12:00:00:000AM'
+     print &pvl (,20, 8) edit {MASK1}
+     let #1ss = #1ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'Feb 29 1996 12:00:00:000AM'
+     print &pvl (,30, 8) edit {MASK1}
+     let #2ss = #2ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'Mar 31 1996 12:00:00:000AM'
+     print &pvl (,40, 8) edit {MASK1}
+     let #3ss = #3ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'Apr 30 1996 12:00:00:000AM'
+     print &pvl (,50, 8) edit {MASK1}
+     let #4ss = #4ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'May 31 1996 12:00:00:000AM'
+     print &pvl (,60, 8) edit {MASK1}
+     let #5ss = #5ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'Jun 30 1996 12:00:00:000AM'
+     print &pvl (,70, 8) edit {MASK1}
+     let #6ss = #6ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+   if &hmeromhnia = 'Jul 31 1996 12:00:00:000AM'
+     print &pvl (,80, 8) edit {MASK1}
+     let #7ss = #7ss + &pvl
+     let #ss = #ss + &pvl
+   end-if
+
+     print #ss  (,90, 8) edit {MASK1}
+   
+   let $pr_eidos = &eidos
+   let #final = &pvl
+from wh_eidh a,wh_kint1 b
+where pvlomada like 'BL[0-9]%'
+and a.kvdikos = b.eidos
+and b.hmeromhnia between '1 Jan 1996' and '31 Jul 1996'
+group by a.pvlomada,b.eidos,hmeromhnia
+order by a.pvlomada,b.eidos,hmeromhnia
+end-select
+    next-listing
+        let #Fss = #Fss + #ss   
+         print 'ΣΥΝΟΛΑ' (,10,10)
+         print #1ss           ( ,20, 8) edit {MASK1}
+         print #2ss           ( ,30, 8) edit {MASK1}
+         print #3ss           ( ,40, 8) edit {MASK1}
+         print #4ss           ( ,50, 8) edit {MASK1}
+         print #5ss           ( ,60, 8) edit {MASK1}
+         print #6ss           ( ,70, 8) edit {MASK1}
+         print #7ss           ( ,80, 8) edit {MASK1}
+         print #Fss           ( ,90, 8) edit {MASK1}
+end-procedure                      
+
+! *************************************************************************
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = 'Πωλήσεις σε Τεμάχια '
+  print $msg                    (2,) Center
+  let $msg = 'Ημερομηνία από  1 Ιανουαρίου 96  Εως  31 Ιουλίου 96 '
+  print $msg                    (3,) Center
+     !      12345678  
+     print ' Ιανουάρ'     (5,20, 8) 
+     print 'Φεβρουάρ'     (5,30, 8) 
+     print ' Μάρτιος'     (5,40, 8) 
+     print 'Απρίλιος'     (5,50, 8) 
+     print '   Μάιος'     (5,60, 8) 
+     print ' Ιούνιος'     (5,70, 8) 
+     print ' Ιούλιος'     (5,80, 8) 
+     print '  ΣΥΝΟΛΑ'     (5,90, 8) 
+End-Heading              

@@ -1,0 +1,101 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : ΠΕΛΑΤΕΣ ΑΤΤΙΚΗΣ ΟΠΤΙΚΟΙ                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y      62
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE    6
+#DEFINE   FOOT-SIZE    1
+#DEFINE   HEAD-LINE    4
+
+#DEFINE   MASK1      999,999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $ietaireia 'Εταιρεία             : '
+
+ unstring $ietaireia by '"' into $filler8 $cid     $filler7
+ 
+ if $cid = '='
+    execute app_retdefcid $cid,$cid out
+ end-if
+
+      do main
+
+End-Report
+
+! *************************************************************************
+begin-procedure main
+
+begin-select distinct
+a.logar           &logar       () NOP
+b.eidos           &eidos       () NOP
+a.perigrafh       &perigrafh   () NOP
+a.serlogar        &se          () NOP
+a.parent          &pa          () NOP
+a.log_level       &ll          () NOP
+a.post_flag       &po          () NOP
+
+  let $logar = &logar
+
+  do mk_logar
+
+  print $pr_logar  (, 1,20)
+  print &perigrafh (,+1,40)
+  print &eidos     (,+1,15)
+
+  next-listing
+
+from  gl_logar a,wh_eidhmore b
+where a.logar     = b.logar
+and   a.log_level = 5
+and   a.cid       = $cid
+[$SQLCMD]
+order by a.logar
+end-select
+
+end-procedure
+
+! *************************************************************************
+begin-procedure mk_logar
+
+  execute glp_logfrm $cid, $logar, $pr_logar output
+
+end-procedure
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1= 'Αναλυτική Λογιστική'
+  let   $msg2= 'Λογαριασμοί Αναλυτικής - Κωδικοί Εμπορευμάτων'
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  print 'Λογαριασμός'           (5, 1,20) 
+  print 'Περιγραφή'             (5,+1,40) 
+  print 'Είδος'                 (5,+1,15) 
+End-Heading              

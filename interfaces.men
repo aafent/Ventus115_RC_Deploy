@@ -1,0 +1,63 @@
+[inter]
+tab1=melissa,Μέλισσα
+tab2=trade,Trade
+tab3=ushop,U-Shop
+tab4=more,Περισσότερα
+
+
+[inter melissa]
+0=Interface με την εφαρμογή P.O.S. Μέλισσα
+1=2,sheet,w_cuimel001,Εισαγωγή αρχείου Ειδών 
+2=2,sheet,w_cuimel002,Εισαγωγή αρχείου Κατηγοριών
+3=2,sheet,w_cuimel003,Εισαγωγή αρχείου Υποκατηγοριών
+4=0,rem,,
+5=2,sheet,w_cuglo007,Εισαγωγή αρχείου κινήσεων (rkin)
+6=2,sheet,w_cukay009,Εισαγωγή αρχείου πληρωμών (rplh)
+7=2,sheet,w_cukay008,Ενημέρωση Λογιστικής Από Τ.Μ.
+8=0,exit,sy000.men->sy000[kvd],Επιστροφή
+
+[inter trade]
+0=Interface με την εφαρμογή P.O.S. Trade
+1=2,sheet,w_cuglo007,Εισαγωγή αρχείου κινήσεων (rkin)
+2=2,sheet,w_cukay009,Εισαγωγή αρχείου πληρωμών (rplh)
+3=2,sheet,w_cukay010,Εισαγωγή αρχείου ειδών και τιμών (eidh)
+4=0,rem,,
+5=2,sheet,w_cukay008,Ενημέρωση Λογιστικής Από Τ.Μ.
+6=0,exit,sy000.men->sy000[kvd],Επιστροφή
+
+[inter ushop]
+0=Interface με τις εφαρμογές U-Shop
+1=2,sheet,w_cuu001,Εισαγωγή αρχείου Ειδών, e-Catalog
+2=2,sheet,w_cuu002,Εισαγωγή αρχείου προσφορών, e-Offer
+3=2,sheet,w_cuu005,Εισαγωγή αρχείου τιμολογίων, e-Invoice
+4=2,sheet,w_cuu003,Εξαγωγή αρχείου Stock Report
+5=2,sheet,w_cuu004,Εξαγωγή αρχείου Price Protection
+6=0,rem,,
+7=0,exit,sy000.men->sy000[kvd],Επιστροφή
+
+[inter more]
+0=Interface με διάφορες άλλες εφαρμογές
+1=2,sheet,w_cutrtr01,Τιμές και είδη της TradeTrail
+2=0,rem,,
+3=5,cb{3,menu},interfaces.men->spec,Ειδικευμένα
+4=0,exit,sy000.men->sy000[kvd],Επιστροφή
+
+
+
+[spec]
+tab1=mna,M.N.A.
+
+[spec mna]
+0=Διαδικασίες με την εφαρμογή Μ.Ν.Α.
+1=1,sheet,w_cuglo003, Αρίθμηση Α.Π.Υ. (από ΜΝΑ)
+2=7,sheet,w_cuglo002, Εκτύπωση Α.Π.Υ. 
+3=1,sheet,w_cuglo004, Αλλαγή αρίθμησης σε Α.Π.Υ.
+4=1,sheet,w_cuglo011, Αλλαγή συναλλασσόμενου σε Χρεωστικό
+5=6,sheet,w_cuglo005, Κατάσταση Χρεωστικών
+6=1,sheet,w_cuglo006, Παραγωγή εγγραφών στη Γ.Λ. από ΑΠΥ
+7=0,rem,,
+8=1,sheet,w_cuglo001, Εισαγωγή αρχείων Α.Π.Υ. από Μ.Ν.Α.
+9=1,sheet,w_cuglo009, Εισαγωγή αρχείων ΠΙΣΤΩΤΙΚΩΝ από Μ.Ν.Α.
+10=0,rem,,
+11=2,sheet,w_cuglo010, Εξαγωγή αρχείου Πιστωτικών για πελάτη
+12=0,exit,interfaces.men->inter[more],Επιστροφή

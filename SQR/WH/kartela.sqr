@@ -1,0 +1,301 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : kartela.sqr                                      ****
+! ***** DATE        : 22/06/94                                         ****
+! ***** APPLICATION : Application environment                          ****
+! ***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                                ****
+! ***** NOTE        : Εκτύπωση Καρτελας ειδων κατα Αποθηκη             ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   DATEM    DD/MM
+#DEFINE   MASK6         999999
+#DEFINE   MASK11   99999999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $iapou1 'apouhkh apo'
+ input $iapou2 'apouhkh evs'
+ unstring $iapou1 by '"' into $filler $apou1 $filler
+ unstring $iapou2 by '"' into $filler $apou2 $filler
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+  move 0 to #cnt
+begin-select 
+a.cid                                           () NOP
+a.posothta                                      () NOP
+a.ajia                                          () NOP
+a.apouhkh                                       () NOP
+c.syntel_a                                      () NOP
+c.syntel_p                                      () NOP
+   print &a.apouhkh                             ()
+            On-Break print = Never
+		  Save     = $apouhkh
+		  Level    = 1
+		  Before   = find_apouhkh
+!  if #cnt = 0
+! a.eidos           &eid                          () NOP
+!    print &eid                                   ()
+!                On-Break print = Never
+!		 Save      = $eidos
+!		 Level     = 2
+!		 Before    = find_eidos
+!		 After     = synola_eidoys
+!  end-if
+!  if #cnt != 0
+
+a.eidos                                         () NOP
+   let $eidos = &a.eidos
+!   do  find_eidos
+   print &a.eidos                               ()
+            On-Break print = Never
+		 Save      = $eidos
+		 Level     = 2
+		 Before    = find_eidos
+		 After     = synola_eidoys
+   let $eidos = &a.eidos
+   do  find_eidos
+
+!  end-if
+  
+convert(char(8),a.hmeromhnia,3) &a.hmeromhnia   () NOP
+  print &a.hmeromhnia                           ( ,01,05)
+a.parkvd                                        (,+01,02)
+a.seira                                         (,+01,02)
+a.parno                                         (,+01,06) edit {MASK6}
+a.synal                                         (,+01,05)
+b.epvnymia                                      (,+01,14)
+a.aitia                                         (,+01,18)
+  print $L_X3                                   (,+01,01)
+  do find_ajies_eidoys
+  print #agqt                                   (,+01,11) edit {MASK11}
+  print #agaj          		                (,+01,11) edit {MASK11}
+  print #pvlqt                                  (,+01,11) edit {MASK11}
+  print #pvlaj                                  (,+01,11) edit {MASK11}
+  print #dkqt                                   (,+01,11) edit {MASK11}
+  print #ypol                                   (,+01,11) edit {MASK11}
+  next-listing
+
+  let #cnt = #cnt + 1
+
+from wh_kin a, sy_synal b, ap_par c
+where     a.cid          = $cid				
+      and a.synal        = b.synal 
+      and a.parkvd       = c.parkvd
+      and a.hmeromhnia   between $apohm and $evshm
+      and a.apouhkh      between $apou1 and $apou2
+[$SQLCMD]
+order by a.apouhkh, a.eidos, a.hmeromhnia
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_apouhkh
+   move &a.apouhkh to $apouhkh
+
+begin-select
+a.perigrafh                 () NOP
+   move &a.perigrafh to $per_apouhkh
+from wh_apouhk a
+where a.kvdikos = $apouhkh
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_eidos
+   move $eidos to $eidosa
+   display $eidos
+   display $eidosa
+begin-select
+sum(pvl_p) &pvl_qt       () NOP
+sum(pvl_a) &pvl_aj       () NOP
+sum(ago_p) &ag_qt        () NOP
+sum(ago_a) &ag_aj        () NOP
+sum(dia_p) &dk_qt        () NOP
+sum(dia_a) &dk_aj        () NOP
+sum(apo_p) &ap_qt        () NOP
+sum(apo_a) &ap_aj        () NOP
+from wh_kint1
+where apouhkh =  $apouhkh
+and   eidos   =  $eidosa
+and   hmeromhnia < $apohm
+end-select
+
+  move &pvl_qt to #pvl_qt 
+  move &pvl_aj to #pvl_aj 
+  move &ag_qt  to #ag_qt     
+  move &ag_aj  to #ag_aj
+  move &dk_qt  to #dk_qt
+  move &dk_aj  to #dk_aj
+  move &ap_qt  to #ap_qt
+  move &ap_aj  to #ap_aj
+  let  #ypol = #ap_qt + #ag_qt - #pvl_qt + #dk_qt
+
+begin-select
+perigrafh                   () NOP
+from wh_eidh
+where kvdikos  = $eidosa
+end-select
+
+  if (#ap_qt + #ag_qt) > 0
+!    let #msk   = ((#ap_aj + #ag_aj) / (#ap_qt + #ag_qt))
+     execute whp_getmsk @cid=$cid, @eidos=$eidos, @hmer=$apohmpr, @msk=#msk out
+     else 
+     move 0 to #msk
+  end-if
+
+  print $eidosa           ( ,01,06)
+  print &perigrafh        (,+01,30)
+  print 'Μ.Σ.Κ'           (,+02,06)
+  print #msk              (,+01,11) edit {MASK11}
+  print 'Απογραφή'        (,+43,08)
+  print #ap_qt            (,+01,11) edit {MASK11}
+  print #ap_aj            (,+01,11) edit {MASK11}
+  next-listing
+  print '-'               (, 01,132) fill
+    next-listing
+  print 'Από μεταφορά'    ( ,28,20)
+  print $L_X3             ( ,60,01)
+  print #ag_qt            (,+01,11) edit {MASK11}
+  print #ag_aj            (,+01,11) edit {MASK11}
+  print #pvl_qt           (,+01,11) edit {MASK11}
+  print #pvl_aj           (,+01,11) edit {MASK11}
+  print #dk_qt            (,+01,11) edit {MASK11}
+  print #ypol             (,+01,11) edit {MASK11}
+    next-listing
+end-procedure
+					
+! ******************************************************************
+
+begin-procedure synola_eidoys
+    print 'Σύνολα Είδους' 		   ( ,27,20)
+    print $L_X3                            ( ,60,01)
+    print #ag_qt                           (,+01,11) edit {MASK11}
+    print #ag_aj                           (,+01,11) edit {MASK11}
+    print #pvl_qt                          (,+01,11) edit {MASK11}
+    print #pvl_aj                          (,+01,11) edit {MASK11}
+    print #dk_qt                           (,+01,11) edit {MASK11}
+    print #ypol                            (,+01,11) edit {MASK11}
+    next-listing
+    print '='                              ( ,01,132) fill
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_ajies_eidoys
+begin-select
+d.omada                                         () NOP
+from ap_omadapar d
+where d.parkvd = &a.parkvd
+end-select
+
+     move &d.omada to $omada
+     move 0 to #pvlqt
+     move 0 to #pvlaj
+     move 0 to #agqt
+     move 0 to #agaj
+     move 0 to #dkqt
+     move 0 to #dkaj
+ evaluate $omada
+   when = 'PVLHSEIS'
+     let #pvlqt  = &a.posothta * &c.syntel_p
+     let #pvlaj  = &a.ajia * &c.syntel_a
+     let #ypol   = #ypol - #pvlqt
+     let #pvl_qt = #pvl_qt + #pvlqt
+     let #pvl_aj = #pvl_aj + #pvlaj
+     break
+   when = 'AKYRVTIKO'
+     let #pvlqt  = &a.posothta * &c.syntel_p
+     let #pvlaj  = &a.ajia * &c.syntel_a
+     let #ypol   = #ypol + #pvlqt
+     let #pvl_qt = #pvl_qt - #pvlqt
+     let #pvl_aj = #pvl_aj - #pvlaj
+     break
+   When = 'AGORES'
+     let #agqt   = &a.posothta * &c.syntel_p
+     let #agaj   = &a.ajia * &c.syntel_a
+     let #ypol   = #ypol + #agqt
+     let #ag_qt  = #ag_qt + #agqt
+     let #ag_aj  = #ag_aj + #agaj
+     break
+   when = 'DIAKIN'
+     let #dkqt   = &a.posothta * &c.syntel_p
+     let #dkaj   = &a.ajia * &c.syntel_a
+     let #ypol   = #ypol + #dkqt
+     let #dk_qt  = #dk_qt + #dkqt
+     let #dk_aj  = #dk_aj + #dkaj
+     break
+ end-evaluate
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'Καρτελα Είδους κατά Ημερ/νία'(02,01,30) Center
+  print 'Αποθήκη:'                    ( 3,01,10)
+  print $per_apouhkh                  (,+01,30)
+  print 'Από :'                       (,+07,05)
+  print $apohmpr                      (,+01,08)
+  print 'Εως :'                       (,+04,05)
+  print $evshmpr                      (,+01,08)
+  print 'Ημερ.'                       (5,01,05)
+  print 'Παραστατικό '                (,+01,12)
+  print 'Συναλλασόμενος'              (,+01,19)
+  print 'Αιτιολογια'                  (,+01,19)
+  print $L_X3                         (,+01,01)
+  print '      Ε ι σ α γ ω γ έ ς'     (,+01,23)
+  print '        E ξ α γ ω γ έ ς'     (,+01,23)
+  print '  Διακίνηση'                 (,+01,11)
+  print '   Υπόλοιπο'                 (,+01,11)
+
+  print 'Εγγρ.'                       (6,01,05)
+  print 'Kδ Σρ Αριθμο'                (,+01,12)
+  print 'Κωδικ Επωνυμία'              (,+01,19)
+  print 'Εγγραφης  '                  (,+01,19)
+  print $L_X3                         (,+01,01)
+  print '    Ποσότης     Α ξ ί α'     (,+01,23)
+  print '    Ποσότης     Α ξ ί α'     (,+01,23)
+  print '    Ποσότης'                 (,+01,11)
+  print '    Ποσότης'                 (,+01,11)
+  print '='                           (7,01,132) Fill
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{WH	2	7	452	kartela	rs		01},TITLE{Καρτέλα Ειδών κατά Ημερ/νία}
+!	PARCOUNT{3}
+!	PAR1{Κωδ.Αποθήκης	apouhkh	2	BETWEEN	char		X}
+!	PAR2{Κωδ. Είδους	eidos	2	BETWEEN	varchar(15)	X	}
+!	PAR3{Ημερομηνία Εγγραφών	hmeromhnia	2	BETWEEN	datetime		X}
+!REPORTHELP{F}
+!</pcalib>

@@ -1,0 +1,384 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : timol.sqr                                      ****
+!***** DATE        : 16/06/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHNNIE                              ****
+!***** NOTE        : Εκτύπωση παραστατικών                          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    66
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  1
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  1
+
+#DEFINE   $L_GDATA    1
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASKEIDOS 9999
+#DEFINE   MASK1     9999999999
+#DEFINE   MASK11    9,999,999,999c
+#DEFINE   MASK2     9999
+#DEFINE   MASK3     99999.9c
+#DEFINE   MASK4     99999999
+#DEFINE   MASK5     99
+
+Begin-Setup
+#IFNDEF debugR 
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+#ENDIF
+
+End-Setup
+
+Begin-Report
+#IFNDEF debugR 
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+#ENDIF
+ input $inp_aa  'a/a parastatikoy   '
+
+#IFNDEF debugR 
+ execute -C1 app_floatcnv   $inp_aa, #aa output
+#ELSE
+ move $inp_aa to #aa
+#ENDIF
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+position (2,1)
+move 09  to #col1
+move 69  to #col2
+
+ execute -C1 syp_timretmas
+ @aa          =#aa,
+ @cid         =$cid         out,
+ @tim_seira   =$tim_seira   out,
+ @tim_parno   =#tim_parno   out,
+ @parkvd      =$parkvd      out,
+ @seira       =$seira       out,
+ @parno       =#parno       out,
+ @synal       =$synal       out,
+ @hmer_e      =$hmer_e      out,
+ @topos_synal =$topos_synal out,
+ @topos       =#topos       out,
+ @skopos      =#skopos      out,
+ @tropos_plhr =#tropos_plhr out,
+ @prakt       =$prakt       out,
+ @apouhkh     =$apouhkh     out,
+ @note        =$note        out
+
+  move #tim_parno to $p2 999999
+  let $sxetda = $tim_seira || $p2
+  next-listing
+  print $parkvd                      (,#col2,2)
+  move $seira  to $p2
+  move #parno  to $p3 9999999
+  next-listing
+  next-listing
+  let $p1 = $p2 || ' ' || $p3
+  print $p1                            (,39)
+  next-listing
+  next-listing
+  next-listing
+  print $synal                         (,#col1,5)
+  print $hmer_e                        (,#col2,8) edit {DATEMASK}
+  next-listing
+  do getstoix($synal,0,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  print $epvnymia                      (,#col1,50)
+  next-listing
+  print $epaggelma                     (,#col1,40)
+  next-listing
+  print $dieyuynsh                     (,#col1,40)
+  next-listing
+  print $polh                          (,#col1,20)
+  print $thlef                         (,   +2,15)
+  let #p = #col2-6
+  ! print 'Σχέτ:'                        (,#p   ,05)
+  ! print $sxetda                        (,#col2,10)
+  next-listing
+  print $afm                           (,#col1)
+  print $doy                           (,+1)
+
+  do getsxet(#aa,$sxet)
+  print $sxet                          (,#col2,10)
+
+  if $synal <> $topos_synal or
+     #topos <> 0
+     do getstoix($topos_synal,#topos,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  end-if
+
+  next-listing
+  next-listing
+  print $epvnymia                      (,#col1,40)
+  next-listing
+  print $afm                           (,#col1,40)
+  next-listing
+  print $dieyuynsh                     (,#col1,40)
+
+  do getstoix($prakt,0,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  next-listing
+  next-listing
+  print $prakt                       (,#col1,05)
+  print $epvnymia                       (,+1,38)
+  next-listing
+  do getstoix2($cid,$apouhkh, $a_perigrafh,#tropos_plhr,$p_perigrafh)
+  print $apouhkh                     (,#col1,05)
+  print $a_perigrafh                   (,+1,38)
+
+  next-listing
+  next-listing
+  next-listing
+  next-listing
+  do printlines(#aa,#tot_posothta,$flag_fial)
+
+  let #ln = 41 - #current-line
+  display #ln
+  display #current-line
+  position (+#ln,1)
+
+  print #tropos_plhr                 (,#col1,02) edit {MASK5}
+  print $p_perigrafh                   (,+1,30) 
+  print #tot_posothta                  (,52,07) edit {MASK3}
+
+  do getypoloipo($cid,$synal,#neo_ypoloipo)
+  do gettot(#aa,#fpa_k1,#fpa_p1,#fpa_a1,#fpa_k2,#fpa_p2,#fpa_a2,#kyd,#eisprajh,#telikh)
+  let #old_ypoloipo = ( #neo_ypoloipo - #telikh + #eidprajh )
+
+  let #fpa_m1 = #fpa_k1 + #fpa_a1
+  let #fpa_m2 = #fpa_k2 + #fpa_a2
+
+  let #tot_fpa_k = #fpa_k1 + #fpa_k2
+
+  next-listing
+  next-listing
+  next-listing
+
+  print #old_ypoloipo                  (,   07,13) edit {MASK11}
+  print #neo_ypoloipo                  (,  +11,13) edit {MASK11}
+  
+  if #fpa_p1 != 0
+       print #fpa_k1                   (   ,47,08) edit 99999999
+       print #fpa_p1                   (   ,56,02) edit 99
+       print '%'                       ()
+       print #fpa_a1                   (   ,61,07) edit 9999999
+       print #fpa_m1                   (   ,69,09) edit 999999999
+  end-if
+
+  next-listing
+  next-listing
+
+  print #parno                         (   ,22,07) edit 9999999
+
+  move '0'    to $eis_flag
+  if #eisprajh != 0
+     move '2' to $eis_flag
+  end-if
+
+  if #telikh = #eisprajh and
+     #telikh != 0
+     move '1' to $eis_flag
+  end-if
+
+  if #fpa_p2 != 0
+       print #fpa_k2                   (   ,47,08) edit 99999999
+       print #fpa_p2                   (   ,56,02) edit 99
+       print '%'                       ()
+       print #fpa_a2                   (   ,61,07) edit 9999999
+       print #fpa_m2                   (   ,69,09) edit 999999999
+  end-if
+
+  next-listing
+  next-listing
+
+  if $eis_flag = '1'
+       print #eisprajh                 (,15,13) edit {MASK11}
+  end-if
+
+  next-listing
+  next-listing
+
+  if $eis_flag = '2'
+       print #eisprajh                 (,15,13) edit {MASK11}
+  end-if
+
+  print #tot_fpa_k                     (   ,47,08) edit 99999999
+  print #kyd                           (   ,69,09) edit 999999999
+
+  next-listing
+  next-listing
+
+  print #telikh                        (   ,69,09) edit 999999999
+  print $note                          (,5,50)
+
+  next-listing
+
+  do getnotice($seira,$flag_fial,#tropos_plhr,$m1,$m2,$m3,$m4,$m5,$m6)
+
+  print $m1                            (,1)
+  next-listing
+  print $m2                            (,1)
+  next-listing
+  print $m3                            (,1)
+  next-listing
+  print $m4                            (,1)
+  next-listing
+  print $m5                            (,1)
+  next-listing
+  print $m6                            (,1)
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printlines (#aa,:#tot_posothta,:$flag_fial)
+
+move 0 to #tot_posothta
+move 'F' to $flag_fial
+
+begin-select -C1
+a.eidos                                    (,01,04)   edit {MASKEIDOS}
+b.perigrafh                                (,+1,25)
+b.monada                                   (,+1,04)
+a.temaxia                                  (,+1,04)   edit {MASK2}
+a.posothta/a.temaxia      &baros           (,+1,07)   edit {MASK3}
+a.posothta                                 (,+3,07)   edit {MASK3}
+a.timh                                     (,+2,07)   edit {MASK3}
+a.ajia                                     (,+1,08)   edit {MASK4}
+a.fpa                                      (,+1,02)   edit {MASK5}
+
+  let #tot_posothta = #tot_posothta + &a.posothta
+  next-listing 
+  next-listing 
+
+  if &a.eidos = 590
+     move 'T' to $flag_fial
+  end-if
+
+from sy_pardet a, wh_eidh b
+where a.aa = #aa 
+  and a.eidos = b.kvdikos
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure gettot(#aa,:#fpa_k1,:#fpa_p1,:#fpa_a1,:#fpa_k2,:#fpa_p2,:#fpa_a2,:#kyd,:#eisprajh,:#telikh)
+
+ execute -C1 syp_timrettot @aa       = #aa,
+                       @fpa_k1   = #fpa_k1 out,
+                       @fpa_p1   = #fpa_p1 out,
+                       @fpa_a1   = #fpa_a1 out,
+                       @fpa_k2   = #fpa_k2 out,
+                       @fpa_p2   = #fpa_p2 out,
+                       @fpa_a2   = #fpa_a2 out,
+                       @kyd      = #kyd    out,
+                       @eisprajh = #eisprajh out,
+                       @telikh   = #telikh   out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getnotice($seira,$flag_fial,#tropos,:$m1,:$m2,:$m3,:$m4,:$m5,:$m6)
+
+move '' to $m1
+move '' to $m2
+move '' to $m3
+move '' to $m4
+move '' to $m5
+move '' to $m6
+
+ if $seira = 'ΘΑ' 
+   move '* Συσκευασίες πέρα των 45 ημερών δεν επιστρέφονται           ' to $m1
+ end-if
+
+ if #tropos = 5 or
+    #tropos = 3 or
+    #tropos = 1 
+   move '* Η εξόφληση του τιμολογίου πέραν του συμφωνηθέντος          ' to $m2
+   move '  χρόνου σας επιβαρύνει με τους νόμιμους τόκους              ' to $m3
+ end-if
+   
+ if $flag_fial='T'
+   move 'ΠΡΟΣΟΧΗ : Οι φιάλες είναι ιδιοκτησία μας και δε πωλούνται,   ' to $m4
+   move '========= παραχωρούνται μόνο με καταβολή εγγύησης και πρέπει ' to $m5
+   move '          να επιστρέφονται κενές εντός μηνός το αργότερο.    ' to $m6
+ end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsxet(#aa,:$sxet)
+
+ execute -C1 syp_timretsxe @aa=#aa, @sxet = $sxet out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix2($cid,$apouhkh,:$a_perigrafh,#tropos,:$p_perigrafh)
+
+ execute -C1 syp_timrets1 
+ @cid          = $cid,
+ @apouhkh      = $apouhkh,
+ @a_perigrafh  = $a_perigrafh out,
+ @tropos       = #tropos,
+ @p_perigrafh  = $p_perigrafh out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix($synal,#topos,:$epvnymia,:$dieyuynsh,:$polh,:$afm,:$doy,:$thlef,:$epaggelma)
+
+move ' ' to $epvnymia
+move ' ' to $dieyuynsh
+move ' ' to $epaggelma
+move ' ' to $afm
+move ' ' to $doy
+move ' ' to $thlef
+
+if $synal <> ''
+   display 'CALL-GETSYN'
+   execute -C1 syp_timgetsyn @synal = $synal,
+                      @topos = #topos,
+                      @epvnymia = $epvnymia out,
+                      @dieyuynsh = $dieyuynsh out,
+                      @polh = $polh out,
+                      @afm = $afm out,
+                      @doy = $doy out,
+                      @thlef = $thlef out,
+                      @epaggelma = $epaggelma out
+end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getypoloipo($cid,$synal,:#ypoloipo)
+
+ move 0 to #ypoloipo
+
+ execute -C1 syp_getypol @synal    = $synal,
+                     @cid      = $cid,
+                     @ypoloipo = #ypoloipo out
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+end-footing
+
+begin-heading {HEAD-SIZE}
+
+end-heading

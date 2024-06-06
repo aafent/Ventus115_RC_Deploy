@@ -1,0 +1,185 @@
+! ******************************************************************************
+! **** COPANIES    : PROLOGIC SA _ SOFLOLENS SA                             ****
+! **** REPORT      : stat12.sqr                                             ****
+! **** DATE        : 12/ 1/96                                               ****
+! **** APPLICATION : ΑΠΟΘΗΚΕΣ                                               ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                          ****
+! **** NOTE        : ΚΙΝΗΣΕΙΣ ΚΑΤΑ ΟΜΑΔΑ ΠΩΛΗΣΗΣ                            ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    120 
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   MASK1    999,999,999,999
+#DEFINE   MASK2                999
+#DEFINE   MASK4               9999
+#DEFINE   MASK5               9999.99
+#DEFINE   MASK7        999,999,999
+#DEFINE   MASK8      9,999,999,999
+#DEFINE   DATEMASK        DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+  
+  move $L_CID to $cid
+
+  input $apohmnia   'Από Ημερομηνία                      : '
+  input $evshmnia   'Eως Ημερομηνία                      : '
+  input $iet     'ΕΤΑΙΡΕΙΑ       '
+  unstring $iet    by '"' into $filler $et    $filler
+ 
+  move $et to $cid
+  if $cid = '='
+    execute app_retdefcid $cid output
+  end-if
+
+  execute app_datecnv   $apohmnia, $apo_hmnia output, $apo_hmniapr output
+  execute app_datecnv   $evshmnia, $evs_hmnia output, $evs_hmniapr output
+
+  let #POS_CHAR    = 15
+  let #POS_PERC    = 13
+  let #AJI_CHAR    = 15
+
+  do main
+
+End-Report
+
+! ==============================================================================
+Begin-Procedure main
+ let $pre_apohmnia = $apo_hmnia
+ let $pre_evshmnia = $evs_hmnia
+
+begin-select
+dateadd(yy,-1,$pre_apohmnia) &pre_apo () NOP
+dateadd(yy,-1,$pre_evshmnia) &pre_evs () NOP
+end-select
+
+  let $pre_apo = &pre_apo
+  let $pre_evs = &pre_evs
+
+begin-select
+a.kvdikos       &pvlhths  () NOP
+a.perigrafh       (,1,24)
+
+  let #pvlhths = &pvlhths
+  let $year = 'pre'
+       let $apo = $pre_apo
+       let $evs = $pre_evs
+   do find_ajies
+
+  let $year = 'now'
+       let $apo = $apo_hmnia
+       let $evs = $evs_hmnia
+   do find_ajies
+  next-listing
+from sy_pvlhtes a
+where kvdikos < 6 
+order by kvdikos
+end-select
+  print '='           (,25,13) fill         
+  print '='           (,+1,13) fill         
+  print '='           (,55,13) fill         
+  print ' '           (,+1,13) 
+  print '='           (,+1,15) fill         
+  next-listing
+  print ' Σ Υ Ν Ο Λ Α    :'                         (, 1,20)   
+  print #s_pre_p      (,25,13) EDIT {MASK8}
+  print #s_pre_a      (,+1,13) EDIT {MASK8}
+  print #s_now_p      (,55,15) EDIT {MASK8}
+  print ' '           (,+1,13) 
+  print #s_now_a      (,+1,15) EDIT {MASK8}
+
+End-Procedure
+! ==============================================================================
+Begin-Procedure find_ajies
+
+ let $GR1='group  by c.pvlhths'  ! 
+ let $OR1='order  by c.pvlhths'  ! 
+
+Begin-Select 
+c.pvlhths                               () NOP  
+sum(isnull(a.pvl_p,0))      &pos        () NOP  
+sum(isnull(a.pvl_a,0))      &ajia       () NOP  
+
+ if $year = 'pre'
+  print &pos  (,25,13) EDIT {MASK8}
+  print &ajia (,+1,13) EDIT {MASK8}
+  let   #pre_p    = &pos
+  let   #pre_a    = &ajia
+  let   #s_pre_p  = #s_pre_p + &pos  
+  let   #s_pre_a  = #s_pre_a + &ajia
+ end-if
+
+ if $year = 'now'
+  let   #now_p    = &pos
+  let   #now_a    = &ajia
+
+  if    #pre_p   != 0
+  let   #pos_p    = (( #now_p * 100 ) / #pre_p ) - 100
+  else  
+  let   #pos_p    = 0
+  end-if
+
+  if    #pre_a   != 0
+  let   #pos_a    = (( #now_a * 100 ) / #pre_a ) - 100
+  else  
+  let   #pos_a    = 0
+  end-if
+
+  print #now_p      (,55,15) EDIT {MASK8}
+  print #pos_p      (,+1,13) EDIT {MASK5}
+  print #now_a      (,+1,15) EDIT {MASK8}
+  print #pos_a      (,+1,13) EDIT {MASK5}
+
+  let   #s_now_p  = #s_now_p + &pos  
+  let   #s_now_a  = #s_now_a + &ajia
+ end-if
+  
+from   wh_eidh01 b, wh_kint3 a,sy_synalprog c
+where  b.eidos = a.eidos
+and    a.synal    = c.synal
+and    c.pvlhths  = #pvlhths
+and    a.cid      = $cid
+and    a.hmeromhnia between $apo and $evs
+[$SQLCMD]
+[$GR1]
+End-Select
+
+End-Procedure
+
+! ==============================================================================
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ΣΤΑΤΙΣΤΙΚΑ ΠΩΛΗΣΕΩΝ ΚΑΤΑ ΠΩΛΗΤΗ' (3,+1) center
+
+ let $msg='ΑΠΟ : ' || $apo_hmniapr || ' ΕΩΣ : ' || $evs_hmniapr
+
+ print $msg (4,+1) center
+
+ print '             '                  (6, 1,20)
+ print '-- Περίοδος Προηγ. Ετους -- '         ( ,25,27)
+ print '------------- Περίοδος Τρέχοντος Ετους --------------'         ( ,55,59)
+
+ print 'Πωλητής      '                  (7, 1,20)
+ print '      Τεμάχια'                  ( ,25,13)
+ print '         Αξία'                  ( ,+1,13)
+ print '      Τεμάχια'                  ( ,55,15)
+ print 'Ποσοστό'                        ( ,+1,13)
+ print '         Αξία'                  ( ,+1,15)
+ print 'Ποσοστό'                        ( ,+1,13)
+end-Heading

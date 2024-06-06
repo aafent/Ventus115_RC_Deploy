@@ -1,0 +1,8 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2010-08-05 **/
+select a.synal, b.epvnymia, convert(varchar(10),a.hmeromhnia,103) , a.eidos, a.aitia, a.eja_pos - a.eis_pos
+from wh_kinv1 a, sy_synal b
+where a.synal = b.synal
+and a.parkvd='023'
+and a.hmeromhnia between '1 jan 2009' and '31 dec 2009'
+order by b.epvnymia,a.synal, a.hmeromhnia

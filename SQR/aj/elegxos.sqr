@@ -1,0 +1,218 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : ajelegxos.sqr                                  ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Κατασταση Ελεγχου Ημερησιων μεταβολων          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    999,999,999c
+#DEFINE   MASK3    999
+#DEFINE   MASK4    99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ieidos 'eidos ajiogr'
+ unstring $ieidos by '"' into $filler $eidos $filler
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ if $eidos = 'Ε' or
+    $eidos = 'E'
+     move '0'     to $typ_ajio
+     move 'Eπιτ.' to $typos
+ end-if
+ if $eidos = 'Σ' or
+    $eidos = 'S'
+     move  '1'    to $typ_ajio
+     move 'Συναλ' to $typos
+ end-if
+ if $typ_ajio = ''
+     show clear-screen (24,1) 'Λαθος Τύπος Αξιογράφου' beep
+     stop
+ end-if
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+
+a.cid                                           () NOP
+a.aa_ajio                                       () NOP
+a.synal                                         () NOP
+a.kvdtrap                                       () NOP
+c.synalx                                        () NOP
+c.prakt                                         () NOP
+a.pos                                           () NOP
+     move &a.pos to $uesh
+     if &c.synalx    != ''
+        move &c.synalx to $synal
+        do find_synal(&c.synalx,$onoma)
+        move $onoma to $onoma_synalx
+     end-if
+
+     if &c.prakt    != ''
+        move &c.prakt to $synal
+        do find_synal(&c.prakt,$onoma)
+        move $onoma to $onoma_prakt
+     end-if
+
+convert(char(8),c.hm_metab,3) &c.hm_metab       () NOP
+
+  print &c.hm_metab                             (, 01,08)
+                 On-Break print = Change/Top-Page
+                 Level  = 1
+                 save   = $day
+                 after  = day_totals
+                 skiplines = 1
+c.kvdmetab                                      (,+02,03)
+                 On-Break print = Always
+                 Level = 2 
+                 after = metab_totals
+                 skiplines = 1
+c.ar_eis                                        (,+01,05) edit {MASK4}
+  print &a.aa_ajio                              (,+01,05) edit {MASK4}
+b.epvnymia                                      (,+01,24)
+  print &a.kvdtrap                              (,+01,10)
+a.aa_epitaghs                                   (,+01,12)
+convert( datetime, a.hm_ekd)  &a.hm_ekd         (,+01,08) edit {DATEMASK}
+convert( datetime, a.hm_lhjh) &a.hm_lhjh        (,+01,08) edit {DATEMASK}
+c.ajia                                          (,+01,11) edit {MASK1}
+  print &c.prakt                                (,+01,05)
+  print $onoma_prakt                            (,+01,20)
+  next-listing
+a.ekdoths                                       (, 27,24)
+a.ar_logtrap                                    (,+01,10)
+a.toposplhr                                     (,+01,12) 
+a.logarx                                        (,+01,08) 
+a.logarp                                        (,+01,08) 
+  print &c.synalx                               (,+13,05)
+  print $onoma_synalx                           (,+01,20)
+  add &c.ajia to #metab_tot
+  add 1       to #metab_aa
+  move &c.kvdmetab to $metab
+  move ' ' to $onoma_synalx
+  move ' ' to $onoma_prakt
+  next-listing
+
+from aj_mas a,sy_synal b,aj_kin c
+where a.synal = b.synal
+      and a.typ_ajio = $typ_ajio
+      and a.aa       = c.aa
+      and c.hm_metab between $apohm and $evshm
+      and a.cid      = $cid
+      and c.mhxar    = null
+[$SQLCMD]
+order by c.hm_metab, c.kvdmetab, a.aa_ajio
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure find_trapeza($kvdtrap,:$trapeza)
+begin-select
+a1.epvnymia         () NOP
+from sy_synal a1
+where a1.synal = $kvdtrap
+end-select
+move &a1.epvnymia to $trapeza
+end-procedure
+
+! ******************************************************************
+begin-procedure find_synal($synal,:$onoma)
+begin-select
+a2.epvnymia         () NOP
+from sy_synal a2
+where a2.synal = $synal
+end-select
+move &a2.epvnymia     to $onoma
+end-procedure
+
+! ******************************************************************
+begin-procedure metab_totals
+  next-listing
+begin-select
+perigrafh                               () NOP
+  print 'Σύνολο  ['                     (,+18,10)
+  print &perigrafh                      (,+01,20)
+  print ']'                             (,+01,01)
+  print #metab_tot                      (, 94,11) edit {MASK1}
+  next-listing
+from aj_metab
+where     cid = &a.cid and
+      kvdikos = &c.kvdmetab and
+     typ_ajio = $typ_ajio 
+end-select
+  add #metab_tot to #day_tot
+  move 0 to #metab_tot
+end-procedure
+
+! ******************************************************************
+begin-procedure day_totals
+  next-listing
+  print 'Σύνολο Ημερομηνίας'            (, 18,20)
+  print '['                             (,+01,01)
+  print $day                            (,+01,08)
+  print ']'                             (,+01,01)
+  print #day_tot                        (, 94,11) edit {MASK1}
+  next-listing
+  move 0 to #day_tot
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+   let $msg = 'ΚΑΤΑΣΤΑΣΗ ΕΛΕΓΧΟΥ ΗΜΕΡΗΣΙΩΝ ΜΕΤΑΒΟΛΩΝ '||$typos||' [ '||$uesh||' ]'
+  print  $msg                  (3,) Center
+  print 'Ημερ/νία '            (5,01,09)
+  print 'kvd'                  ( ,+1,03)
+  print 'Αριθμ'                ( ,+1,05)
+  print 'Αριθμ'                ( ,+1,05)
+  print 'Ονοματεπωνυμο Συναλλ' ( ,+1,24)
+  print 'Τράπεζα'              ( ,+1,10)
+  print 'Αρ.Επιταγής'          ( ,+1,12)
+  print '  Εκδοση'             ( ,+1,08)
+  print '    Λήξη'             ( ,+1,08)
+  print '    Π ο σ ό'          ( ,+1,11)
+  print 'Πρακτ'                ( ,+1,05)
+  print 'Επωνυμία'             ( ,+1,22)
+
+  print 'Μεταβολης'            (6,01,09)
+  print 'Μετ.'                 ( ,+1,03)
+  print 'Εισοδ'                ( ,+1,05)
+  print  $typos                ( ,+1,05)
+  print '    =//=      εκδότη' ( ,+1,24)
+  print 'Α.Λογ/σμού'           ( ,+1,10)
+  print 'Τόπος Πληρωμής'       ( ,+1,12)
+  print 'Λογ.Χρεω'             ( ,+1,08)
+  print 'Λογ.Πιστ'             ( ,+1,08)
+  print '           '          ( ,+1,11)
+  print 'Παραλ'                ( ,+1,05)
+  print '  =//=  '             ( ,+1,22)
+end-heading

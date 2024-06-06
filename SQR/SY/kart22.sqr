@@ -1,0 +1,1049 @@
+! *****************************************************************************
+! **** REPORT      :                                                       ****
+! **** DATE-CREATED:                                                       ****
+! **** LAST-UPDATE :                                                       ****
+! **** APPLICATION :                                                       ****
+! **** AUTHOR      :                                                       ****
+! **** NOTE        : ΚΑΡΤΕΛΑ ΣΥΝΑΛΛΑΣΟΜΕΝΩΝ                                ****
+! *****************************************************************************
+! opoy kanei select to tmhma ebala where tmhma in (1,2,5) giati allaje h procedure get_ypol 7/4/99
+#DEFINE   PAGE-Y                62
+#DEFINE   PAGE-X               131
+#DEFINE   HEAD-SIZE              8
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+#DEFINE   MASK1              99999
+#DEFINE   MASK2         9999999.99c
+#DEFINE   MASK3     999,999,999.99c
+#DEFINE   MASK4          99,999.99c
+#DEFINE   ORIA                 999
+#DEFINE   DATEMASK        DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+ create-array name=tmhmata size=100 field=tmhma:number
+                                    field=perigrafh:char
+                                    field=xrevsh:number
+                                    field=pistvsh:number
+                                    field=ex_xre:number
+                                    field=ex_pis:number
+
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID   to $cid
+ move $L_XRHSH to $xrhsh
+ move $xrhsh   to #xrhsh
+
+ input $hmerapo  'Από Ημερομηνία     : '
+ input $hmerevs  'Εως Ημερομηνία     : '
+ input $ilog     'Λογαριασμός        : '
+ input $tmhmoul  'Τμήμα/*            : '
+ input $ipvlhths 'Πωλητης/*          : '
+ input $iapoposo 'Από Υπόλοιπο       : '
+ input $ievsposo 'Εώς Υπόλοιπο       : '
+! input $ino      'ΝΑΙ/ΟΧΙ            : '
+
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+ 
+ unstring $tmhmoul  by '"' into $filler1  $tmhma   $filler2
+ unstring $ipvlhths by '"' into $filler3  $pvlhths $filler4
+ unstring $iapoposo by '"' into $filler5  $apoposo $filler6
+ unstring $ievsposo by '"' into $filler7  $evsposo $filler8
+ unstring $ilog     by '"' into $filler11 $log     $filler12
+ unstring $ino      by '"' into $filler13 $nox     $filler14
+
+  let $nox        = 'N'
+  let $p_log      = ' ' 
+
+ if   $apoposo = '-'
+ let  $apoposo = '-9999999999'
+ end-if
+ if   $apoposo = '+'
+ let  $apoposo = '+1'
+ end-if
+
+ if   $evsposo = '-'
+ let  $evsposo = '-1'
+ end-if
+ if   $evsposo = '+'
+ let  $evsposo = '+9999999999'
+ end-if
+
+ move $apoposo to #apoposo 
+ move $evsposo to #evsposo 
+
+
+ if $tmhma       != '*'
+  let $p_tmhma    = 'Τμήμα : ' || $tmhma
+ else 
+  let $p_tmhma    = 'Τμήμα : ΟΛΑ' 
+ end-if
+
+ if $pvlhths     != '*'
+  let $p_pvlhths  = ' / Πωλητής : ' || $pvlhths
+ else 
+  let $p_pvlhths  = ' / Πωλητής : ΟΛΟΙ' 
+ end-if
+
+ let $p_apoposo  = ' / Υπόλοιπο :  Από  ' || $apoposo
+ let $p_evsposo  = ' ...  Εως  '          || $evsposo
+ let $p_log      = ' / Λογαρ. = '         || $log
+
+ let $log        = $log                   || '%' 
+
+ if $tmhma      = '*' 
+ ! let $SQLTMHMA = ' and a.tmhma in (1,2,5,99)' 
+ ! let $SQLTMHMA2= ' and b.tmhma in (1,2,5,99)' 
+ else 
+  move $tmhma to #tmhma
+  let $SQLTMHMA = 'and a.tmhma = ' || $tmhma
+  let $SQLTMHMA2= 'and b.tmhma = ' || $tmhma
+ end-if
+
+ if $pvlhths      = '*' 
+  let $SQLPVLHTHS = '' 
+ else 
+  move $pvlhths to #pvlhths
+  let $SQLPVLHTHS = 'and c.pvlhths = ' || $pvlhths
+ end-if
+
+ if $nox  = 'ΝΑΙ' or $nox='Ναι' or $nox='Ν' or $nox='ν' or $nox='N' or $nox='n' 
+  let $nox='yes'
+ else 
+  let $nox = 'no'  
+ end-if
+
+ let $flag_print_no_kin = 'yes'      ! yes = Δεν εκτυπώνει Συν/νους Χωρίς Κίνηση
+ 
+ do main($cid,$log,$hmer_apo,$hmer_evs,$tmhma,#tmhma,$SQLCMD,$SQLTMHMA,$SQLPVLHTHS,#apoposo,#evsposo,$flag_print_no_kin,$nox)
+   
+End-Report
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure printcom($kvdikos)
+
+Begin-Select
+a.kvdinf                                         () NOP
+a.sxolio                                         () NOP
+convert(datetime,a.hmeromhnia,105) &a.hmeromhnia () NOP
+b.perigrafh                                      () NOP
+
+  move &a.kvdinf     to $m1
+  move &a.sxolio     to $m2
+  move &a.hmeromhnia to $m3 {DATEMASK}
+  move &b.perigrafh  to $m4
+
+  let $msg=$m1 || ' ' || $m4 || ' ' || $m3 || ' ' || $m2 
+
+  print $msg                                     (,1,) center
+
+  next-listing
+
+from    sy_synalsxolia a,sy_kvdinf b
+where   a.synal   = $kvdikos
+and     a.kvdinf  > 89
+and     b.kvdikos = a.kvdinf
+End-Select
+End-Procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure xrhsh
+begin-select
+convert(datetime,a.xrhsh_arxh)      &xrhsha     () NOP
+  let $xrhs = &xrhsha
+from ap_xrhsh a
+where a.cid= $cid
+and xrhsh = #xrhsh
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure Main($cid,$log,$hmer_apo,$hmer_evs,$tmhma,#tmhma,$SQLCMD,$SQLTMHMA,$SQLPVLHTHS,#apoposo,#evsposo,$flag_print_no_kin,$nox)
+  move 'ss' to $ss
+
+  move 0 to #lastnum
+  move 0 to #xre
+  move 0 to #pis
+  move 0 to #ex_xre
+  move 0 to #ex_pis
+
+  if $tmhma = '*'
+   do seltmhma (#lastnum)
+  else
+  ! για περιγραφή τμήματος  -----  do gettmhma (#tmhma)
+   do puttmhma (#tmhma, $perigrafh, #lastnum)
+  end-if
+
+  let $ss = 'non-printable' 
+
+  do xrhsh
+
+let $flprdate = 'N'
+begin-select
+dateadd (dd,-1,$hmer_apo) &prevdate
+ let $prevdate = &prevdate
+ show &prevdate
+end-select
+
+begin-select
+datepart(yy,&prevdate) &xrhshprdate
+end-select
+
+!-----------------------------------------------------------------!
+! Διόρθωση για να φέρνει από μεταφορά αν δώσεις καρτέλα από 1/1   !
+!-----------------------------------------------------------------!
+begin-select
+dateadd (dd,1,&prevdate) &prevdate1
+ show &prevdate1
+end-select
+
+begin-select
+datepart(yy,&prevdate1) &xrhshprdate1
+end-select
+
+ if &xrhshprdate < &xrhshprdate1
+    let $flprdate = 'Y'
+ end-if
+
+  if $flprdate = 'Y'
+     let $prevdate = &prevdate1
+  end-if
+
+display &xrhshprdate
+display #xrhsh
+display $flprdate
+display &prevdate
+display &prevdate1
+display $prevdate
+display $xrhs
+
+begin-select distinct
+a.synal             &kvdikos        (1,1,1) on-break print=change/top-page
+
+  print             '       '       (1,1,1)
+
+a.epvnymia          &epvnymia       () NOP
+aa.dieyuynsh        &dieyuynsh      () NOP
+aa.polh             &polh           () NOP
+aa.taxkvd           &taxkvd         () NOP
+aa.thl              &thlefvna       () NOP
+a.afm               &afm            () NOP
+a.omilos            &pel            () NOP
+
+   do ektyp0   ($log,$cid,&kvdikos,$hmer_evs,$tmhma,$f_ektyp,#apoposo,#evsposo)
+
+   let $flag             = 'yes'
+
+   if $flag_print_no_kin = 'no'
+
+      do find_kin ($cid,$tmhma,&kvdikos,$log,$hmer_apo,$hmer_evs,$flag,$SQLTMHMA2)
+
+   end-if
+
+ if $flag    = 'yes'  
+
+ if $f_ektyp = '1'
+ 
+  do findkin ($cid,&kvdikos,$log,$F,$SQLTMHMA)
+
+  if $F       = 'T'
+
+   let $synal = &kvdikos 
+   let $m     = &kvdikos || '      ' || &epvnymia || '          Α.Φ.Μ. ' || &afm
+
+   print $m (, 1,) center
+
+   next-listing
+
+   let $m = &dieyuynsh || ' - ' || &polh || ' ' || &taxkvd || '          ΤΗΛ. ' || &thlefvna
+
+   print $m (, 1,) center
+
+   next-listing
+   next-listing
+
+   do printcom(&kvdikos)
+ 
+   next-listing
+
+   do zeropin(#lastnum)
+
+   move 0 to #xre
+   move 0 to #pis
+   move 0 to #ex_xre
+   move 0 to #ex_pis
+
+   
+   if $xrhs <= $prevdate
+    do execproc($cid,$log,&kvdikos,$prevdate,#ex_xre,#ex_pis,$tmhma)
+   end-if
+
+   next-listing
+   let   #ex_ypol=#ex_xre-#ex_pis
+
+  if $nox='yes'
+   print 'ΠΡΟΗΓ. ΥΠΟΛΟΙΠΟ   : '      (,32,30)
+   print #ex_xre                     (,+1,15) edit {MASK3}
+   print #ex_pis                     (,+1,15) edit {MASK3}
+   print #ex_ypol                    (,+1,15) edit {MASK3}
+
+   next-listing
+   next-listing
+  end-if
+
+   if $tmhma='*' 
+
+    do print_kin   ($cid,&kvdikos,$log,$hmer_apo,$hmer_evs,#xre,#pis,#lastnum,#ex_xre,#ex_pis)
+
+   else
+
+    do print_kins  ($cid,&kvdikos,$log,$hmer_apo,$hmer_evs,#xre,#pis,#lastnum,#tmhma,#ex_xre,#ex_pis)
+
+   end-if
+
+   next-listing need=5
+
+   let   #ypol=#xre-#pis
+  
+   print '                    '      (,32,30)
+   print '         Χρέωση'           (,+1,15) 
+   print '        Πίστωση'           (,+1,15) 
+   print '       Υπόλοιπο'           (,+1,15) 
+
+   next-listing 
+
+   print 'ΣΥΝΟΛΑ ΠΕΡΙΟΔΟΥ   : '      (,32,30)
+   print #xre                        (,+1,15) edit {MASK3}
+   print #pis                        (,+1,15) edit {MASK3}
+   print #ypol                       (,+1,15) edit {MASK3}
+ 
+  if $nox='yes' 
+   next-listing 
+
+   print 'ΓΕΝΙΚΑ ΣΥΝΟΛΑ     : '      (,32,30)
+
+   let   #tot_xre=#ex_xre+#xre
+   let   #tot_pis=#ex_pis+#pis
+   let   #tot_ypol=#tot_xre-#tot_pis
+ 
+   print #tot_xre                    (,+1,15) edit {MASK3}
+   print #tot_pis                    (,+1,15) edit {MASK3}
+   print #tot_ypol                   (,+1,15) edit {MASK3}
+  end-if
+
+   if $xrhs <= $prevdate
+    do find_ex_ypol($cid,$log,&kvdikos,$prevdate,#lastnum)
+   end-if
+   do print_tot   (#lastnum,$cid,$synal,$hmer_evs,$nox)
+
+   new-page  
+
+  end-if
+
+  let $ss = &kvdikos
+          
+ end-if 
+ end-if
+
+from  sy_synal a, sy_synaltopos aa, ap_nomos b,ap_epaggelma d
+where isnull(aa.nomos,0) = b.kvdikos
+and   a.synal            = aa.synal
+and   aa.topos           = 0
+and   a.epaggelma       *= d.kvdikos
+[$SQLCMD]
+order by a.afm
+end-select
+
+  if $ss = 'non-printable' 
+     let    $non1 = 'Ο πελάτης πιθανόν να έχει υπόλοιπο 0.'
+     let    $non2 = 'Στην παράμετρο :                     '
+     let    $non3 = 'Εκτ.Συν.με 0 Υπολ.(1)                '
+     let    $non4 = 'βάλε 0 και ξαναπροσπάθησε .          '
+
+  end-if
+
+end-procedure
+
+! ==============================================================================
+
+begin-procedure find_kin ($cid,$tmhma,$synal  ,$log,$hmer_apo,$hmer_evs,:$flag,$SQLTMHMA2)
+
+  let $flag = 'no'
+
+begin-select LOOPS=1
+a.synal &synal  () NOP
+
+  let $flag = 'yes'
+
+from  wh_kin a,wh_eidh b
+where a.synal      =       $synal
+and   a.eidos      =       b.eidos
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.cid        =       $cid
+[$SQLTMHMA2]
+end-select
+
+end-procedure
+
+! ----------------------------------------------------------------------------
+
+begin-procedure findkin ($cid,$synal,$log,:$F,$SQLTMHMA)
+
+  let $F = 'F'
+ 
+begin-select LOOPS=1
+isnull(synal,'NULL') &synal  () NOP
+
+ if   &synal = 'NULL'
+  let $F     = 'F'
+ else
+  let $F     = 'T'
+ end-if
+
+from  sy_kin a
+where a.synal =    $synal
+and   a.logar like $log
+and   a.cid   =    $cid
+[$SQLTMHMA]
+end-select
+
+end-procedure
+
+! ----------------------------------------------------------------------------
+
+begin-procedure puttmhma (#t, $p, :#lastnum)
+
+  move 0 to #eof
+  move 0 to #existtmhma
+  move 1 to #i
+
+  while #eof = 0
+
+    get #tmptmhma from tmhmata(#i) tmhma
+    if  #tmptmhma=#t
+      move 1 to #existtmhma
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+  if #existtmhma=0
+    add 1 to #lastnum
+    put #t into tmhmata(#lastnum) tmhma
+    put $p into tmhmata(#lastnum) perigrafh
+    let #a=0             
+    put #a into tmhmata(#lastnum) xrevsh
+    put #a into tmhmata(#lastnum) pistvsh
+  end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure gettmhma(#tmhma)
+
+begin-select 
+kvdikos        &tmhma     () NOP
+perigrafh      &perigrafh () NOP
+
+ do puttmhma (&tmhma, &perigrafh, #lastnum)
+
+from ap_tmhma
+where kvdikos in (1,2,5,99) 
+order by kvdikos
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure seltmhma(:#lastnum)
+
+begin-select distinct
+kvdikos        &tmhma     () NOP
+perigrafh      &perigrafh () NOP
+
+ do puttmhma (&tmhma, &perigrafh, #lastnum)
+
+from ap_tmhma
+where kvdikos in (1,2,5,99)
+order by kvdikos
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure execproc($cid,$log,$syn,$date_evs,:#ex_xre,:#ex_pis,$tmhma)
+ if $tmhma='*'
+  execute syp_getypol @synal   = $syn,
+		      @hmer    = $date_evs,
+		      @cid     = $cid,  
+                      @xrevsh  = #ex_xre output, 
+                      @pistvsh = #ex_pis output,
+                      @ypoloipo= #ypooo  output,
+                      @logar   = $log   
+ 
+ else
+  move $tmhma to #tmhma
+  execute syp_getypol @synal   = $syn,
+		      @hmer    = $date_evs,
+                      @cid     = $cid,  
+                      @xrevsh  = #ex_xre output, 
+                      @pistvsh = #ex_pis output,
+                      @ypoloipo= #ypooo  output, 
+		      @logar   = $log,  
+		      @tmhma   = #tmhma
+ end-if
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_kin($cid,$kat,$log,$hmer_apo,$hmer_evs,:#xre,:#pis,#lastnum,#ex_xre,#ex_pis)
+
+  let #pro_xre = #ex_xre
+  let #pro_pis = #ex_pis
+
+begin-select
+convert(datetime,a.hmeromhnia)    (,01,08) edit {DATEMASK}
+a.parkvd        &par              (,+1, 2)
+a.seira                           (,+1, 2)
+a.parno                           (,+1, 8)
+a.aitia                           (,+1,36)
+a.aa            &aa               	()       NOP
+a.xrevsh                       		()       NOP
+a.pistvsh                       	()       NOP
+  
+  
+  move &par    to $parastatiko
+
+  if  not isnull(&a.xrevsh)
+   let $x_p = 'x'
+  else 
+   if not isnull(&a.pistvsh)
+    let $x_p = 'p'
+   else
+    let $x_p = 'n'
+   end-if
+  end-if
+
+ if not isnull(&a.xrevsh) and &a.xrevsh <> 0
+  let #ajia = &a.xrevsh
+ else
+  let #ajia = &a.pistvsh
+ end-if
+
+  do addajia(#ajia,$x_p,#lastnum)
+  
+
+  let #ajia_pr = #ajia
+  if not isnull(&a.xrevsh) and &a.xrevsh <> 0
+    print #ajia_pr                (,+01,15) edit {MASK3}
+    let   #xre =     #xre + #ajia
+    let #pro_xre = #pro_xre + #ajia
+  else 
+    if not isnull(&a.pistvsh) and &a.pistvsh <> 0
+
+      print #ajia_pr              (,+17,15) edit {MASK3}
+      let     #pis =     #pis + #ajia
+      let #pro_pis = #pro_pis + #ajia
+    else 
+      print '.'                   (,+01,15)
+    end-if
+  end-if
+
+  let #pr_ypol=#xre-#pis
+  let #pro_ypol=#pro_xre-#pro_pis
+
+  print #pro_ypol             (,098,15) edit {MASK3}
+
+  do findtropos ($cid,&aa)
+
+  do findekp    (&aa,#ekp_ajia)
+
+  next-listing
+
+from sy_kin a
+where a.synal    =$kat
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.logar like $log
+and   a.cid = $cid
+and parkvd <> '93'
+order by a.hmeromhnia, a.seira, a.parno  
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure findtropos ($cid,#aa)
+begin-select
+b.perigrafh           &tropos (,+1, 8)
+  
+  let $tropos = &tropos
+
+from sy_parmas a, sy_troposplhr b
+where aa = #aa
+and   a.tropos_plhr = b.kvdikos
+and  a.cid = $cid
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure findekp (#aa,:#ajia)
+begin-select
+ajia      &ajia      (,+1, 9) edit {MASK4}
+  let #ajia = &ajia
+from sy_partotals
+where kvdikos = 20
+and   aa = #aa
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure print_kins($cid,$kat,$log,$hmer_apo,$hmer_evs,:#xre,:#pis,#lastnum,#tmhma,#ex_xre,#ex_pis)
+ 
+  let #pro_xre = #ex_xre
+  let #pro_pis = #ex_pis
+
+
+begin-select
+convert(datetime,a.hmeromhnia)    (,01,08) edit {DATEMASK}
+!a.tmhma                           (,+1, 2)
+a.parkvd                          (,+1, 2)
+a.seira                           (,+1, 3)
+a.parno                           (,+1, 8)
+a.aitia                           (,+1,36)
+a.aa                &aa           ()       NOP
+a.xrevsh                        ()       NOP
+a.pistvsh                       ()       NOP
+
+  if  not isnull(&a.xrevsh)
+   let $x_p = 'x'
+  else 
+   if not isnull(&a.pistvsh)
+    let $x_p = 'p'
+   else  
+    let $x_p = 'n'
+   end-if
+  end-if
+
+ if not isnull(&a.xrevsh) and &a.xrevsh <> 0
+  let #ajia = &a.xrevsh
+ else
+  let #ajia = &a.pistvsh
+ end-if
+
+  do addajia(#ajia,$x_p,#lastnum)   
+  
+  let #ajia_pr = #ajia_kauarh
+
+  if not isnull(&a.xrevsh) and &a.xrevsh <> 0
+    print #ajia_pr                (,+01,15) edit {MASK3}
+    let   #xre =     #xre + #ajia
+    let   #pro_xre = #pro_xre + #ajia
+
+    ! print #pr_ypol                (,+17,15) edit {MASK3}
+  else 
+    if not isnull(&a.pistvsh) and &a.pistvsh <> 0
+      print #ajia_pr              (,+17,15) edit {MASK3}
+      let       #pis =     #pis + #ajia
+      let   #pro_pis = #pro_pis + #ajia
+    else 
+      print '.'                   (,+01,15)
+    end-if
+  end-if
+
+  let   #pro_ypol = #pro_xre - #pro_pis
+  let    #pr_ypol =     #xre -     #pis
+
+  print #pro_ypol              (,098,15) edit {MASK3}
+
+  do findtropos ($cid,&aa)
+
+  do findekp    (&aa, #ekp_ajia)
+
+  next-listing
+
+from sy_kin a
+where a.synal    =$kat
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.cid = $cid
+and   a.logar like $log
+and parkvd <> '93'
+order by a.hmeromhnia, a.seira, a.parno  
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure addajia (#a,$x_p, #lastnum)
+
+  move 0 to #eof
+  move 1 to #i
+
+  while #eof = 0
+    get #tmptmhma from tmhmata(#i) tmhma
+    if  #tmptmhma=#t
+      if $x_p = 'x'
+        get #tmpajia from tmhmata(#i) xrevsh
+        let #tmpajia = #tmpajia + #a
+        put #tmpajia into tmhmata(#i) xrevsh
+      else
+        if $x_p = 'p'
+          get #tmpajia from tmhmata(#i) pistvsh
+          let #tmpajia = #tmpajia + #a
+          put #tmpajia into tmhmata(#i) pistvsh
+        end-if
+      end-if
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_ex_ypol($cid,$log,$syn,$date_evs,#lastnum)
+
+  let  #s_xre = 0
+  let  #s_pis = 0
+  let  #ypooo = 0
+
+  move 0 to #eof
+  move 1 to #i
+  while #eof = 0
+    get #tmhma from tmhmata(#i) tmhma
+    execute syp_getypol @synal   = $syn,
+		        @hmer    = $date_evs,
+                        @cid     = $cid,  
+                        @xrevsh  = #s_xre output, 
+                        @pistvsh = #s_pis output,
+                        @ypoloipo= #ypooo output,
+		        @logar   = $log,  
+                        @tmhma   = #tmhma
+    
+    
+    put #s_xre into tmhmata(#i) ex_xre
+    put #s_pis into tmhmata(#i) ex_pis
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_tot(#lastnum,$cid,$synal,$hmer_evs,$nox)
+
+!        ΟΡΙΑ
+             let #orio1 = 30
+             let #orio2 = 60
+             let #orio3 = 90
+! END OF ΟΡΙΑ
+    let #t_ajia1  = 0
+    let #t_ajia2  = 0
+    let #t_ajia3  = 0
+    let #t_ajia4  = 0
+
+ ! next-listing !Manti 
+ ! next-listing !Manti
+! print '--------------- --------------- ---------------' (,57,)
+
+ if $nox='yes'
+  !print 'ΠΡΟΗΓ.ΣΥΝ.ΤΜΗΜΑΤΩΝ: '       (,10,30) !Manti
+  !next-listing !Manti
+  move 1 to #i
+  while #i <= #lastnum
+    get #tmptmhma     from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_ex_xre   from tmhmata(#i) ex_xre
+    get #tmp_ex_pis   from tmhmata(#i) ex_pis 
+    let #tmp_ex_ypol = #tmp_ex_xre - #tmp_ex_pis
+   
+   if #tmp_ex_xre <> 0
+   or #tmp_ex_pis <> 0
+  !  print #tmptmhma                (,10,30) !Manti 
+  !  print $tmpperigrafh            (,10,30) !Manti 
+  !  print #tmp_ex_xre              (,+1,15) edit {MASK3} !Manti 
+  !  print #tmp_ex_pis              (,+1,15) edit {MASK3} !Manti  
+  !  print #tmp_ex_ypol             (,+1,15) edit {MASK3} !Manti
+  !  next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+ end-if
+
+  !next-listing !Manti
+! print '--------------- --------------- ---------------' (,57,)
+  !print 'ΠΕΡΙΟΔ.ΣΥΝ.ΤΜΗΜΑΤΩΝ '               (,10,30) !Manti
+ ! next-listing !Manti
+  move 1 to #i
+  while #i <= #lastnum
+    get #tmptmhma from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_xre  from tmhmata(#i) xrevsh
+    get #tmp_pis  from tmhmata(#i) pistvsh
+    let #tmp_ypol = #tmp_xre - #tmp_pis
+
+   if #tmp_xre <> 0
+   or #tmp_pis <> 0
+  !  print #tmptmhma             (,10,30)!Manti 
+  !  print $tmpperigrafh         (,10,30) !Manti 
+  !  print #tmp_xre              (,+1,15) edit {MASK3}  !Manti
+  !  print #tmp_pis              (,+1,15) edit {MASK3}  !Manti
+  !  print #tmp_ypol             (,+1,15) edit {MASK3}  !Manti
+  !  next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+
+ if $nox='yes'
+!  next-listing !Manti
+! print '--------------- --------------- ---------------' (,57,)
+!  print '                    '                       (,10,30) !Manti
+!  print '               '                            (,+1,15)  !Manti
+  !print '               '                            (,+1,15)  !Manti
+  !print '               '                            (,+1,15)  !Manti
+  !print '        Ανάλυση Υπολοίπου (Ημέρες)'         (,+1,40) !Manti
+
+  !next-listing !Manti
+
+  !print '                    '               (,10,30) !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '    <='       (,+1,6) !Manti
+  !print #orio1         (,  ,3) EDIT {ORIA} !Manti
+  !print '    <='       (,+1,6) !Manti
+  !print #orio2         (,  ,3) EDIT {ORIA} !Manti
+  !print '    <='       (,+1,6) !Manti
+  !print #orio3         (,  ,3) EDIT {ORIA} !Manti
+  !print '    > '       (,+1,6) !Manti
+  !print #orio3         (,  ,3) EDIT {ORIA} !Manti
+  !next-listing !Manti
+
+  !print 'ΓΕΝΙΚΑ ΣΥΝ.ΤΜΗΜΑΤΩΝ '               (,10,30) !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '               '           (,+1,15)  !Manti
+  !print '-'            (,+1,6) fill !Manti
+  !print '-'            (,  ,3) fill !Manti
+  !print '-'            (,+1,6) fill !Manti
+  !print '-'            (,  ,3) fill !Manti
+  !print '-'            (,+1,6) fill !Manti
+  !print '-'            (,  ,3) fill !Manti
+  !print '-'            (,+1,6) fill !Manti
+  !print '-'            (,  ,3) fill !Manti
+  !next-listing !Manti
+  move 1 to #i 
+  while #i <= #lastnum
+    get #tmptmhma   from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_xre    from tmhmata(#i) xrevsh
+    get #tmp_pis    from tmhmata(#i) pistvsh
+    get #tmp_ex_xre from tmhmata(#i) ex_xre
+    get #tmp_ex_pis from tmhmata(#i) ex_pis 
+    let #tmp_tot_xre  = #tmp_xre     + #tmp_ex_xre
+    let #tmp_tot_pis  = #tmp_pis     + #tmp_ex_pis
+    let #tmp_tot_ypol = #tmp_tot_xre - #tmp_tot_pis
+
+   if #tmp_tot_xre <> 0
+   or #tmp_tot_pis <> 0
+
+
+    !print #tmptmhma             (,10,30)  !Manti
+    !print $tmpperigrafh         (,10,30)  !Manti
+    !print #tmp_tot_xre          (,+1,15) edit {MASK3} !Manti
+    !print #tmp_tot_pis          (,+1,15) edit {MASK3} !Manti
+    !print #tmp_tot_ypol         (,+1,15) edit {MASK3} !Manti
+
+       if #tmp_tot_ypol > 0 and 2=1 ! ANDREAS DISABLE THIS IF
+          execute syp_openxre1 @cid        = $cid        ,
+                               @kvd        = $synal      ,
+                               @hm_evs     = $hmer_evs   ,
+                               @tmhma      = #tmptmhma   ,
+                               @ajia1      = #ajia1  output,
+                               @ajia2      = #ajia2  output,
+                               @ajia3      = #ajia3  output,
+                               @ajia4      = #ajia4  output,
+                               @orio1      = #orio1  ,
+                               @orio2      = #orio2  ,
+                               @orio3      = #orio3  
+
+       ! print #ajia1  (,+1,9) EDIT {MASK4} !Manti
+       ! print #ajia2  (,+1,9) EDIT {MASK4} !Manti
+       ! print #ajia3  (,+1,9) EDIT {MASK4} !Manti
+       ! print #ajia4  (,+1,9) EDIT {MASK4} !Manti
+
+        let #t_ajia1 = #t_ajia1 + #ajia1
+        let #t_ajia2 = #t_ajia2 + #ajia2
+        let #t_ajia3 = #t_ajia3 + #ajia3
+        let #t_ajia4 = #t_ajia4 + #ajia4
+       end-if
+    !next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+
+   ! print ' '                   (,10,30) !Manti
+   ! print ' '                   (,10,30) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print '-'                   (,+1,9) fill!Manti
+   ! print '-'                   (,+1,9) fill!Manti
+   ! print '-'                   (,+1,9) fill!Manti
+   ! print '-'                   (,+1,9) fill!Manti
+   ! next-listing!Manti
+
+   ! print ' '                   (,10,30) !Manti
+   ! print ' '                   (,10,30) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print ' '                   (,+1,15) !Manti
+   ! print #t_ajia1  (,+1,9) EDIT {MASK4}!Manti
+   ! print #t_ajia2  (,+1,9) EDIT {MASK4}!Manti
+   ! print #t_ajia3  (,+1,9) EDIT {MASK4}!Manti
+    !print #t_ajia4  (,+1,9) EDIT {MASK4}!Manti
+!Manti
+   ! do ajiogr ($synal) !Manti
+ end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+!                       @hm_apo     = null,
+!                       @orio1      = null,
+!                       @orio2      = null,
+!                       @orio3      = null,
+!                       @orio4      = null,
+!                       @pistvsh    = null  output
+! ------------------------------------------------------------------------------
+begin-procedure  ektyp0($log,$cid,$kvdikos,$hmer_evs,$tmhma,:$f_ektyp,#apoposo,#evsposo)
+
+ if $tmhma='*'
+  execute syp_getypol @synal   = $kvdikos,
+	              @hmer    = $hmer_evs,
+                      @cid     = $cid,  
+                      @logar   = $log,  
+                      @ypoloipo= #ypooo  output 
+  else
+  move $tmhma to #tmhma
+  execute syp_getypol @synal   = $kvdikos,
+                      @cid     = $cid,  
+                      @logar   = $log,  
+                      @hmer    = $hmer_evs,
+                      @tmhma   = #tmhma,
+                      @ypoloipo= #ypooo  output 
+ end-if
+
+ if ( #ypooo >= #apoposo and
+      #ypooo <= #evsposo     )
+
+    move '1' to $f_ektyp   
+ else
+    move '0' to $f_ektyp   
+ end-if
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure zeropin(#ln)
+  move 1   to #i
+  move 0   to #n
+  while #i <= #ln 
+    put #n into tmhmata(#i) xrevsh
+    put #n into tmhmata(#i) pistvsh
+    put #n into tmhmata(#i) ex_xre
+    put #n into tmhmata(#i) ex_pis
+    add 1 to #i
+  end-while
+end-procedure
+
+begin-procedure ajiogr ($synal)
+move 0 to #poso
+print 'Επιταγές'                (+1,1,8)
+print 'No'                      (+1,3,3)
+print 'Ημερομηνία Λήξης'        (,20,16)
+print 'Ποσό'                    (,+7,10)
+print '-'                       (+1,1,50) fill
+begin-select
+aa_ajiogr			(+1,1,6)
+convert(char(10),hm_lhjhs,104) 	(,21,12)
+ajia	 &poso			(,+5,10) edit {MASK4} !edit 9999999999
+	add &poso to #poso
+from aj_mas
+where synal=$synal and hm_lhjh>getdate()
+end-select
+print '-'       (+1,1,50) fill
+print 'Σύνολο'  (+1,1,10)
+print #poso	(,20,10) edit {MASK4} 
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print 'ΚΑΡΤΕΛΛΑ ΣΥΝΑΛΛΑΣΟΜΕΝΟΥ' (3,) Center
+  let $hmer_str='ΠΕΡΙΟΔΟΥ ΑΠΟ : ' || $hmerapopr || '  ΕΩΣ : ' || $hmerevspr
+  let $msg_gen= $p_tmhma || $p_pvlhths || $p_apoposo || $p_evsposo || $p_log
+
+  print $hmer_str               (4,) center
+  print $msg_gen                (5,) center
+  print 'Ημερομην.'                              (7, 1, 8) 
+  print 'TM'                                     (,+1, 2) 
+  print 'Παραστατικό'                            (,+1,13) 
+! print 'Αριθμός   '                             (,+1,10) 
+  print 'Α ι τ ι ο λ ο γ ί α'                    (,+1,36) 
+  print '         Χρέωση'                        (,+1,15)
+  print '        Πίστωση'                        (,+1,15)
+  print '   Νέο-Υπόλοιπο'                        (,+1,15)
+  print 'ΤΠ'                                     (,+1,10)
+  print 'Εκπτώσεις'                              (,+1, 8)
+End-Heading              
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	12	4	52	kart22	rs	X	01},TITLE{Καρτέλλα Συναλλασσομένου}
+!	PARCOUNT{12}
+!	PAR1{Ημ/νιακή Περίοδος	a.hmeromhnia	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{Λογαριασμός	DUMP2	1	LIKE	varchar(5)		X}
+!	PAR3{Τμήμα	DUMP3	1	*/ΕΠΙΛΟΓΗ	varchar(10)		X}
+!	PAR4{Πωλητής	DUMP4	1	*/ΕΠΙΛΟΓΗ	varchar(2)		X}
+!	PAR5{Υπόλοιπο	DUMP5	2	ΑΠΟ-ΕΩΣ	int		X}
+!	PAR6{Συναλλασόμενος	a.synal	2	BETWEEN	varchar(15)	X	}
+!	PAR7{Επωνυμια	a.epvnymia	1	LIKE	varchar(40)	X	}
+!	PAR8{Πεδιο Ταξινομισης	a.ord	2	BETWEEN	varchar(10)	X	}
+!	PAR9{Νομός (Κωδικός)	b.kvdikos	2	BETWEEN	int	X	}
+!	PAR10{Νομός	b.perigrafh	1	LIKE	varchar(40)	X	}
+!	PAR11{Πόλη	aa.polh	1	LIKE	varchar(20)	X	}
+!	PAR12{Δραστηριότητα	d.drast	2	LIKE	char(5)	X	}
+!REPORTHELP{T},RNHELP{Εταιρεία [=] DEFAULT, Υπόλοιπο [-] ΑΠΕΙΡΟ ΑΡΝΗΤΙΚΟ..[+] ΑΠΕΙΡΟ ΘΕΤΙΚΟ, Λογαρ.[30] ή [50]},RNVER{1.00},RNCREDT{1995-10-30},RNMODDT{1995-10-30},
+!</pcalib>
+

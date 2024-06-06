@@ -1,0 +1,286 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : isozap1.sqr                                     ****
+!***** DATE        : 1/09/99                                        ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ламтг                                          ****
+!***** NOTE        : исофуцио посотгтым апохгйгс                    ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  11
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  7
+
+#DEFINE   MASK1A    9999,999,999.99c
+#DEFINE   MASK1P    999999999999999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+
+begin-sql -C1
+ create table ##tmp
+( f_eis   char(1)  not null,  f_eja char(1) not null, syntel smallint)
+end-sql
+
+begin-sql -C1
+insert into ##tmp values ('X','O',1)
+insert into ##tmp values ('O','X',-1)
+end-sql
+
+
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $hm_apo  'глеяолгмиа апо'
+ input $hm_evs  'глеяолгмиа еыс'
+ input $oeidos_a  'eidos_a'
+ input $oeidos_e  'eidos_e'
+
+
+
+unstring $oeidos_a by '"' into $filler $eidos_a $filler
+unstring $oeidos_e by '"' into $filler $eidos_e $filler
+execute app_datecnv   $hm_apo,$apohm output, $apohmpr output
+execute app_datecnv   $hm_evs,$evshm output, $evshmpr output
+ 
+  do main
+ 
+End-Report
+
+! *************************************************************************
+begin-procedure main
+  execute app_geteom $apohm , $apohmout OUT
+  do get_xrhsh
+
+begin-select
+a.kvdikos              &eidos
+a.perigrafh            &per
+
+ do get_preypol
+ do get_pvlhseis
+ do get_agores
+ do get_epistrofes
+ do get_apogr
+   show $eidos_e
+   show $eidos_a
+   let #ypol   = #pre_ypol   + &apogr_p + &agores_p - &pvl_p
+   let #ypol_a = #pre_ypol_a + &apogr_a + &agores_a - &pvl_a 
+   do print_details
+
+from wh_eidh a
+where a.kvdikos between $eidos_a and $eidos_e
+order by a.kvdikos
+end-select
+ print '-'                     (+1,1,132) fill
+ print 'сЩМОКА :'              (+1,1,9)
+ print #s_pre_ypol             (,38,15) edit  {MASK1P}
+ print #s_agores_p             (,54,15) edit  {MASK1P}
+ print #s_pvl_p                (,71,15) edit  {MASK1P}
+ print #s_epistrofes_p         (,87,15) edit  {MASK1P}
+ print #s_ypol                 (,109,15) edit {MASK1P}
+
+ print #s_pre_ypol_a             (+1,38,15)   edit  {MASK1A}
+ print #s_agores_a               (,54,15)     edit  {MASK1A}
+ print #s_pvl_a                  (,71,15)     edit  {MASK1A}
+ print #s_epistrofes_a           (,87,15)     edit  {MASK1A}
+ ! print #s_ypol_a                 (,109,15)  edit  {MASK1A}
+end-procedure
+! ******************************************************************
+begin-procedure get_epistrofes
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &epistrofes_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &epistrofes_a
+
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia between $apohm and $evshm
+      and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+      and qq.omada='EPISTROFES'
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure get_pvlhseis
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &pvl_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &pvl_a
+
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia between $apohm and $evshm
+      and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+      and qq.omada='PVLHSEIS'
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure get_apogr
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &apogr_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &apogr_a
+
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia between $apohm and $evshm
+  and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+  and qq.omada='APOGRAFH'
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure get_agores
+begin-select
+
+sum(  isnull(a.posothta,0)*q.syntel_p * pp1.syntel  )   &agores_p
+sum(  isnull(a.ajia,0)*q.syntel_a     * pp1.syntel  )   &agores_a
+						show &agores_p
+from wh_kin a, ap_par q, ap_omadapar qq, ##tmp pp1
+where a.hmeromhnia between $apohm and $evshm
+  and a.eidos=&eidos 
+  and a.parkvd=q.parkvd 
+  and a.parkvd=qq.parkvd 
+  and qq.omada='AGORES'
+  and isnull(q.f_eis,'O') = pp1.f_eis
+  and isnull(q.f_eja,'O') = pp1.f_eja
+
+end-select
+end-procedure
+!*******************************************************************
+
+begin-procedure get_preypol
+
+do find_pre_pvl
+do find_pre_apogr
+do find_pre_agores
+
+   let #pre_ypol   =  (&pre_apogr_p + &pre_agores_p) - &pre_pvl_p
+   let #pre_ypol_a =  (&pre_apogr_a + &pre_agores_a) - &pre_pvl_a 
+
+ display '---'
+ display &pre_apogr_a
+  display &pre_agores_a
+  display &pre_pvl_a 
+ display '==='
+
+end-procedure
+! ******************************************************************
+begin-procedure find_pre_pvl
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &pre_pvl_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &pre_pvl_a
+		show '1'    
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia >=&x.hmeromhnia and a.hmeromhnia < $apohm
+      and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+      and qq.omada='PVLHSEIS'
+end-select
+end-procedure
+! *******************************************************************
+
+begin-procedure find_pre_apogr
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &pre_apogr_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &pre_apogr_a
+
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia >=&x.hmeromhnia and a.hmeromhnia < $apohm
+      and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+      and qq.omada='APOGRAFH'
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure find_pre_agores
+begin-select
+
+sum(isnull(a.posothta,0)*q.syntel_p)   &pre_agores_p
+sum(isnull(a.ajia,0)*q.syntel_a)       &pre_agores_a
+
+
+from wh_kin a, ap_par q, ap_omadapar qq
+where a.hmeromhnia >=&x.hmeromhnia and a.hmeromhnia < $apohm
+      and a.eidos=&eidos and a.parkvd=q.parkvd and a.parkvd=qq.parkvd 
+      and qq.omada='AGORES'
+end-select
+end-procedure
+!*******************************************************************
+begin-procedure print_details
+ print &eidos                (+1,1,8)
+ print &per                  (,9,20)
+ print #pre_ypol             (,38,15) edit  {MASK1P}
+
+ print &agores_p             (,54,15) edit  {MASK1P}
+ print &pvl_p                (,71,15) edit  {MASK1P}
+ print &epistrofes_p         (,87,15) edit  {MASK1P}
+ print #ypol                 (,109,15) edit {MASK1P}
+
+ print #pre_ypol_a             (+1,38,15) edit  {MASK1A}
+ print &agores_a               (,54,15)   edit  {MASK1A}
+ print &pvl_a                  (,71,15)   edit  {MASK1A}
+ print &epistrofes_a           (,87,15)   edit  {MASK1A}
+! print #ypol_a                 (,109,15)  edit {MASK1A}
+
+   let #s_pre_ypol = #s_pre_ypol + #pre_ypol
+   let #s_agores_p = #s_agores_p + &agores_p
+   let #s_pvl_p    = #s_pvl_p    + &pvl_p
+   let #s_ypol     = #s_ypol     + #ypol
+
+   let #s_pre_ypol_a = #s_pre_ypol_a + #pre_ypol_a
+   let #s_agores_a   = #s_agores_a   + &agores_a
+   let #s_pvl_a      = #s_pvl_a      + &pvl_a
+   let #s_ypol_a     = #s_ypol_a     + #ypol_a
+end-procedure
+!*******************************************************************
+
+begin-procedure get_xrhsh
+begin-select
+convert(datetime,x.xrhsh_arxh) &x.hmeromhnia
+	display 'ARXH XRHSHS : ' noline
+        display &x.hmeromhnia
+from ap_xrhsh x
+where x.cid=$cid and ( $apohm between x.xrhsh_arxh and x.xrhsh_telos)
+end-select
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+! ******************************************************************
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='исофуцио посотгтым - аниым апохгйгс апо ' || $apohmpr || ' ' || 'еыс ' || $evshmpr
+  let $msg1 = 'еПИКОЦч еъДОУР аПО : ' || $eidos_a || '   ' || 'еыс : ' || $eidos_e 
+  print $msg (5,) center
+  print $msg1                                    (+1,1) 
+
+  print 'йыдийос'                                (+2,1,8)
+  print 'пяогцоулемо'                            (,38,11)
+  print 'епистяожес'                             (,89,11)
+  print 'упокоипа'                               (,111,9)
+  
+  print 'еидоус'                                 (+1,2,9)
+  print 'пеяицяажг'                              (,16,20)
+  print 'упокоипо'                               (,38,9)
+  print 'ацояес'                                 (,58,9)
+
+  print 'пыкгсеис'                               (,72,9)
+  print 'пыкгсеым'                               (,89,11)
+  print 'апохгйгс'                               (,111,9)
+end-heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	3	10	121	isozap1	rs	X	01},TITLE{иСОФЩЦИО пОСОТчТЫМ - аНИЧМ}
+!	PARCOUNT{3}
+!	PAR1{гЛЕЯОЛГМъА	DUMP	2	BETWEEN	smalldatetime		X}
+!	PAR2{еъДОР	a.kvdikos	2	BETWEEN	varchar		X}
+!	PAR3{аПОХчЙГ	apouhkh	1	=	varchar		X}
+!REPORTHELP{F}
+!</pcalib>

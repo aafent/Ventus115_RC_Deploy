@@ -1,0 +1,412 @@
+!***********************************************************************
+!***** REPORT      : ankau.sqr                                      ****
+!***** DATE        : 01/04/1998                                     ****
+!***** APPLICATION : ĞÁÃÉÁ ÓÔÏÉ×ÅÉÁ                                 ****
+!***** AUTHOR      : ÔÑÉĞÅÑÉÍÁ ÃÅÙÑÃÉÁ                              ****
+!***** NOTE        : --- ÊáôÜóôáóç Ğáãßùí   ----                    ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  9
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+
+
+ input $epil	' EğéëïãŞ ÁíáëõôéêŞò / ÓõãêåíôñùôéêŞò ÊáôÜóôáóçò '
+ unstring $epil by '"' into $filler $epil  $filler
+
+ input $sum_yp	' Óıíïëá áíÜ ÕğïêáôÜóôçìá '
+ unstring $sum_yp by '"' into $filler $sum_yp  $filler
+
+ input $sum_kk	' Óıíïëá áíÜ Kßíçóç '
+ unstring $sum_kk by '"' into $filler $sum_kk  $filler
+
+
+create-array name=sum_per_pararkvd size=201 field=a1:char
+			                   field=a2:number
+				           field=a3:number
+                                           field=a4:char 
+
+ create-array name=sum_per_ypokat size=201 field=a1:char
+			                   field=a2:number
+				           field=a3:number
+                                                                                    
+                 		   
+ do mhden
+ do mhden_ypokat
+ do main
+
+End-Report
+
+! ****************************************************************************
+begin-procedure mhden
+move 1 to #i
+while #i<=200
+   put '' 0 0 ''  into sum_per_pararkvd(#i) a1 a2 a3 a4 
+   add 1 to #i
+end-while
+end-procedure
+! ****************************************************************************
+begin-procedure mhden_ypokat
+move 1 to #p
+while #p<=200
+   put '' 0 0   into sum_per_ypokat(#p) a1 a2 a3  
+   add 1 to #p
+end-while
+end-procedure
+! ****************************************************************************
+begin-procedure main
+ move 0 to #lines
+ let #kat_apo=0
+ move 'blablablablabla' to $prev_kat_apo
+begin-select
+a.kvdikos      (,1,25)  on-break print=CHANGE level=1 after=change_kvdikos_pagioy 
+b.perigrafh    (,+1,40) on-break print=CHANGE level=2 
+convert(char(10),convert(datetime,hm_enarjhs),103) &hm_enarjhs (,+1) on-break print=CHANGE  level=3
+a.hmeromhnia
+convert(char(10),convert(datetime,hmeromhnia),103) &hmeromhnia  
+a.paparkvd     ()    nop 
+a.kat_apo      ()    nop!on-break print=never level=4 after=change_kat_apo
+a.kat_se       ()    nop
+a.pososto      ()    nop
+a.aa_ref       ()    nop
+a.aitia        ()    nop
+a.synal        ()    nop
+a.ajia         ()    nop
+a.posothta     ()    nop
+a.parastatiko  ()    nop
+convert(char(10),convert(datetime,hm_parast),103) &hm_parast
+        move &a.kvdikos   to $prev_kvdikos
+        move &b.perigrafh to $prev_perigrafh
+        move &hm_enarjhs  to $prev_hm_enarjhs
+        do get_perigr_kinhshs
+        do get_epvnymia_synal
+       ! Áéôïëïãßá
+         move &a.aitia to $aitia     
+         let #length_aitia1=length($aitia)
+         let #length_aitia2=#length_aitia1 / 25
+     if  &a.synal <>'' 
+          let #length_aitia2=#length_aitia2 + 1
+     end-if
+     if &a.parastatiko <> ''
+          let #length_aitia2=#length_aitia2 + 1
+     end-if
+         let #length_aitia2=#length_aitia2 + 4
+
+         let $aitia1=substr($aitia,1,25)
+         let $aitia2=substr($aitia,26,51)
+         let $aitia3=substr($aitia,52,77)
+         let $aitia4=substr($aitia,78,103)  
+         let $aitia5=substr($aitia,104,129)  
+         let $aitia6=substr($aitia,130,155)
+         let $aitia7=substr($aitia,156,181)
+         let $aitia8=substr($aitia,182,207)
+         let $aitia9=substr($aitia,208,233)
+         let $aitia10=substr($aitia,233,255)  
+        
+
+       ! Óıíïëá áíÜ ğÜãéï   
+       add &a.posothta to #s_posothta
+       add &a.ajia     to #s_ajia
+
+        ! Óıíïëá óå/áğü ìåôáöïñÜ
+        add &a.posothta to #pos_se_metaf
+        add &a.ajia     to #ajia_se_metaf
+      
+        add 1 to #times
+        display #times
+       ! Óıíïëá áíÜ êùäéêü êßíçóçò
+       if $sum_kk='n' or $sum_kk='N' or $sum_kk='í' or $sum_kk='Í'
+         let #paparkvd=to_number(&a.paparkvd)
+         put        &a.paparkvd into  sum_per_pararkvd(#paparkvd) a1
+         array-add  &a.posothta to sum_per_pararkvd(#paparkvd) a2
+         array-add  &a.ajia to sum_per_pararkvd(#paparkvd) a3  
+         put        &c.perigrafh into  sum_per_pararkvd(#paparkvd) a4
+       end-if
+       if $prev_kat_apo <> &a.kat_apo
+          add 1 to #kat_apo
+           put        &a.kat_apo  into  sum_per_ypokat(#kat_apo) a1
+          move &a.kat_apo to $prev_kat_apo 
+       end-if 
+        ! Óıíïëá áíÜ õğïêáôÜóôçìá
+       if $sum_yp='n' or $sum_yp='N' or $sum_yp='í' or $sum_yp='Í'
+         array-add  &a.posothta to sum_per_ypokat(#kat_apo) a2
+         array-add  &a.ajia     to sum_per_ypokat(#kat_apo) a3  
+       end-if
+      
+       if $epil='1'
+         next-listing need=#length_aitia2
+         add 1 to #lines
+       end-if
+       if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+
+       if $epil='1'
+          do ektyp
+          add #length_aitia2 to #lines
+       end-if 
+      
+       if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+       
+
+from pa_kin a,pa_mhtrvo b
+where a.kvdikos=b.kvdikos and a.cid=b.cid  
+[$SQLCMD]
+order by a.kvdikos,a.kat_apo,a.hmeromhnia 
+end-select
+   do printgentotals
+end-procedure
+! ****************************************************************************
+begin-procedure sum_per_paparkvd
+if $sum_kk='n' or $sum_kk='N' or $sum_kk='í' or $sum_kk='Í' 
+if $epil='1'
+  add #length_aitia2 to #lines
+end-if
+  next-listing
+  add 1 to #lines
+    if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+ print 'ÁÍÁËÕÓÇ ÓÕÍÏËÙÍ'  (,5)
+ let #j=1
+ while #j<=100
+  get $paparkvd from sum_per_pararkvd(#j) a1
+  get #s_pos_per_paparkvd from sum_per_pararkvd(#j) a2
+  get #s_ajia_per_paparkvd from sum_per_pararkvd(#j) a3
+  get $perigrafh from sum_per_pararkvd(#j) a4
+  if $paparkvd<>''  or #s_pos_per_paparkvd<>0 or #s_ajia_per_paparkvd<>0
+   !print $paparkvd            (,56,3) !(,72,3)
+   print $perigrafh           (,56,50)
+   print #s_pos_per_paparkvd  (,120,5) edit 99999
+   print #s_ajia_per_paparkvd (,+1,7)  edit 9999999
+   next-listing
+   add 1 to #lines
+      if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+  end-if
+  add 1 to #j
+end-while
+ move 0 to #s_pos_per_paparkvd 
+ move 0 to #s_ajia_per_paparkvd 
+ do mhden
+end-if
+end-procedure
+! ****************************************************************************
+begin-procedure get_epvnymia_synal
+begin-select
+d.epvnymia
+
+from sy_synal d
+where d.synal=&a.synal
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure get_perigr_kinhshs
+begin-select
+c.perigrafh
+
+from pa_par c
+where c.paparkvd=&a.paparkvd
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure change_kvdikos_pagioy
+ do sum_per_paparkvd
+ next-listing
+ add 1 to #lines
+  if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if  
+if $sum_yp='n' or $sum_yp='N' or $sum_yp='í' or $sum_yp='Í'
+ print 'ÓÕÍÏËÏ ÁÍÁ ÕĞÏÊÁÔÁÓÔÇÌÁ' (,5)
+ let #k=1
+ while #k<=100
+  get $kat_apo from sum_per_ypokat(#k) a1
+  get #s_pos_per_ypok from sum_per_ypokat(#k) a2
+  get #s_ajia_per_ypok from sum_per_ypokat(#k) a3
+  !get $perigrafh from sum_per_ypokat(#k) a4
+  if $paparkvd<>''  or #s_pos_per_ypok<>0 or #s_ajia_per_ypok<>0
+   !print $paparkvd            (,56,3) !(,72,3)
+   print $kat_apo           (,114,2)
+   print #s_pos_per_ypok  (,120,5) edit 99999
+   print #s_ajia_per_ypok (,+1,7)  edit 9999999
+   next-listing
+  add 1 to #lines
+      if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+  end-if
+  add 1 to #k
+end-while
+end-if
+ do mhden_ypokat 
+ next-listing
+add 1 to #lines
+  if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+ print 'ÓÕÍÏËÏ ĞÁÃÉÏÕ'    (,5)
+ print #s_posothta        (,120,5)      edit 99999
+ print #s_ajia            (,+1,7)       edit 9999999
+ move 0 to #s_posothta
+ move 0 to #s_ajia 
+ next-listing
+ add 1 to #lines
+  if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+ move 0 to #kat_apo
+ move 'blablablablabla' to $prev_kat_apo
+end-procedure
+! ***************************************************************************
+begin-procedure ektyp  
+ !print &a.aitia (,26,25)   wrap 25 15 
+ if $aitia1<>''
+    print $aitia1           (,25,25)
+ end-if
+ if $aitia2<>''
+   print $aitia2                (+1,25,26)
+ end-if
+ if $aitia3<>''
+   add 1 to #lines
+   print $aitia3               (+1,25,26)
+ end-if
+ if $aitia4<>''
+   add 1 to #lines
+   print $aitia4               (+1,25,26)
+ end-if
+ if $aitia5<>''
+   add 1 to #lines
+   print $aitia5               (+1,25,26)
+ end-if
+ if $aitia6<>''
+   add 1 to #lines
+   print $aitia6               (+1,25,26)
+ end-if
+ if $aitia7<>''
+   add 1 to #lines
+   print $aitia7               (+1,25,26)
+ end-if
+ if $aitia8<>''
+   add 1 to #lines
+   print $aitia8               (+1,25,26)
+ end-if 
+ if $aitia9<>''
+   add 1 to #lines
+   print $aitia9               (+1,25,26)
+ end-if
+ if $aitia10<>''
+   add 1 to #lines
+   print $aitia10               (+1,25,26)
+ end-if
+ print &a.parastatiko            (+1,25,6)
+ print &hm_parast                (,+1,10) 
+ add 1 to #lines
+if &d.epvnymia <>'' or not isnull(&d.epvnymia)
+ print &d.epvnymia             (+1,25,29) 
+end-if
+ print &a.aa_ref             (,51,4)     edit 9999
+ print &c.perigrafh          (,56,50)
+if &a.pososto <> 0
+ print &a.pososto           (,107)      edit 999.99 
+end-if
+ print &a.kat_apo           (,114,2)
+ print &a.kat_se             (,117,2)
+ print &a.posothta          (,+1,5)     edit 99999
+ print &a.ajia              (,+1,7)     edit 9999999
+ 
+end-procedure
+! ***************************************************************************
+begin-procedure totse
+	    next-listing
+	    print 'ÓÕÍÏËÏ ÓÅ ÌÅÔÁÖÏÑÁ' (,5)
+            do printtotse
+            next-listing
+	    new-page
+            print $prev_kvdikos      (,1,25)  
+            print $prev_perigrafh    (,+1,40) 
+            print $prev_hm_enarjhs      (,+1) 
+	    next-listing
+	    print 'ÓÕÍÏËÏ ÁĞÏ ÌÅÔÁÖÏÑÁ' (,5)
+            do printtotse
+            next-listing
+         
+end-procedure 
+
+! ******************************************************************************
+begin-procedure printtotse
+	    print  #pos_se_metaf         (,110,5)  edit 99999
+            print  #ajia_se_metaf        (,+1,7) edit 9999999999
+end-procedure
+! *******************************************************************************
+begin-procedure printgentotals
+	next-listing
+        print 'ÃÅÍÉÊÏ ÓÕÍÏËÏ'  (,5)
+	do printtotse
+end-procedure
+! *******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ 
+  if $epil='1'
+   print 'AÍÁËÕÔÉÊÇ ÊÁÔÁÓÔÁÓÇ ĞÁÃÉÙÍ' (3,+1) center
+ else
+    print 'ÓÕÃÊÅÍÔÑÙÔÉÊÇ ÊÁÔÁÓÔÁÓÇ ĞÁÃÉÙÍ' (3,+1) center
+ end-if
+ ! Áöáéñåóá 20
+ print 'ÊÙÄÉÊÏÓ ĞÁÃÉÏÕ'           (6,1,25)
+ print 'ĞÅÑÉÃÑÁÖÇ'                (,+1,40)
+ print 'ÇÌ.ÅÍÁÑÎÇÓ ÁĞÏÓÂÅÓÅÙÍ'    (,+1) 
+ print '/AÉÔÉÏËÏÃÉÁ ÊÉÍÇÓÇÓ'      (7,26)
+ print 'ÁÍÁ-'                     (,51,4)  
+ !print 'Ê/Ê'                     (,+1,3)   
+ print 'ĞÅÑÉÃÑÁÖÇ ÊÉÍÇÓÇÓ'        (,+1,50)
+ print 'ÓÕÍÔÅË'                   (,+1,6)   
+ print 'ÕĞ'                       (,+1,2)
+ print 'ÓÕ'                       (,+1,2)
+ print 'ĞÏÓÏÔÇÔÁ'                 (,+1,8) 
+ print 'ÁÎÉÁ'                     (,+1) 
+
+ print 'ÖÏÑÁ'                     (8,51,4)   
+ print 'ÁĞÏÓÂ%'                   (,107,6)
+ print 'ÕĞ'                       (,117,2)
+
+End-Heading
+
+
+

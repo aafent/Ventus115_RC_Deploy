@@ -1,0 +1,124 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC S.A.                                          ****
+! **** REPORT      : eidos.sqr                                               ****
+! **** DATE        :                                                        ****
+! **** APPLICATION : Αποθηκες                                               ****
+! **** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ - ΜΠΟΚΙΑΣ ΝΙΚΟΣ                      ****
+! **** NOTE        : --- ΕΥΡΕΤΗΡΙΟ ΕΙΔΩΝ ---                                ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X          66
+#DEFINE   HEAD-SIZE        6
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        4
+
+#DEFINE   MASK1   99,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ 
+ input $ikathgoria
+ input $ienergo
+ unstring $ikathgoria by '"' into $filler $kathgoria $filler
+ unstring $ienergo by '"' into $filler $energo $filler
+
+ display $kathgoria
+ if $energo = 'N' or $energo ='n' or $energo ='Ν' or $energo ='ν'
+  let $energo = 'X'
+ end-if
+ if $energo = 'O' or $energo ='o' or $energo ='Ο' or $energo ='ο'
+  let $energo=''
+ end-if
+ 
+! do kat
+ do main
+
+End-Report
+
+! ******************************************************************************
+begin-procedure main
+display 'hlias'
+display $kathgoria
+display $SQLCMD
+next-listing
+next-listing
+next-listing
+next-listing
+next-listing
+next-listing
+next-listing
+begin-select 
+a.kvdikos                               (+1,01,06)
+a.perigrafh3                            () nop
+
+ do spasimo
+ !next-listing
+ print '-----------------------------------------------------------------'  (+1,01,66)
+ next-listing
+from  wh_eidh a
+where a.kathgoria = $kathgoria
+  and a.energo like $energo
+[$SQLCMD]
+order by a.kvdikos
+end-select
+end-procedure
+
+
+begin-procedure spasimo
+display 'hlias'
+ let $one=substr(&a.perigrafh3,1,50)
+ print $one			(,08,50)
+ let $two=substr(&a.perigrafh3,51,50)
+ print $two			(+1,08,50)
+ let $three=substr(&a.perigrafh3,101,50)	
+ print $three			(+1,08,50)
+ let $four=substr(&a.perigrafh3,151,50)	
+ print $four			(+1,08,50) 
+end-procedure
+
+
+
+! ******************************************************************************
+
+!begin-footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+!end-footing
+
+!begin-heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+!  display 'lolo'
+!  !do kat
+!  display 'lala'
+!  print $title                 (3,) Center
+!  print 'Κωδικος'		(5,01,15)
+!  print 'Περιγραφη'          	(,+1,40)
+!  print 'Μονάδα Μέτρησης'       (,+1,15)
+!  print 'Τύπος Συσκευασία'      (,+1,18)
+!  print '1η Διάσταση'           (,+1,15)
+!  print '2η Διάσταση'          	(,+1,15)
+!  print 'Μετατροπή'             (,+1,15)
+!  print 'Κωδικός Εκρού'         (,+1,32)
+!  print 'Βασικό Φάρδος'         (,+1,15)
+!  print 'Τιμή Χονδρικής'        (,+1,15)
+!  print 'Τιμή Λιανικής'         (,+1,15)
+!end-heading
+
+!<pcalib help>
+!Εκτύπωση πίνακα ενεργών ειδών κατά κατηγορία και κωδικό είδους
+!</pcalib help>
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{WH	10	2	2	eidh	rs	X	01},TITLE{Πίνακας  Ειδών}
+!	PARCOUNT{3}
+!	PAR1{Κωδικός Είδους	a.kvdikos	1	LIKE	varchar(15)	X	}
+!	PAR2{Περιγραφή Είδους	a.perigrafh	1	LIKE	varchar(40)	X	}
+!	PAR3{Ενεργό Είδος	a.energo	1	=	char(1)	X	}
+!REPORTHELP{F}
+!</pcalib>

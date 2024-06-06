@@ -1,0 +1,132 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : pvl02.sqr                                              ****
+! **** DATE        : 11/07/95                                               ****
+! **** APPLICATION : ¡–œ»« ≈” - ”‘¡‘…”‘… ¡                                  ****
+! **** AUTHOR      : ‘. ¡—¬¡Õ…‘«” - √. –≈‘—…œÀ…                             ****
+! **** NOTE        : –ŸÀ«”≈…”  ¡‘¡ Ã«Õ¡ ( ¡‘¡ œÃ¡ƒ¡ –ŸÀ«”«”)                ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132 
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK2              9,999
+#DEFINE   MASK3         99,999,999
+#DEFINE   MASK4             99,999.99
+
+! ----------------------------------
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+End-Setup
+! ----------------------------------
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $rfromdate
+ input $rtodate
+
+ execute app_datecnv   $rfromdate, $fromdate output, $fromdateprn output
+ execute app_datecnv   $rtodate, $todate output, $todateprn output
+ execute app_geteom    $todate, $todate output
+
+ 
+ do main($SQLCMD,$fromdate,$todate,$salesgroup,$cid)
+
+End-Report
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+   print  '–ŸÀ«”≈…”  ¡‘¡ Ã«Õ¡ ( ¡‘¡ œÃ¡ƒ¡ –ŸÀ«”«”)' (2,+1) center
+   let $msg = '¡–œ : ' || $fromdateprn || ' - ≈Ÿ” : ' || $todateprn
+   print $msg (3,+1) center 
+   print 'œÏ‹‰· –˛ÎÁÛÁÚ'    (7,1)
+   print '–ÂÒÈ„Ò·ˆﬁ ≈ﬂ‰ÔıÚ' (7,17)
+   print '–ŸÀ«”≈…”'         (5,58)
+   print '–ÔÛ¸ÙÁÙ·'         (6,58)
+   print '¡Óﬂ·'             (7,58)
+   print '¡√œ—≈”'           (5,72)
+   print '–ÔÛ¸ÙÁÙ·'         (6,72)
+   print '¡Óﬂ·'             (7,72)
+   print '¡–œ√—¡÷«'         (5,86)
+   print '–ÔÛ¸ÙÁÙ·'         (6,86)
+   print '¡Óﬂ·'             (7,86)
+   print '√≈Õ… ¡'           (5,100)
+   print '–ÔÛ¸ÙÁÙ·'         (6,100)
+   print '¡Óﬂ·'             (7,100)
+   print 'ƒ…¡ …Õ«”≈…”'      (5,114)
+   print '–ÔÛ¸ÙÁÙ·'         (6,114)
+End-Heading
+
+begin-procedure main($SQLCMD,$fromdate,$todate,$salesgroup,$cid)
+ let #sum1=0 
+ let #sum2=0
+ let #sum3=0
+ let #sum4=0
+ let #sum5=0
+ let #sum6=0
+ let #sum7=0
+ let #sum8=0
+ let #sum9=0
+begin-select
+a.pvlomada                     ()  NOP
+c.perigrafh                    ()  NOP
+sum(b.pvl_p)           &s1     (,58) edit {MASK1}
+sum(b.ago_p)           &s2     (,72) edit {MASK1}
+sum(b.apo_p)           &s3     (,86) edit {MASK1}
+sum(b.gen_p)           &s4     (,100) edit {MASK1}
+sum(b.dia_p)           &s5     (,114) edit {MASK1}
+ print &a.pvlomada             (+1, 1,)  
+ print &c.perigrafh            (  ,17,)
+sum(b.pvl_a)           &s6     (,58) edit {MASK1}
+sum(b.ago_a)           &s7     (,72) edit {MASK1}
+sum(b.apo_a)           &s8     (,86) edit {MASK1}
+sum(b.gen_a)           &s9     (,100) edit {MASK1}
+ let #sum1=#sum1+&s1
+ let #sum2=#sum2+&s2
+ let #sum3=#sum3+&s3
+ let #sum4=#sum4+&s4
+ let #sum5=#sum5+&s5
+ let #sum6=#sum6+&s6
+ let #sum7=#sum7+&s7
+ let #sum8=#sum8+&s8
+ let #sum9=#sum9+&s9
+ print '- -'    (+1,1,{PAGE-X}) fill
+
+from wh_eidh a,
+     wh_kint1 b,
+     wh_pvlomades c
+
+where a.kvdikos  = b.eidos  
+and   c.pvlomada = a.pvlomada
+and   b.hmeromhnia between $fromdate and $todate
+and   b.cid      = $cid
+[$SQLCMD]
+group by a.pvlomada,c.perigrafh
+end-select
+  print '='      (-1,1,{PAGE-X}) fill
+  print '”’ÕœÀ¡ –œ”œ‘«‘¡” :' (,17)
+  print  #sum1     (,58) edit {MASK1}
+  print  #sum2     (,72) edit {MASK1}
+  print  #sum3     (,86) edit {MASK1}
+  print  #sum4     (,100) edit {MASK1}
+  print  #sum5     (,114) edit {MASK1}
+  print '”’ÕœÀ¡ ¡Œ…¡”     :' (+1,17)
+  print  #sum6     (,58) edit {MASK1}
+  print  #sum7     (,72) edit {MASK1}
+  print  #sum8     (,86) edit {MASK1}
+  print  #sum9     (,100) edit {MASK1}
+end-procedure

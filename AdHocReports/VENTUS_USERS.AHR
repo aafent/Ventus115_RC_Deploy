@@ -1,0 +1,3 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2005-01-21 **/
+select * from ap_activeusers where program_name='dwca'

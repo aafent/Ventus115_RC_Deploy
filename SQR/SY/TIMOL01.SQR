@@ -1,0 +1,320 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : timol.sqr                                      ****
+!***** DATE        : 16/06/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHNNIE                              ****
+!***** NOTE        : ≈ÍÙ˝˘ÛÁ ·Ò·ÛÙ·ÙÈÍ˛Ì                          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    66
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  1
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  1
+
+#DEFINE   $L_GDATA    1
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASKEIDOS 9999
+#DEFINE   MASK1     9999999999
+#DEFINE   MASK11    9,999,999,999
+#DEFINE   MASK2     9999
+#DEFINE   MASK3     99999.99
+#DEFINE   MASK4     99999999
+#DEFINE   MASK5     99
+
+Begin-Setup
+#IFNDEF debugR 
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+#ENDIF
+
+End-Setup
+
+Begin-Report
+#IFNDEF debugR 
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+#ENDIF
+ input $inp_aa  'a/a parastatikoy   '
+
+#IFNDEF debugR 
+ execute -C1 app_floatcnv   $inp_aa, #aa output
+#ELSE
+ move $inp_aa to #aa
+#ENDIF
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+position (1,1)
+move 09  to #col1
+move 69  to #col2
+
+ execute -C1 syp_timretmas
+ @aa          =#aa,
+ @cid         =$cid         out,
+ @tim_seira   =$tim_seira   out,
+ @tim_parno   =#tim_parno   out,
+ @parkvd      =$parkvd      out,
+ @seira       =$seira       out,
+ @parno       =#parno       out,
+ @synal       =$synal       out,
+ @hmer_e      =$hmer_e      out,
+ @topos_synal =$topos_synal out,
+ @topos       =#topos       out,
+ @skopos      =#skopos      out,
+ @tropos_plhr =#tropos_plhr out,
+ @prakt       =$prakt       out,
+ @apouhkh     =$apouhkh     out,
+ @note        =$note        out,
+ @parkvd_txt  =$parkvd_txt  out
+
+  print $parkvd_txt                  (,1,40)
+  print #parno                       (,52,05) edit 99999
+  print $hmer_e                      (,61,8) edit {DATEMASK} 
+
+  next-listing
+  next-listing
+  next-listing
+  next-listing
+
+  do getstoix($synal,0,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  do getstoix2($cid,$apouhkh,$a_perigrafh,#tropos_plhr,$p_perigrafh,#skopos,$s_perigrafh)
+
+  move $dieyuynsh to $p_dieyuynsh
+  move $polh      to $p_polh  
+
+  if $synal <> $topos_synal or
+     #topos <> 0
+     do getstoix($topos_synal,#topos,$filler,$p_dieyuynsh,$p_polh,$filler,$filler,$filler,$filler)
+  end-if
+
+
+  print $synal                      (,11,10)
+  print $doy                        (,30,20)
+  print $a_perigrafh                (,56,22)
+  next-listing
+
+  print $epvnymia                   (,11,40)
+  print $p_dieyuynsh                (,56,22)
+  next-listing
+
+  print $dieyuynsh                  (,11,40)
+  print $s_perigrafh                (,56,22)
+  next-listing
+
+  print $polh                       (,11,40)
+  next-listing
+
+  print $epaggelma                  (,11,40)
+  print $p_perigrafh                (,56,22)
+  next-listing
+
+  print $afm                        (,11,10)
+  print $thlef                      (,30,10)
+  next-listing
+
+  position (4,1)
+  do printlines(#aa,#tot_posothta,#tot_ajia,#tot_ekpajia)
+  position (31,1)
+  next-listing
+
+  do gettot(#aa,#fpa_k1,#fpa_p1,#fpa_a1,#fpa_k2,#fpa_p2,#fpa_a2,#kyd,#eisprajh,#telikh)
+  do gettot2(#aa,#epibar_a,#epibar_fa)
+
+  print    #fpa_k1              (3,27,9)   edit 999999999
+  print    #fpa_p1              ( ,40,2)   edit 99
+  print    #fpa_a1              ( ,44,9)   edit 999999999
+
+  print    #fpa_k2              (4,27,9)   edit 999999999
+  print    #fpa_p2              ( ,40,2)   edit 99
+  print    #fpa_a2              ( ,44,9)   edit 999999999
+
+  let #tmp = #tot_ajia + #tot_ekpajia
+  print    #tmp                 (1,68,9)   edit 999999999
+  print    #tot_ekpajia         (2,68,9)   edit 999999999
+  print    #tot_ajia            (3,68,9)   edit 999999999
+  let #tmp = #fpa_a1 + #fpa_a2
+  print    #tmp                 (4,68,9)   edit 999999999
+
+  let #plhr = #fpa_a1 + #fpa_a2 + #tot_ajia
+  print    #plhr                (5,68,9)   edit 999999999
+
+  print #epibar_a               (7,68,9)   edit 999999999
+  print #epibar_fa              (8,68,9)   edit 999999999
+  
+  let #plhr = #plhr + #epibar_a + #epibar_fa
+
+  print    #plhr                (10,68,9)   edit 999999999
+  
+  print $seira                         (8,13)
+  print ' '                            ()
+  print #aa                            () edit 9999999
+  print $note                          (9,3,55)
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printlines (#aa,:#tot_posothta,:#tot_ajia,:#tot_ekp)
+
+move 0 to #tot_ajia     
+move 0 to #tot_posothta
+move 0 to #tot_ekp
+move 1 to #lns
+move 'F' to $flag_new_page
+
+begin-select -C1
+  if $flag_new_page = 'T'
+     new-page 12
+     position (11,1)
+     next-listing
+     move 'F' to $flag_new_page
+     print '¡–œ Ã≈‘¡÷œ—¡ :'              (+2,13,22)
+     print #tot_ajia                      (,62,09)  edit 999999999
+     let #lns = #lns + 1
+  end-if
+a.pvlomada                                 (+1,03,15)
+b.perigrafh                                (,13,22)
+b.monada                                   (,37,03)
+a.posothta                &posot           (,41,03)   edit 999
+a.timh                                     (,46,06)   edit 999999
+a.ekp                                      (,53,02)   edit 99
+a.ekpajia                 &ekpajia         (,56,06)   edit 999999
+a.ajia                    &ajia            (,62,09)   edit 999999999
+a.fpa                                      (,72,02)   edit 999999999
+
+  let #tot_posothta = #tot_posothta + &posot
+  let #tot_ajia     = #tot_ajia     + &ajia
+  let #tot_ekp      = #tot_ekp      + &ekpajia
+  let #lns = #lns + 1
+
+  if #lns > 25
+     move 1 to #lns
+     print '”≈ Ã≈‘¡÷œ—¡ : '               (+1,13,22)
+     print #tot_ajia                      (,62,09)  edit 999999999
+     move 'T' to $flag_new_page
+  end-if
+
+from sy_pargeidh a, wh_pvlomades b
+where a.aa = #aa 
+  and a.pvlomada = b.pvlomada
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure gettot(#aa,:#fpa_k1,:#fpa_p1,:#fpa_a1,:#fpa_k2,:#fpa_p2,:#fpa_a2,:#kyd,:#eisprajh,:#telikh)
+
+ execute -C1 syp_timrettot @aa       = #aa,
+                       @fpa_k1   = #fpa_k1 out,
+                       @fpa_p1   = #fpa_p1 out,
+                       @fpa_a1   = #fpa_a1 out,
+                       @fpa_k2   = #fpa_k2 out,
+                       @fpa_p2   = #fpa_p2 out,
+                       @fpa_a2   = #fpa_a2 out,
+                       @kyd      = #kyd    out,
+                       @eisprajh = #eisprajh out,
+                       @telikh   = #telikh   out
+
+end-procedure
+
+! ******************************************************************
+
+! begin-procedure gettot2(#aa, :#epibar_a, :#epibar_fa )
+!   move 0 to #epibar_a
+!   move 0 to #epibar_fa
+! end-procedure
+
+begin-procedure gettot2(#aa, :#epibar_a, :#epibar_fa )
+  move 0 to #epibar_a
+  move 0 to #epibar_fa
+begin-select
+sum(ajia) &ajia_a () NOP
+  let #epibar_a = &ajia_a
+from sy_partotals 
+where aa = #aa
+and   kvdikos = 3
+end-select
+begin-select
+sum(ajia) &ajia_fa () NOP
+    let #epibar_fa = &ajia_fa
+from sy_partotals 
+where aa = #aa
+and   kvdikos = 10
+end-select
+end-procedure
+
+! ******************************************************************
+
+! begin-procedure getsxet(#aa,:$sxet)
+! 
+! execute -C1 syp_timretsxe @aa=#aa, @sxet = $sxet out
+! 
+! end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix2($cid,$apouhkh,:$a_perigrafh,#tropos,:$p_perigrafh,#skopos,:$s_perigrafh)
+
+ execute -C1 syp_timrets1 
+ @cid          = $cid,
+ @apouhkh      = $apouhkh,
+ @a_perigrafh  = $a_perigrafh out,
+ @tropos       = #tropos,
+ @p_perigrafh  = $p_perigrafh out,
+ @skopos       = #skopos,
+ @s_perigrafh  = $s_perigrafh out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix($synal,#topos,:$epvnymia,:$dieyuynsh,:$polh,:$afm,:$doy,:$thlef,:$epaggelma)
+
+move ' ' to $epvnymia
+move ' ' to $dieyuynsh
+move ' ' to $epaggelma
+move ' ' to $afm
+move ' ' to $doy
+move ' ' to $thlef
+
+if $synal <> ''
+   execute -C1 syp_timgetsyn @synal = $synal,
+                      @topos = #topos,
+                      @epvnymia = $epvnymia out,
+                      @dieyuynsh = $dieyuynsh out,
+                      @polh = $polh out,
+                      @afm = $afm out,
+                      @doy = $doy out,
+                      @thlef = $thlef out,
+                      @epaggelma = $epaggelma out
+end-if
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getypoloipo($cid,$synal,:#ypoloipo)
+
+ move 0 to #ypoloipo
+
+ execute -C1 syp_getypol @synal    = $synal,
+                     @cid      = $cid,
+                     @ypoloipo = #ypoloipo out
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+end-footing
+
+begin-heading {HEAD-SIZE}
+
+end-heading

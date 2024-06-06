@@ -1,0 +1,149 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : lhjh.sqr                                       ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Καταλογος Αξιογραφων                           ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    999,999,999
+#DEFINE   MASK2    99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ieidos 'eidos ajiogr'
+ unstring $ieidos by '"' into $filler $eidos $filler
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ if $eidos = 'Ε' or
+    $eidos = 'E'
+     move '1'     to $typ_ajio
+     move 'Επιτ.' to $typos
+ end-if
+ if $eidos = 'Σ' or
+    $eidos = 'S'
+     move  '1'    to $typ_ajio
+     move 'Συναλ' to $typos
+ end-if
+ if $typ_ajio = ''
+     show clear-screen (24,1) 'Λαθος Τύπος Αξιογράφου' beep
+     stop
+ end-if
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.aa_ajio                                       (,1,05) edit {MASK2}
+a.synal                                         () NOP
+a.kvdtrap                                       () NOP
+a.kvd_paral                                     () NOP
+
+     if &a.kvd_paral    != ''
+        do find_paral(&a.kvd_paral,$apodekths)
+     end-if
+     if &a.kvdtrap      != ''
+        do find_trapeza(&a.kvdtrap,$trapeza)
+     end-if
+ 
+b.epvnymia                                      (,+01,30)
+  print $trapeza                                (,+01,20)
+a.aa_epitaghs                                   (,+01,12)
+convert( datetime, a.hm_ekd)  &a.hm_ekd         (,+01,08) edit {DATEMASK}
+convert( datetime, a.hm_ekx)  &a.hm_ekx         (,+13,08) edit {DATEMASK}
+convert( datetime, a.hm_eisp) &a.hm_eisp        (,+01,08) edit {DATEMASK}
+a.sxolio                                        (,+01,22)
+  next-listing
+a.ekdoths                                       (,+06,30)
+a.ar_logtrap                                    (,+01,20)
+a.toposplhr                                     (,+01,12) 
+convert( datetime, a.hm_lhjh) &a.hm_lhjh        (,+01,08) edit {DATEMASK}
+a.poso                                          (,+01,11) edit {MASK1}
+a.aa_pinak                                      (,+01,08)
+  print &a.kvd_paral                            (,+01,08)
+  print $apodekths                              (,+01,22)
+from aj_mas a,sy_synal b
+where a.synal = b.synal
+      and a.typ_ajio = $typ_ajio
+[$SQLCMD]
+order by a.typ_ajio, a.aa_ajio
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_trapeza($kvdtrap,:$trapeza)
+
+begin-select
+a1.epvnymia         () NOP
+from sy_synal a1
+where a1.synal = $kvdtrap
+end-select
+move &a1.epvnymia to $trapeza
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_paral($kvd_paral,:$apodekths)
+
+begin-select
+a2.epvnymia         () NOP
+from sy_synal a2
+where a2.synal = $kvd_paral
+end-select
+move &a2.epvnymia     to $apodekths
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $ep1 = 'ΚΑΤΑΛΟΓΟΣ ΑΞΙΟΓΡΑΦΩΝ (' || $typos || ')'
+  print $ep1                   (3,)Center
+  print 'Αριθμ'                (5,01,5)
+  print 'Ονοματεπωνυμο Συναλλ' ( ,+1,30)
+  print 'Τ ρ α π έ ζ α'        ( ,+1,20)
+  print 'Αρ.Επιταγής'          ( ,+1,12)
+  print '  Εκδοση'             ( ,+1,08)
+  print '        '             ( ,+1,11)
+  print 'Ημ.Εκχωρ'	       ( ,+1,08)
+  print 'Ημ.Εισπρ'             ( ,+1,08)
+  print 'Παρατηρήσεις'         ( ,+1,30)
+  print  $typos                (6,01,05)
+  print '    =//=      εκδότη' ( ,+1,30)
+  print 'Αριθμός Λογαριασμού'  ( ,+1,20)
+  print 'Τόπος Πληρωμής'       ( ,+1,12)
+  print '    Λήξη'             ( ,+1,08)
+  print '    Π ο σ ό'          ( ,+1,11)
+  print 'Αρ.Πινακ'	       ( ,+1,08)
+  print 'Κωδ.Παραλ'            ( ,+1,08)
+  print 'Επωνυμία'             ( ,+1,22)
+end-heading

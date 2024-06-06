@@ -1,0 +1,265 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : yptiman.sqr based on ypoxea.sqr                ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Υπολοιπα πελατων με αναλυση τιμολογιων         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YYYY
+#DEFINE   MASK3     9999,999.99c
+#DEFINE   MASK1     999,999.99c
+#DEFINE   MASK2     999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+! move 'O' to $cid
+ move $L_CID to $cid
+ input $ihm_evs 'evs hmeromhnia '
+ input $analysh 'analysh (N/O) '
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+ unstring $analysh  by '"' into $filler1  $analysh  $filler1
+
+ move 'c.epvnymia' to $SQLORD
+
+ if $analysh='ν' or $analysh='Ν' or $analysh='n' or $analysh='N' or $analysh='y' or $analysh='Y'
+    move 'Y' to $analysh
+    move '1' to $style
+ else
+    move 'N' to $analysh
+    move '2' to $style
+ end-if
+
+ display 'STYLE : ' noline
+ display $style
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.synal                                () NOP   
+a.thl                                  () NOP   
+a.dieyuynsh                            () NOP
+a.polh                                 () NOP
+a.taxkvd                               () NOP
+c.epvnymia                             () NOP
+
+  move &a.synal to $synal
+  do getoik($cid,$synal,#ypol_arx,#tzi_1,#ypoloipo,#tzi,#timol,$hte)
+
+  do  getypol($cid, $evshm, $synal, #ypol_ly)
+  move #ypol_ly to #ypoloipo
+  ! let #ypoloipo = #ypoloipo + #ypol_ly
+
+  if #ypoloipo != 0
+
+     let #total = #total + #ypoloipo
+
+     print &a.synal                    (,01,05)
+
+     let #epvn_col = #current-column + 1
+     print &c.epvnymia                 (,+1,28)
+     print &a.thl                      (,+1,16)
+     print $L_X3                       (,+1,1)
+
+     print #timol                      (,+1,10) edit {MASK1}
+     print #ypol_arx                   (,+1,10) edit {MASK1}
+     print 'Τελ.Εισπρ.:'               (,+1,13)
+     print $hte                        (,+1,10) edit {DATEMASK}
+     print 'Υπόλοιπο :'                (,+1,10)
+     print #ypoloipo                   (,+1,10) edit {MASK1}
+
+     next-listing 
+
+     let $dieyuynsh = &a.dieyuynsh||' - '||&a.polh||' TK: '||&a.taxkvd
+     print $dieyuynsh                  (,#epvn_col,45)
+     print $L_X3                       (,+1,1)
+
+     print #tzi_1                      (,+1,10) edit {MASK1}
+     print #tzi                        (,+1,10) edit {MASK1}
+     let #timol_col = #current-column + 1
+     
+     do getpvlinf($cid, $synal, $plhr, $prakt)
+     print $plhr                       (,+1,25)
+     print $prakt                      (,+1,25)
+     next-listing
+     print $L_X2                       (,01,{PAGE-X}) fill
+
+     do printtimol($style,$cid,$synal,#ypoloipo,#timol_col)
+
+     next-listing
+     print $L_X1                         (,1,{PAGE-X}) fill
+     next-listing need=3
+  end-if
+
+from sy_synaltopos a, sy_synal c
+ where ( exists (select 1 from sy_synaleidos b1 where b1.synal=a.synal and b1.eidos='PVLHSEIS')
+         or
+         not exists (select 1 from sy_synaleidos b1 where b1.synal=a.synal )
+       )
+   and a.synal = c.synal
+   and a.topos = 0
+   and a.synal not in (select synal from sy_fakesynal)
+[$SQLCMD]
+order by
+[$SQLORD]
+end-select
+
+   next-listing
+   next-listing
+   print 'Σ Υ Ν Ο Λ Ο : '          (,96,14)
+   print #total                    (,,11) edit {MASK3}
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getypol($cid, $evshm, $synal, :#ypol)
+
+  execute syp_getypol @cid       = $cid,
+                      @synal     = $synal, 
+                      @hmer      = $evshm,
+                      @ypoloipo  = #ypol out
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printtimol($style,$cid,$synal,#ypoloipo,#timol_col)
+
+move 0 to #ajia
+
+begin-select 
+b1.parkvd                                            () nop
+b1.seira                                             () nop
+b1.parno                                             () nop
+convert(datetime,b1.hmeromhnia,3) &b1.hmer           () nop
+isnull(b1.xrevsh,0) - isnull(b1.pistvsh,0)  &b1.ajia () nop
+
+  move 'F' to $print_flag
+  if $style='1' 
+     move 'T' to $print_flag
+  end-if
+  if $style='2'
+     if &b1.ajia >0 
+        move 'T' to $print_flag
+     end-if
+  end-if
+
+  if $print_flag='T'
+    print &b1.parkvd                          (,#timol_col,02)
+    print &b1.seira                           (,+1,03)
+    print &b1.parno                           (,+1,06) edit {MASK2}
+    print &b1.hmer                            (,+1,10) edit {DATEMASK}
+    print &b1.ajia                            (,+1,10) edit {MASK1}
+  end-if
+
+  move &b1.ajia to #bajia
+  if &b1.parkvd = '99'
+     let #bajia = #bajia * -1
+  end-if
+  let #ajia = #ajia + #bajia
+
+  if #ajia >= #ypoloipo
+     exit-select
+  end-if
+
+  if $print_flag =  'T'
+     next-listing
+  end-if
+
+from sy_kin b1
+where b1.synal=$synal
+  and b1.cid  =$cid
+  and b1.parkvd in ('92','91','41','96','99')
+  !ADR and exists(select 1 from ap_par b2 where b1.parkvd = b2.parkvd
+  !ADR               and (b2.stoixeio in ('01','02','04') or b2.parkvd = 'ΧΠ'))
+  !                 and (b2.omada  = 'PVLHSEIS' or b2.omada = 'AKYRVTIKO'))
+
+order by b1.hmeromhnia desc
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getoik($cid,$synal,:#ypol_arx,:#tzi_1,:#ypoloipo,:#tzi,:#timol,:$hte)
+
+ execute syp_getoik1 @cid=$cid, @synal=$synal, 
+         @arxiko_ypoloipo = #ypol_arx  out,
+         @k_tziros_1      = #tzi_1  out, 
+         @ypoloipo        = #ypoloipo  out, 
+         @plhuos_tim      = #timol out,
+         !@miktos_tziros   = #tzi output,
+         @tel_eisp        = $hte out,
+         @job='RET'
+
+ execute syp_getoik1 @cid=$cid, @synal=$synal, 
+         @miktos_tziros   = #tzi output,
+         @job='RET'
+
+end-procedure
+
+! ******************************************************************
+begin-procedure getpvlinf($cid, $synal, :$plhr, :$prakt)
+  move '' to $plhr
+  move '' to $plhr_txt
+  move '' to $prakt
+  move '' to $epvn
+
+  execute syp_getpvlinf @cid        = $cid,
+                        @synal      = $synal,
+                        @tr_plhr    = #tr_plhr   out,
+                        @plhr_txt   = $plhr_txt  out,
+                        @prakt      = $prakt     out,
+                        @epvn_prakt = $epvn      out
+
+  move #tr_plhr to $plhr 99
+  let $plhr  = $plhr||' '||$plhr_txt
+  let $prakt = $prakt||' '||$epvn
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΥΠΟΛΟΙΠΑ ΠΕΛΑΤΩΝ ΜΕ ΗΜΕΡΟΜΗΝΙΑ : '||$evshmpr
+  print $msg (3,) center
+  print $L_X3                                      (5,53,01)
+  print 'Αρ. Τιμολ.'                               ( ,+1,10)
+  print 'Αρχ. Υπολ.'                               ( ,+1,10)
+  print 'Ανάλυση τιμολογίων'                       ( ,+1   )
+  print 'Συναλλασόμενος / Διεύθυνση / Τηλέφωνα'    (6,01,51)
+  print $L_X3                                      ( ,+1,01)
+  print 'Περ.Τζίρος'                               ( ,+1,10)
+  print 'Φετ.Τζίρος'                               ( ,+1,10)
+
+end-heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	2	2	465	ypoxea	rs	X	01},TITLE{Υπόλοιπα πελατών με ανάλυση τιμολογίων}
+!	PARCOUNT{3}
+!	PAR1{Με ημερομηνία	DUMP	1	ΕΠΙΛΟΓΗ	datetime		X}
+!	PAR2{Συναλλασόμενος	a.synal	1	LIKE	varchar(20)	X	}
+!	PAR3{Πλήρης Καρτέλα	YESNO	1	ΝΑΙ/ΟΧΙ	varchar(1)		X}
+!REPORTHELP{F}
+!</pcalib>

@@ -1,0 +1,45 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : pvl03.sqr                                              ****
+! **** DATE        : 05/06/95                                               ****
+! **** APPLICATION : апохгйес- пыкгсеис                                     ****
+! **** AUTHOR      : лпойиас мийос                                          ****
+! **** NOTE        : пыкгсеис еидым пеяиодоу йаи пяогцоулемгс               ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132 
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK2              9,999
+#DEFINE   MASK3         99,999,999
+#DEFINE   MASK4             99,999.99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $fromdate
+ input $todate
+ input $salegroup
+
+ execute app_datecnv   $fromdate, $fromdate output, $fromdateprn output
+ execute app_datecnv   $todate, $todate output, $todate output
+ execute app_geteom    $todate, $todate output
+ unstring $salesgroup by '"' into $f $salesgroup $f
+ 
+ do main
+
+End-Report
+
+begin-procedure main
+  
+end-procedure

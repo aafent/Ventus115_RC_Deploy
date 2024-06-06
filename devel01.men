@@ -1,0 +1,24 @@
+[devel]
+tab1=tab1,Development
+
+
+[devel tab1]
+0=Under Development :
+1=2,sheet,w_wh410,Νέο MENU Παραστατικών
+2=2,sheet,pca_rep02,New report window
+3=0,exit,@(TOP INI)->@(TOP MENU),Επιστροφή
+
+
+;---------------------------------------------------------------------
+; Icons :
+; Icon #        Description
+; --------      -----------------------------------
+;   1           Procedure forms
+;   2           Data Entry forms
+;   3           Coding forms
+;   4           Option forms
+;   5           Menu items
+;   6           Report form or chart etc
+;   7           Reports on printer or spool file
+;   8           Customer Defined Item
+;4=5,cb{1,menu},gl000.men->gl000,lala

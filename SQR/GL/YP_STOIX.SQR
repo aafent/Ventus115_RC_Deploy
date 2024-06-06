@@ -1,0 +1,668 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : yp_stoix.sqr                                   ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHN                                 ****
+!***** NOTE        : уПОБОКч сТОИВЕъЫМ (Stream File)                ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     60
+#DEFINE   PAGE-X    150
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  YY/MM/DD     
+#DEFINE   MASK7     0000000
+#DEFINE   MASK8     00000000
+#DEFINE   MASK9     000000000
+#DEFINE   MASK10    0000000000
+#DEFINE   MASK12    000000000000
+#DEFINE   MASK13    0000000000000
+#DEFINE   MASK14    00000000000000
+#DEFINE   MASK15    000000000000000
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ no-formfeed
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ move $L_XRHSH to #xrhsh
+
+ ! input $idate 'Hmeromhnia : '
+ ! execute app_datecnv $idate, $date output, $datepr output
+
+! move '2' to $cid
+! let $cid = '02'
+! let #xrhsh = 1999
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+  if $cid = '01' 
+     do head_comp_01
+  else
+  if $cid = '02' 
+     do head_comp_02
+  else
+  if $cid = '03' 
+     do head_comp_03
+  else
+  if $cid = '04' 
+     do head_comp_04
+  else
+  if $cid = '05' 
+     do head_comp_05
+  else
+  if $cid = '07' 
+     do head_comp_07
+  else
+  if $cid = '08' 
+     do head_comp_08
+  else
+  if $cid = '09' 
+     do head_comp_09
+  else
+  if $cid = '10' 
+     do head_comp_10
+  else
+  if $cid = '11' 
+     do head_comp_11
+  else
+  if $cid = '12' 
+     do head_comp_12
+  else
+  if $cid = '2' 
+     do head_comp_2
+  else
+    if $cid = '3' 
+       do head_comp_3
+    else
+      if $cid = 'M' 
+         do head_mosx
+      else
+        if $cid = 'O' 
+           do head_oxea
+        end-if
+      end-if
+    end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+  end-if
+
+  do zero_vars
+
+  move '2' to $flag_id               ! *** пыкгсеис
+  move '2' to $rec_id
+  do print_details  
+  do print_tot_pvl
+
+  do zero_vars
+  move '-' to $flag_id               ! *** ацояес амакысилым - енода
+  move '4' to $rec_id
+  do print_details  
+
+  move '1' to $flag_id               ! *** ацояес елпояеулатым
+  do print_details  
+  do print_tot_ago
+
+end-procedure
+
+! *************************************************************************
+begin-procedure zero_vars
+  move 0 to #aa
+  move 0 to #tot_dhmosio
+  move 0 to #tot_ejoda
+  move 0 to #tot_ar_tim
+  move 0 to #tot_ajia
+end-procedure
+! *************************************************************************
+begin-procedure print_details 
+begin-select  distinct 
+
+a.synal                           () NOP
+a.afm                             () NOP
+a.epvnymia                        () NOP
+a.epaggelma                       () NOP
+a.polh                            () NOP
+a.dieyuynsh                       () NOP
+a.taxkvd                          () NOP
+a.ar_tim                          () NOP
+abs(a.ajia)  &a.ajia              () NOP
+a.flag                            () NOP
+  if length(&a.afm) = 8
+     let $afm = '0' || &a.afm
+  else
+     let $afm = &a.afm
+  end-if
+
+  let $drast = ' '
+  if &a.flag = '2'
+  if &a.synal = '3107113'
+     let $drast = '0988'
+  else
+  if $afm = '090165560'
+     let $drast = '0988'
+  else
+  if $afm = '090078291'
+     let $drast = '0988'
+  end-if
+  end-if
+  end-if
+  end-if
+!  do getepagg(&a.epaggelma, $epag_per, $drast, $dras_per)
+  
+  if $drast = '0988' 
+     let #tot_dhmosio = #tot_dhmosio + &a.ajia 
+  end-if
+
+  if &a.flag = 'A'
+     let #tot_ejoda = #tot_ejoda + &a.ajia
+  end-if
+
+     let #aa = #aa + 1
+     let #tot_ar_tim = #tot_ar_tim + &a.ar_tim
+     let #tot_ajia   = #tot_ajia + &a.ajia
+
+     print $rec_id                     (,1,1)
+     print #aa                         (,,05) edit 99999
+     print $afm                        (,,09)
+ !    print ' '                         (,,01)
+     print &a.epvnymia                 (,,27)
+     print $epag_per                   (,,15)
+     print '0'			       (,,1)
+     print &a.polh                     (,,10)
+     print &a.dieyuynsh                (,,19)
+     print &a.taxkvd                   (,,05) 
+     print &a.ar_tim                   (,,07) edit 0000000
+     print &a.ajia                     (,,16) edit 0000000000000000
+     next-listing
+
+from sy_myf_tot a
+where a.flag = $flag_id
+!  and a.ajia > 0
+  and a.ar_tim > 0
+  and a.cid = $cid
+  and a.xrhsh = #xrhsh
+!  and a.afm is null
+order by a.epvnymia                    
+end-select
+
+end-procedure
+
+! *************************************************************************
+begin-procedure print_tot_pvl
+
+  print '3'                         (,1,1)
+  print '999999011'                 (,+0,09)
+  print #tot_dhmosio                (,+0,16)   edit 0000000000000000
+  print '999999999'                 (,+0,09)
+  print #tot_ar_tim                 (,+0,16)   edit 0000000000000000
+  print #tot_ajia                   (,+0,16)   edit 0000000000000000
+  next-listing
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure print_tot_ago
+
+  print '5'                         (,1,1)
+  print '999999011'                 (,,09)
+  print #tot_dhmosio                (,,16)   edit 0000000000000000
+  print '999999023'                 (,,09)
+  print #tot_ejoda                  (,,16)   edit 0000000000000000
+  print '999999999'                 (,,09)
+  print #tot_ar_tim                 (,,16)   edit 0000000000000000
+  print #tot_ajia                   (,,16)   edit 0000000000000000
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+begin-procedure head_comp_01
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '20000520'                (,,08)  
+  print '1999'                    (,,04)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1159'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print '75179'                  (,,06)     ! Ar. fakeloy AE пакиа 
+  print 'ц.а. йоуягс а.е.'   	  (,,18)
+  print '94206315'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдотийес епивеиягсеис'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяос'        	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_02
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '20000520'                (,,08)  
+  print '1999'                    (,,04)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '1999'                    (,,04)
+  print '1118'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print '330238'                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'екеухеяг тгкеояасг а.е.' (,,18)
+  print '094284618'               (,,09)
+!  print ' '                       (,,01)
+  print 'йамаки 5'                (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяос'                (,,16)
+  print '  31'                    (,,03)
+  print '17778'                   (,,05)
+  print '013424090'               (,,09)
+
+  next-listing
+
+end-procedure
+begin-procedure head_comp_03
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'мийг е.п.е.'   	  (,,18)
+  print '95504967'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдотийес епивеиягсеис'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'сима'        	   (,,16)
+  print '  14'                     (,,03)
+  print '10672'                   (,,05)
+  print '3613301'                 (,,07)
+
+  next-listing
+
+end-procedure
+begin-procedure head_comp_04
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'яадио ахгма е.п.е.'   	  (,,18)
+  print '95391409'                (,,08)
+  print ' '                       (,,01)
+  print 'яадиожымо'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  37'                     (,,03)
+  print '17778'                 (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+begin-procedure head_comp_05
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1159'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'STAR MEDIA GROUP е.п.е.'   	  (,,18)
+  print '95610543'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдосеис ежглеяидым & пеяиодийым'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_07
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'амдяеас ц. йоуягс'   	  (,,18)
+  print '36461011'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдотийес епивеиягсеис'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'    	    	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_08
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'ц.а. йоуягс е.п.е.'   	  (,,18)
+  print '95557310'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдотийес епивеиягсеис'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  37'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+begin-procedure head_comp_09
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1118'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print '640156'                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'еуяыцяажотевмийг а.е.'   	  (,,18)
+  print '94493127'                (,,08)
+  print ' '                       (,,01)
+  print 'еисацыцийг - елпояийг'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'пк. йаяутсг'        	   (,,16)
+  print '  5'                     (,,03)
+  print '10561'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_10
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'цеыяциос а. йоуягс'   	  (,,18)
+  print '21917151'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдосеис ежглеяидым'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_11
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1118'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print '330497'                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'LOVE RADIO BROADCASTING SA'   	  (,,18)
+  print '94494996'                (,,08)
+  print ' '                       (,,01)
+  print 'яадиожымийос стахлос'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+begin-procedure head_comp_12
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '990131'                  (,,06)  
+  print '98'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '98'                      (,,02)
+  print '1116'                    (,,04)     ! kvdikos DOY  пакиа дата
+  print ''                  (,,06)     ! Ar. fakeloy AE пакиакаиа 
+  print 'йоуягс MEDIA GROUP е.п.е.'   	  (,,18)
+  print '95450322'                (,,08)
+  print ' '                       (,,01)
+  print 'ейдосеис ежглеяидым & пеяиодийым'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'дглгтяас'        	   (,,16)
+  print '  31'                     (,,03)
+  print '17778'                   (,,05)
+  print '3424090'                 (,,07)
+
+  next-listing
+
+end-procedure
+!**********************************************************************
+begin-procedure head_comp_2
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '960131'                  (,,06)  
+  print '95'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '95'                      (,,02)
+  print '1206'                    (,,04)     ! kvdikos DOY
+  print '005906'                  (,,06)     ! Ar. fakeloy AE
+  print 'пяокотфий а.е.       '   (,,18)
+  print '94472200'                (,,08)
+  print ' '                       (,,01)
+  print 'ежаялоцес пкгя.'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'аяистотекоус '           (,,16)
+  print '  8'                     (,,03)
+  print '17671'                   (,,05)
+  print '9213089'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure head_comp_3
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '960131'                  (,,06)  
+  print '95'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '95'                      (,,02)
+  print '1118'                    (,,04)     ! kvdikos DOY
+  print '002161'                  (,,06)     ! Ar. fakeloy AE
+  print 'лосвокиос вглийа а.е.'   (,,18)
+  print '94023479'                (,,08)
+  print ' '                       (,,01)
+  print 'елпояио вглийым'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'йоулоумдоуяоу'           (,,16)
+  print ' 37'                     (,,03)
+  print '10437'                   (,,05)
+  print '5245811'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure head_mosx
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '960131'                  (,,06)  
+  print '95'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '95'                      (,,02)
+  print '1118'                    (,,04)     ! kvdikos DOY
+  print '002161'                  (,,06)     ! Ar. fakeloy AE
+  print 'лосвокиос вглийа а.е.'   (,,18)
+  print '94023479'                (,,08)
+  print ' '                       (,,01)
+  print 'елпояио вглийым'         (,,16)
+  print 'ахгма'                   (,,10)
+  print 'йоулоумдоуяоу'           (,,16)
+  print ' 37'                     (,,03)
+  print '10437'                   (,,05)
+  print '5245811'                 (,,07)
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure head_oxea
+
+  print '0'                       (1,1,1)
+  print 'IL01'                    (,,08)
+  print '960131'                  (,,06)  
+  print '95'                      (,,02)
+
+  next-listing
+
+  print '1'                       (,1,1)
+  print '95'                      (,,02)
+  print '1211'                    (,,04)     ! kvdikos DOY
+  print '000000'                  (,,06)     ! Ar. fakeloy AE
+  print 'онеа е.п.е.          '   (,,18)
+  print '95028774'                (,,08)
+  print ' '                       (,,01)
+  print 'елпояио вглийым'         (,,16)
+  print 'лосвато'                 (,,10)
+  print 'лутикгмгс    '           (,,16)
+  print '  5'                     (,,03)
+  print '18346'                   (,,05)
+  print '4822761'                 (,,07)
+
+  next-listing
+
+end-procedure
+! ******************************************************************
+
+begin-procedure getepagg($epagg,:$epagg_per,:$drast,:$dras_per)
+  move '' to $epagg_per
+  move '' to $drast
+  move '' to $drast_per
+  if $epagg = ''
+     move '9999' to $epagg
+  end-if
+begin-select
+a.perigrafh     () NOP
+a.drast         () NOP
+b.perigrafh     () NOP
+  move &a.perigrafh to $epagg_per
+  move &a.drast     to $drast
+  move &b.perigrafh to $dras_per
+from ap_epaggelma a, ap_drast b
+where a.kvdikos = $epagg and a.drast = b.kvdikos
+end-select
+end-procedure
+! ******************************************************************
+

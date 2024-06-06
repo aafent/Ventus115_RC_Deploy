@@ -1,0 +1,227 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : ΠΕΛΑΤΕΣ ΑΤΤΙΚΗΣ ΟΠΤΙΚΟΙ                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y      62
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE    6
+#DEFINE   FOOT-SIZE    1
+#DEFINE   HEAD-LINE    4
+
+#DEFINE   MASK1      999,999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+      do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+  let #tmhma        =  10
+  let $omada        = '0001'
+  let $per          = 'ΜΗΧ/ΤΑ BRIOT '
+! let $per          = 'ΑΝΑΛΩΣΙΜΑ ΜΗΧ/ΤΩΝ BRIOT '
+
+  let $n_logar_anal = '9420004'
+
+  print $omada  (, 1,15)
+  print $per    (,+1,40)
+
+  do insert1 
+  let #cnt=1
+
+  do main2
+
+  next-listing
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure insert1
+
+begin-select
+convert(varchar,$n_logar_anal+substring($omada,2,3))   &ins_omada    () NOP
+convert(varchar,$per)                                  &ins_per      () NOP
+substring($omada,2,3)                                  &ins_serlogar () NOP
+
+  let $ins_omada     = &ins_omada
+  let $ins_per       = &ins_per  
+  let $ins_serlogar  = &ins_serlogar  
+
+  let $pr_logar      = $ins_omada
+  do  mk_logar
+
+  print $pr_logar      (,+1,15)       
+! print $ins_omada     (,+1,15)       
+  print $ins_per       (,+1,50)       
+  print $ins_serlogar  (,+1,15)         
+
+  next-listing
+
+end-select
+
+! begin-sql
+! insert into gl_logar 
+!         (cid,logar     ,perigrafh,serlogar     ,parent       ,log_level)
+!values   ('1',$ins_omada,$ins_per ,$ins_omada,$n_logar_anal,           4)
+!end-sql
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main2
+
+begin-select distinct
+a.eidos   &eidos () NOP
+
+ let $eidos     = &eidos
+ let $omada_eid = ''
+ let $per_eid   = ''
+ 
+ do get_omadaeid
+ do insert2
+
+ let #cnt=#cnt+1
+
+from   wh_eidh01 a, wh_eidhmore b
+where  b.cid     =      $cid
+and    a.eidos   =      b.eidos
+and    b.energo  is not null 
+and    b.logar   is     null
+and    a.tmhma   =      #tmhma
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per2
+
+  let $ins_per2 = $ins_per
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per3
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per4
+end-procedure
+
+! *************************************************************************
+
+begin-procedure get_omadaeid
+
+begin-select
+a.pvlomada  &omada_eid () NOP
+a.perigrafh &per_eid   () NOP
+  
+  let $omada_eid = &omada_eid
+  let $per_eid   = &per_eid  
+
+from  wh_eidh a
+where a.kvdikos = $eidos
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure insert2
+
+ move #cnt to $cnt   0000
+
+begin-select
+convert(varchar,$ins_omada+convert(varchar,$cnt))  &logar       () NOP
+convert(varchar,$ins_omada)                        &ins_parent2 () NOP
+  
+  let $ins_per2    = ''
+
+  do  make_per2
+  do  make_per3
+
+  let $ins_parent2 = &ins_parent2
+  let $logar       = &logar
+
+  let $pr_logar    = $logar
+  do  mk_logar
+
+  print $eidos     (, 1,15)
+! print $logar     (,+1,20)
+  print $pr_logar  (,+1,20)
+  print $ins_per2  (,+1,40)
+
+end-select
+
+ next-listing
+
+!begin-sql
+!update wh_eidhmore set logar=$logar 
+!where cid    = '1'
+!and   eidos  = $eidos
+!and   energo is not null 
+!and   logar  is null
+!end-sql
+
+!begin-sql
+!insert into gl_logar 
+!        (cid, logar,perigrafh,serlogar,parent ,     log_level,post_flag)
+!values  ('1',$logar,$ins_per2,$eidos  ,$ins_parent2,5        ,'X' )
+!end-sql
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure mk_logar
+
+  execute glp_logfrm $cid, $pr_logar, $pr_logar output
+
+end-procedure
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1= 'Αναλυτική Λογιστική'
+  let   $msg2= 'Κωδικοποίηση Αποθεμάτων - Εμπορευμάτων'
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  print 'Κωδικός'               (5,20, 8) 
+  print 'Περιγραφή'             (5,30, 8) 
+  print 'Είδος'                 (5,40, 8) 
+  print ''                      (5,50, 8) 
+End-Heading              

@@ -1,0 +1,164 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : statypol.sqr                                   ****
+! ***** DATE        : 09/05/95                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                  ****
+! ***** NOTE        : Υπολοιπα πελατων με αναλυση υπολοίπου          ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK     DD/MM/YY
+#DEFINE   MASK1             999
+#DEFINE   MASK3  99,999,999,999
+#DEFINE   MASK5          99,999
+#DEFINE   MASK2          999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $ihm_evs 'evs hmeromhnia '
+ input $plhuoss 'plhuos'
+
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+ execute app_geteom    $evshm,   $evshm output
+ execute app_floatcnv  $plhuoss, #plhuos output
+
+
+ do main 
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ 
+ move 1   to #inx
+ move 0   to #x
+ move 0   to #p
+ move 0   to #y
+ move 0   to #r_x
+ move 0   to #r_p
+ move 0   to #r_y
+ move 'T' to $flag
+
+begin-select 
+b.omilos        &synal       () NOP          ! (,+1,15)
+b.epvnymia      &epvnymia    () NOP          ! (,+1,40)
+sum(isnull(a.x_mikth,0)) &x  () NOP          ! (,+1,14) edit {MASK3}
+sum(isnull(a.p_mikth,0)) &p  () NOP          ! (,+1,14) edit {MASK3}
+
+
+  if $flag = 'T'
+     let   #x = #x + &x
+     let   #p = #p + &p
+     let   #y = &x - &p
+     print #inx                 (, 1, 7) edit {MASK5}
+     print &synal               (,+1,15)
+     print &epvnymia            (,+1,40)
+     print ' '                  (,+1,20)
+     print &x                   (,+1,14) edit {MASK3}
+     print &p                   (,+1,14) edit {MASK3}
+     print #y                   (,+1,14) edit {MASK3}
+     next-listing
+  else
+     let   #r_x = #r_x + &x
+     let   #r_p = #r_p + &p
+     let   #r_y = #r_x - #r_p     
+  end-if
+
+  if #inx = #plhuos
+     move 'F' to $flag
+  end-if
+
+  let #inx = #inx + 1
+
+from  sy_kint1 a, sy_synal b
+where a.synal       = b.synal
+and   a.hmeromhnia <= $evshm
+and   a.cid         = $cid
+[$SQLCMD]
+group by b.omilos,b.epvnymia
+order by (sum(isnull(a.x_mikth,0))-sum(isnull(a.p_mikth,0))) desc
+end-select
+ 
+  next-listing
+ 
+! ------------------------ R E S T ----------------------------
+
+  let #inx = #inx - #plhuos
+  
+  print '   '                  (+1, 1, 7)
+  print '==================='  (  ,+1,58)
+  print '    Πλήθος'           (  ,+1,20)
+  print '       Χρέωση'        (  ,+1,14)
+  print '      Πίστωση'        (  ,+1,14)
+  print '     Υπόλοιπο'        (  ,+1,14)
+  print '         '            (  ,  1,65)
+
+  print '   '                  (+1, 1, 7)
+  print '  ΣΥΝΟΛΟ ΑΝΑΛΥΤΙΚΩΝ'  (  ,+1,57)
+
+  let #y = #x - #p
+
+  print '           '          (  ,+1,20)
+  print #x                     (  , +1,14) edit {MASK3}
+  print #p                     (  , +1,14) edit {MASK3}
+  print #y                     (  , +1,14) edit {MASK3}
+
+  print '   '                  (+1, 1, 7)
+  print '      ΣΥΝΟΛΟ ΛΟΙΠΩΝ'  (  ,+1,57)
+
+  print #inx                   (  , +1,20) edit {MASK5}
+  print #r_x                   (  , +1,14) edit {MASK3}
+  print #r_p                   (  , +1,14) edit {MASK3}
+  print #r_y                   (  , +1,14) edit {MASK3}
+
+  let #r_x = #r_x + #x
+  let #r_p = #r_p + #p
+  let #r_y = #r_x - #r_p
+
+  print '   '                  (+1, 1, 7)
+  print '## Σ  Υ  Ν  Ο  Λ  Ο'  (  ,+1,57)
+
+  print '           '          (  ,+1,20)
+  print #r_x                   (  , +1,14) edit {MASK3}
+  print #r_p                   (  , +1,14) edit {MASK3}
+  print #r_y                   (  , +1,14) edit {MASK3}
+
+ 
+end-procedure
+
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  move $evshm to $evshmpr {DATEMASK}
+  let $msg='ΥΠΟΛΟΙΠΑ ΠΕΛΑΤΩΝ ΜΕ ΗΜΕΡΟΜΗΝΙΑ : '||$evshmpr
+  print $msg (3,) center
+  
+  print 'A/A'                               (5, 1, 7)
+  print '    Σ υ ν α λ λ α σ ό μ ε ν ο ς'   ( ,+1,56)
+  print ' '                                 ( ,+1,20)
+  print '        Χρέωση'                        ( ,+1,14)
+  print '       Πίστωση'                        ( ,+1,14)
+  print '      Υπόλοιπο'                        ( ,+1,14)
+
+end-heading

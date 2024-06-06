@@ -1,0 +1,267 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : hmerol.sqr                                     ****
+!***** DATE        : 01/06/94                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Εκτύπωση Ημερολογίου Επιταγών/Συναλλαγματικών  ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    999,999,999c
+#DEFINE   MASK3    999
+#DEFINE   MASK6    99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ieidos 'eidos ajiogr'
+ unstring $ieidos by '"' into $filler $eidos $filler
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ if $eidos = 'Ε' or
+    $eidos = 'E'
+     move    '0'      to $typ_ajio
+     move    'Eπιτ. ' to $typos
+ end-if
+ if $eidos = 'Σ' or
+    $eidos = 'S'
+     move    '1'      to $typ_ajio
+     move    'Συναλ.' to $typos
+ end-if
+ if $typ_ajio = ''
+     show clear-screen (24,1) 'Λαθος Τύπος Αξιογράφου' beep
+     stop
+ end-if
+
+ do find_typohmer($cid,$typ_ajio,$per_hmer)
+ do apo_metafora($apohm,$typ_ajio,$cid,#xe,#pe)
+ do main
+ do se_metafora
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.cid                                           () NOP
+a.aa_ajio                                       () NOP
+a.synal                                         () NOP
+a.kvdtrap                                       () NOP
+a.kvd_paral                                     () NOP
+     if &a.kvd_paral    != ''
+        do find_paral(&a.kvd_paral,$apodekths)
+     end-if
+convert(char(8),c.hm_metab,3) &c.hm_metab       () NOP
+  print &c.hm_metab      ()  
+                         On-Break print  = never
+                         Level  = 1
+                         save   = $day
+                         after  = day_totals
+c.mhxar                                         ( ,01,06) edit {MASK6}
+  print &a.aa_ajio                              (,+01,06) edit {MASK6}
+c.kvdmetab                                      () NOP
+  print &c.kvdmetab                             (,+02,02) 
+                        on-break print=always
+                        level = 2
+                        save  = $metab
+                        after = metab_totals
+b.epvnymia                                      (,+01,30)
+a.aa_epitaghs                                   (,+01,12)
+convert( datetime, a.hm_ekd)  &a.hm_ekd         (,+01,08) edit {DATEMASK}
+convert( datetime, a.hm_eisp) &a.hm_eisp        (,+01,08) edit {DATEMASK}
+  next-listing
+a.ekdoths                                       ( ,19,30)
+a.toposplhr                                     (,+01,12) 
+convert( datetime, a.hm_lhjh) &a.hm_lhjh        (,+01,08) edit {DATEMASK}
+a.poso                                          () NOP
+  print &a.kvd_paral                            (,+01,08)
+  print $apodekths                              (,+01,20)
+  do flag_metab(&c.kvdmetab,$x,$p)
+  if $x = 'X'
+          add &a.poso to #metab_totx
+          add &a.poso to #xe
+          print &a.poso                         (,+01,11) edit {MASK1}
+  end-if
+  if $p = 'X' 
+          add &a.poso to #metab_totp
+          add &a.poso to #pe
+          print &a.poso                         (,+12,11) edit {MASK1}
+  end-if
+  next-listing
+from aj_mas a,sy_synal b,aj_kin c
+where a.synal = b.synal
+      and a.cid      = $cid
+      and a.typ_ajio = $typ_ajio
+      and a.aa_ajio  = c.aa
+      and c.hm_metab between $apohm and $evshm
+      ! and c.mhxar  is not null
+[$SQLCMD]
+order by c.hm_metab, c.kvdmetab
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure find_typohmer($cid,$typ_ajio,:$per_hmer)
+begin-select
+perigrafh         () NOP
+    move &perigrafh to $per_hmer
+from aj_mhxar
+where kvdikos = $typ_ajio
+and   cid      = $cid
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure apo_metafora($apohm,$typ_ajio,$cid,:#xe,:#pe)
+     move 0 to #xe
+     move 0 to #pe
+begin-select
+a1.poso                     () NOP
+    add  &a1.poso to #xe
+from aj_hmer a1, aj_metab b1
+where a1.hm_metab < $apohm
+and   a1.typ_ajio = $typ_ajio
+and   a1.cid      = $cid
+and   a1.kvdmetab = b1.kvdikos
+and   b1.flag_eis is not null 
+end-select
+ 
+begin-select
+sum(a2.poso) &pe   () NOP
+     move &pe to #pe
+from aj_hmer a2, aj_metab b2
+where a2.hm_metab < $apohm
+and   a2.typ_ajio = $typ_ajio
+and   a2.cid      = $cid
+and   a2.kvdmetab = b2.kvdikos
+and   b2.flag_eja is not null 
+end-select
+  print 'Σύνολο από μεταφορά'           (, 19,20)
+  print #xe                             (,+63,11) edit {MASK1}
+  print #pe                             (,+01,11) edit {MASK1}
+  next-listing
+end-procedure
+
+! ******************************************************************
+begin-procedure se_metafora
+  print 'Σύνολο σε μεταφορα'            (, 21,20)
+  print #xe                             (,+61,11) edit {MASK1}
+  print #pe                             (,+01,11) edit {MASK1}
+  next-listing
+end-procedure
+
+! ******************************************************************
+begin-procedure flag_metab($kvdmetab,:$x,:$p)
+begin-select
+flag_eis         () NOP
+flag_eja         () NOP
+    move &flag_eis to $x
+    move &flag_eja to $p
+from aj_metab
+where kvdikos = $kvdmetab
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure find_trapeza($kvdtrap,:$trapeza)
+begin-select
+a1.epvnymia         () NOP
+from sy_synal a1
+where a1.synal = $kvdtrap
+end-select
+move &a1.epvnymia to $trapeza
+end-procedure
+
+! ******************************************************************
+begin-procedure find_paral($kvd_paral,:$apodekths)
+begin-select
+a2.epvnymia         () NOP
+from sy_synal a2
+where a2.synal = $kvd_paral
+end-select
+move &a2.epvnymia     to $apodekths
+end-procedure
+
+! ******************************************************************
+begin-procedure metab_totals
+  next-listing
+begin-select
+m1.perigrafh                            () NOP
+  print 'Σύνολο  ['                     ( ,18,10)
+  print &m1.perigrafh                   (,+01,20)
+  print ']'                             (,+01,01)
+  print #metab_totx                     (,+51,11) edit {MASK1}
+  print #metab_totp                     (,+01,11) edit {MASK1}
+from aj_metab m1
+where m1.kvdikos = $metab 
+end-select
+  add #metab_totx to #day_totx
+  add #metab_totp to #day_totp
+  move 0 to #metab_totx
+  move 0 to #metab_totp
+end-procedure
+
+! ******************************************************************
+begin-procedure day_totals
+  next-listing
+  print 'Σύνολο Ημερομηνίας'            (, 18,20)
+  print '['                             (,+01,01)
+  print $day                            (,+01,08)
+  print ']'                             (,+01,01)
+  print #day_totx                       (,+51,11) edit {MASK1}
+  print #day_totp                       (,+01,11) edit {MASK1}
+  next-listing
+  next-listing
+  move 0 to #day_totx
+  move 0 to #day_totp
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = $per_hmer||' ['||$day||']'
+  print  $msg                  (3,)
+  print 'Αριθμ.'               (5,01,06)
+  print 'Αριθμ.'               ( ,+1,06)
+  print 'kvd'                  ( ,+1,03)
+  print 'Ονοματεπωνυμο Συναλλ' ( ,+1,30)
+  print 'Αρ.Επιταγής'          ( ,+1,12)
+  print '  Εκδοση'             ( ,+1,08)
+  print 'Ημ.Εισπρ'             ( ,+1,08)
+  print ' '                    ( ,+1,20)
+  print 'Αξια/Εισαγ.'          ( ,+1,11)
+  print ' Διακίνηση '          ( ,+1,11)
+  print 'Εγγραφ'               (6,01,06)
+  print $typos                 ( ,+1,06)
+  print 'Mετ'                  ( ,+1,03)
+  print '    =//=      εκδότη' ( ,+1,30)
+  print 'Τόπος Πληρωμής'       ( ,+1,12)
+  print '    Λήξη'             ( ,+1,08)
+  print 'Κωδ.Παραλ'            ( ,+1,08)
+  print 'Επωνυμία'             ( ,+1,20)
+  print '  Επιστροφή'          ( ,+1,11)
+  print '    Εξαγωγή'          ( ,+1,11)
+end-heading

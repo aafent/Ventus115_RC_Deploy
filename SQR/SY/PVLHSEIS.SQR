@@ -1,0 +1,161 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : pvlhseis.sqr                                   ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : SYNAL                                          ****
+!***** AUTHOR      : »≈œ‘œ ¡” …Ÿ¡ÕÕ«”                               ****
+!***** NOTE        : --- ≈À≈◊œ’ ¡—»—œ’ –ŸÀ«”≈ŸÕ «Ã≈—¡”         ---  ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  4
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+! #DEFINE   MASK1      99,999,999c
+! #DEFINE   MASK2      99,999,999,999c
+#DEFINE   MASK1      99,999,999
+#DEFINE   MASK2      99,999,999,999
+#DEFINE   DATEMASK   DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+ create table ##tmp (cid char(1), hmer datetime, hmerol  char(3),
+                     parid char(10), logar char(8), aitia char(50),
+                     kk char(1), fpa int, poso int)
+end-sql
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ihm_apo 'hmer_apo'
+ input $ihm_evs 'hmer_evs'
+ execute app_datecnv    $ihm_apo, $hm_apo output, $hm_apopr output
+ execute app_datecnv    $ihm_evs, $hm_evs output, $hm_evspr output
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-sql -C1
+ insert into ##tmp (cid, hmer, hmerol, parid, logar, aitia, kk, fpa, poso)
+ select cid, hmer, hmerologio, parid, logar, a.synal+' '+b.epvnymia, kk,
+        isnull(fpa,0), poso
+ from sy_glkin a, sy_synal b
+ where a.cid = $cid
+   and a.synal = b.synal
+   and a.logar like '7%%'
+   and a.hmer between $hm_apo and $hm_evs
+end-sql
+
+begin-sql -C1
+ insert into ##tmp (cid, hmer, hmerol, parid, logar, aitia, kk, fpa, poso)
+ select a.cid, a.hmer_e, a.hmerologio, a.parid, a.logar, a.aitia, a.parkvd, 
+        isnull(a.fpa,0), a.poso
+ from gl_kin a, gl_ref b
+ where a.cid = $cid
+   and b.cid = $cid
+   and a.aruro = b.aruro
+   and b.aa is not null
+   and a.logar like '7[025]%%'
+   and a.hmer_e between $hm_apo and $hm_evs
+end-sql
+
+begin-select -C1
+a.hmer                             () NOP
+                                            ! on-break print = never
+                                                     ! level = 1
+                                                     ! after = printtot
+a.logar                            ()       on-break print =  never
+                                                     level = 1
+                                                     after = printtot
+a.fpa                              ()       on-break print = never
+                                                     level = 1
+                                                     after = printtot
+  print &a.hmer                    (,01,08) edit {DATEMASK} 
+a.hmerol                           (,+1,03)
+a.parid                            (,+1,10)
+a.kk                               () NOP
+  print &a.logar                   (,+1,10) 
+  ! b.perigrafh                        (,+1,30) 
+a.aitia                            (,+1,36)
+a.poso                             () NOP
+  do getposo(&a.kk,&a.poso,#xrevsh,#pistvsh)
+  print #xrevsh                    (,+5,10) edit {MASK1}
+  print #pistvsh                   (,+5,10) edit {MASK1}
+
+  let #tot_xre = #tot_xre  + #xrevsh
+  let #tot_pis = #tot_pis  + #pistvsh
+
+  print &a.fpa                     (,+1,02) edit 99
+  print '%'                        ()
+! a.kathgoria                        (,+1,01)
+! a.aitia                            (,+4,40)
+
+  next-listing
+
+from ##tmp a
+where a.cid = $cid
+  and a.logar like "7%"
+  and a.hmer between $hm_apo and $hm_evs
+[$SQLCMD]
+order by a.logar, a.fpa, a.hmer, a.parid
+[$SQLORD]
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure printtot
+  print '='                         (,73,14) fill
+  print '='                         (,+1,14) fill
+  next-listing
+  print #tot_xre                    (,73,14) edit {MASK2}
+  print #tot_pis                    (,+1,14) edit {MASK2}
+  next-listing
+  next-listing
+  move 0 to #tot_xre
+  move 0 to #tot_pis
+end-procedure
+! ******************************************************************
+
+begin-procedure getposo($kk,#poso,:#xrevsh,:#pistvsh)
+
+move '' to $flag
+begin-select
+flag_xp          () NOP
+  move &flag_xp to $flag
+from gl_glpar
+where parast=$kk
+end-select
+
+move 0 to #xrevsh
+move 0 to #pistvsh
+if $flag = 'X' 
+   move #poso to #xrevsh
+else
+   move #poso to #pistvsh
+end-if
+
+end-procedure
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print ' ¡‘¡”‘¡”« ≈À≈√◊œ’ –ŸÀ«”≈ŸÕ «Ã≈—¡”' (3,) Center
+end-heading

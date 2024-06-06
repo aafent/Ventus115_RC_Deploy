@@ -1,0 +1,162 @@
+!***********************************************************************
+!***** REPORT      : entaprom.sqr                                   ****
+!***** DATE        : 12/04/93                                       ****
+!***** APPLICATION : ΔΗΜΟΣΙΑ ΛΟΓΙΣΤΙΚΗ                              ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $mhnas     'Μήνας           : ' 
+ input $xrhsh     'Χρήση           : '  
+
+ unstring $mhnas by '"' into $filler $mhnas $filler
+ unstring $xrhsh by '"' into $filler $xrhsh $filler
+ move $mhnas to #mhnas
+ move $xrhsh to #xrhsh
+
+ do main
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+begin-select distinct
+a.ar_entalma			
+a.entolh			
+a.xrhsh
+d.hmeromhnia
+convert(char(10),convert(datetime,d.hmeromhnia),103) &hmer
+a.ajia
+
+	do ektyp
+
+from dl_entalma a,dl_estatus d
+where a.ar_entalma = d.ar_entalma
+and a.xrhsh = d.xrhsh
+and a.estatus = '95'
+and d.estatus = '15'
+and a.xrhsh = #xrhsh
+and datepart(mm,d.hmeromhnia) = #mhnas
+order by a.ar_entalma
+end-select
+
+end-procedure
+
+
+begin-procedure foroi
+begin-select
+b.ajia
+from dl_entalmadet2 b
+where b.ar_entalma = &a.ar_entalma
+and b.xrhsh = &a.xrhsh
+and b.kvd_ajia = #kvd_ajia
+end-select
+end-procedure
+
+
+begin-procedure  ektyp
+let #kajia=0
+let #ajia1=0
+let #ajia4=0
+let #ajia8=0
+let #foros1=0
+let #foros4=0
+let #foros8=0
+	move 1 to #kvd_ajia
+	do foroi
+let #krat1=&b.ajia			
+	move 2 to #kvd_ajia
+	do foroi
+let #krat2=&b.ajia
+	move 3 to #kvd_ajia
+	do foroi
+let #krat3=&b.ajia	
+	move 4 to #kvd_ajia
+	do foroi
+let #krat4=&b.ajia	
+	
+let #kajia=&a.ajia/1.18
+let #kajia=#kajia-#krat1-#krat2-#krat3-#krat4
+	move 26 to #kvd_ajia
+	do foroi
+if isnull(&b.ajia) <> 1 
+let #foros1=1/100*#kajia
+let #ajia1=#kajia
+!let #ajia1=#kajia-#foros1
+end-if
+
+	move 27 to #kvd_ajia
+	do foroi
+if isnull(&b.ajia) <> 1 
+let #foros4=4/100*#kajia
+let #ajia4=#kajia
+!let #ajia4=#kajia-#foros4
+end-if
+
+	move 28 to #kvd_ajia
+	do foroi
+if isnull(&b.ajia)<> 1 
+let #foros8=8/100*#kajia
+let #ajia8=#kajia
+!let #ajia8=#kajia-#foros8
+end-if
+
+show &d.hmeromhnia
+print &a.ar_entalma		(+1,1,10)
+print &hmer			(,+1,10)
+print #ajia1			(,+1,10) edit 9999999.99c
+print #foros1			(,+1,10) edit 9999999.99c
+print #ajia4			(,+1,10) edit 9999999.99c
+print #foros4			(,+1,10) edit 9999999.99c
+print #ajia8			(,+1,10) edit 9999999.99c
+print #foros8			(,+1,10) edit 9999999.99c
+print #krat1			(,+1,10) edit 9999999.99c
+print #krat2			(,+1,15) edit 9999999.99c
+print #krat3			(,+1,10) edit 9999999.99c
+print #krat4			(,+1,10) edit 9999999.99c
+
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'ΚΑΤΑΣΤΑΣΗ ΕΝΤΑΛΜΑΤΩΝ' 	(2,+1) center
+ print 'Αρ. ΕΝΤΑΛ'		(+3,1,10)
+ print 'Ημ/νία'		 	(,+1,10)
+ print 'Καθ. Αξία'         	(,+1,14)
+ print 'Φορ.1%'         	(,+1,10)
+ print 'Καθ. Αξία'         	(,+1,10)
+ print 'Φόρ.4%'         	(,+1,10)
+ print 'Καθ. Αξία'         	(,+1,10)
+ print 'Φόρ.8%'         	(,+1,10)
+ print 'Υπερ Δημοσ.'         		(,+1,15)
+ print 'Χαρτ.'          		(,+1,10)
+ print 'Τ.Α.Υ.Υ.Ε'	         	(,+1,10)
+ print 'Χαρτ.Τ.Α.Υ.Υ.Ε'         	(,+1,15)
+
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{DL	1	13	499	entalma	rs	X	01},TITLE{Συγκεντρωτική Κατάσταση Ενταλμάτων}
+!	PARCOUNT{2}
+!	PAR1{Μήνας	dump	1	=	integer	N	X}
+!	PAR2{Χρήση	xrhsh	1	=	integer	N	X}
+!REPORTHELP{F}
+!</pcalib>

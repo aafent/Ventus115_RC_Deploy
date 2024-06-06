@@ -1,0 +1,183 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : hmapou.sqr                                     ****
+!***** DATE        : 1/9/99                                         ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : Ã¡Õ‘«                                          ****
+!***** NOTE        : «ÏÂÒÔÎ¸„ÈÔ ¡ÔËﬁÍÁÚ                            ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  9
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2P     999,999,999,999c
+#DEFINE   MASK3A     9999,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $apo_hm  'apo hmeromhnia'
+ input $evs_hm 'evs hmeromhnia '
+
+execute app_datecnv   $apo_hm, $apohm output, $apohmpr output
+execute app_datecnv   $evs_hm, $evshm output, $evshmpr output
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 'a' to $hmer
+ move 0 to #s_aj_eis
+ move 0 to #s_aj_ej
+ move 0 to #ss_aj_eis
+ move 0 to #ss_aj_ej
+ move 0 to #met_eis
+ move 0 to #met_ej
+ 
+begin-select
+a.parkvd						() nop
+convert(char(10),convert(datetime,a.hmeromhnia)) &hmer	() nop
+convert(datetime,a.hmeromhnia) &a.hmeromhnia		() nop
+a.eidos							() nop
+b.perigrafh						() nop
+a.seira							() nop
+a.parno							() nop
+(isnull(a.posothta,0)*c.syntel_p)    &posothta		() nop
+(isnull(a.ajia,0)*c.syntel_a)        &ajia		() nop
+c.f_eis      						() nop
+c.f_eja      						() nop
+ 
+   if &hmer != $hmer
+       if $hmer != 'a'
+          do print_synola_hmeras
+       end-if
+
+     do print_hmer
+     move &hmer to $hmer
+   end-if
+
+
+    move 0 to #a_eja
+    move 0 to #a_eis
+    move 0 to #p_eja
+    move 0 to #p_eis
+    if &c.f_eis = 'X' 
+       move &ajia     to #a_eis
+       move &posothta to #p_eis
+    end-if
+    if &c.f_eja = 'X'
+       move &ajia     to #a_eja
+       move &posothta to #p_eja
+    end-if
+
+    move &a.parno to $parno
+    let $par=' ' || &a.seira || '\' || $parno
+
+   do print_details
+
+   let #s_aj_eis  = #s_aj_eis  + #a_eis
+   let #ss_aj_eis = #ss_aj_eis + #a_eis
+   let #s_aj_ej   = #s_aj_ej   + #a_eja
+   let #ss_aj_ej  = #ss_aj_ej  + #a_eja
+
+
+from wh_kin a, wh_eidh b, ap_par c
+where a.eidos  = b.kvdikos
+  and a.parkvd = c.parkvd
+  and a.hmeromhnia between $apohm and $evshm 
+order by a.hmeromhnia
+end-select
+
+do print_synola_hmeras
+
+end-procedure
+
+! ******************************************************************
+begin-procedure print_synola_hmeras
+print '---------------'  (+1,101,15) 
+print '---------------'    (,117,15) 
+print '”’ÕœÀ¡ «Ã≈—¡”'     (+1,65,13)
+print #s_aj_eis            (,101,15) edit {MASK3A}
+print #s_aj_ej             (,117,15) edit {MASK3A}
+print '¡–œ Ã≈‘¡÷œ—¡'     ( +1,65,13)
+print #met_eis             (,101,15) edit {MASK2P}
+print #met_ej              (,117,15) edit {MASK2P}
+print '---------------'  (+1,101,15)  
+print '---------------'    (,117,15) 
+print #ss_aj_eis         (+1,101,15) edit {MASK3A}
+print #ss_aj_ej            (,117,15) edit {MASK3A}
+
+             if #ss_aj_eis !=0
+               move #ss_aj_eis to #met_eis
+             end-if
+             if #ss_aj_ej !=0
+                  move #ss_aj_ej to #met_ej
+             end-if
+
+move 0 to #s_aj_eis
+move 0 to #s_aj_ej
+
+next-listing
+end-procedure
+! ******************************************************************
+begin-procedure print_hmer
+print &a.hmeromhnia    (+1,1,10) edit {DATEMASK}
+end-procedure
+! ******************************************************************
+
+begin-procedure print_details
+ print &a.eidos                (,11,10) 
+ print &b.perigrafh            (,+1,25)
+ print $par                    (,+2,9)
+ print #p_eis                  (,+7,15) edit {MASK2P}
+ print #a_eis                  (,+1,15) edit {MASK3A}
+ print #p_eja                  (,+5,15) edit {MASK2P}
+ print #a_eja                  (,+1,15) edit {MASK3A}
+ next-listing
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='«Ã≈—œÀœ√…œ ¡–œ»« «” '
+
+  print $msg (5,) center
+  print '--------------------'                   (+1,,20) center
+
+  print '≈…”¡√Ÿ√≈”'                              (+1,71,9)
+  print '≈Œ¡√Ÿ√≈”'                               (,113,9)
+
+  print '«Ã≈—/Õ…¡'                               (+1,1,9) 
+  print ' Ÿƒ. ≈…ƒœ’”'                            (,+1,11)
+  print '–≈—…√—¡÷«'                              (,+1,25)
+  print '–¡—¡”‘¡‘… œ'                            ( ,+1,11)
+  print '–œ”œ‘«‘¡'                               (,+5,15)
+  print '¡Œ…¡'                                   (,+1,15)
+  print '–œ”œ‘«‘¡'                               (,+10,15)
+  print '¡Œ…¡'                                   (,+1,15)
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	3	10	116	hmapou	rs	X	01},TITLE{«ÏÂÒÔÎ¸„ÈÔ ¡ÔËﬁÍÁÚ}
+!	PARCOUNT{1}
+!	PAR1{«ÏÂÒÔÏÁÌﬂ·	DUMP	2	BETWEEN	datetime		X}
+!REPORTHELP{F}
+!</pcalib>

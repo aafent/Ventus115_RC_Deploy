@@ -1,0 +1,177 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    146
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK6      999999
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $icid      'Εταιρεία'
+ input $ipvlomada 'Ομαδα Πώλησης'
+
+ unstring $icid     by '"' into $filler1 $cid     $filler2
+
+ if $ipvlomada = '"*"'
+  stop
+ else
+  let $SQLPVLOMADA = ' and a.pvlomada like ' || $ipvlomada
+ end-if
+
+ if $cid = '='
+    execute app_retdefcid $cid , $cid output
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select
+a.pvlomada             (, 1,15)  on-break before=do_it1
+a.kvdikos    &eidos    (,+1,15)
+a.perigrafh            (,+1,25)
+
+    let $eidos = &eidos 
+     let #cnt = 1 
+     do main02
+      if #cnt = 1
+       next-listing
+      end-if
+from  wh_eidh a
+where  1=1
+[$SQLPVLOMADA]
+order by a.pvlomada,a.kvdikos
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure do_it1
+  if #cnt <> 1
+  ! new-page
+  end-if
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main02
+
+begin-select
+max(convert(datetime,hmeromhnia)) &hmer () NOP
+
+   let $hmer = &hmer
+
+   do main03
+
+from wh_kin a,ap_omadapar b
+where a.eidos = $eidos
+and   a.parkvd = b.parkvd
+and   a.cid    = $cid
+[$SQLCMD]
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_parkvd
+
+begin-select
+syntmhsh    &per () NOP
+ let $per = &per
+from ap_par
+where parkvd = $parkvd
+
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main03
+
+begin-select
+a.aa       (,60, 6) EDIT {MASK6}
+ print   $hmer (,+1,8) EDIT {DATEMASK}
+a.parkvd   &parkvd () NOP  
+     let $parkvd = &parkvd
+     do find_parkvd
+a.seira                  &seira    () NOP  
+convert(varchar,a.parno) &parno    () NOP  
+
+  let $parast = $parkvd || '(' || $per || ')-' || &seira || '/' || &parno
+  print $parast (,+1,20)
+
+a.posothta (,+1, 5) EDIT {MASK1}
+a.ajia     (,+1,11) EDIT {MASK3}
+a.aitia    (,+1,30)
+
+   let $hmer = &hmer
+   next-listing
+   let #cnt = #cnt + 1
+
+from wh_kin a,ap_omadapar b
+where a.eidos = $eidos
+and   a.parkvd = b.parkvd
+and   a.hmeromhnia = $hmer
+and   a.cid    = $cid
+[$SQLCMD]
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = ' '
+  let   $msg2 = ' '
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+  print 'Ομάδα Πώλησης'         (5, 1,15)
+  print 'Είδος'                 (,+1,15)
+  print 'Περιγραφή'             (,+1,25)
+  print 'Τ.Εγγρ.'               (,60, 6)
+  print 'Ημ/νια'                (,+1, 8)
+  print 'Παραστατικό'           (,+1,20)
+  print 'Ποσότ'                 (,+1, 5)
+  print '       Αξία'           (,+1,11)
+  print 'Αιτία'                 (,+1,30)
+
+End-Heading              

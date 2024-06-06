@@ -1,0 +1,230 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : stream1.sqr                                            ****
+! **** DATE        : 14/10/97                                               ****
+! **** APPLICATION : пекатес - пыкгсеис                                     ****
+! **** AUTHOR      : хеотойас иыаммгс                                       ****
+! **** NOTE        : STREAM FILE OF INVOICES	                            ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               	999
+#DEFINE   HEAD-SIZE              8
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   MASK1            999,999.9c
+#DEFINE   MASK2        999,999,999c
+#DEFINE   MASK3        999,999,999c
+#DEFINE   MASK4                 99
+#DEFINE   DATEMASK        YYMMDD
+#DEFINE   DATEMASK2       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+ no-formfeed
+
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+ 
+ input $hmerapo 'апо гл/миа : '
+ input $hmerevs 'еыс гл/миа : '
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ Do Main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+begin-select 
+	
+	print '@'			(,01,01)
+
+a.aa					() NOP
+convert(datetime,a.hmer_e)     &yy	(,,02)		edit YY
+convert(datetime,a.hmer_e)     &mm	(,,02)		edit MM
+convert(datetime,a.hmer_e)     &dd	(,,02)		edit DD
+a.parkvd				() NOP
+b.stoixeio				() NOP
+
+!---> 01 тилокоцио
+!---> 02 тилокоцио - да
+!---> 03 пистытийо
+!---> 04 дектио апостокгс
+
+!   if (&b.stoixeio = '01') or (&b.stoixeio = '02') 
+!      print '1620'			(,,04)
+!   else
+!      if (&b.stoixeio = '03')
+!         print '2630'			(,,04)
+!      else
+!         print '????'			(,,04)
+!      end-if
+!   end-if
+
+    move &a.parkvd to $parkvd
+    do find_ele_parkvd
+    print $ele_parkvd                   (,,04)
+    
+
+a.seira					(,,02)
+a.parno					(,,05)		edit 00000
+a.apouhkh				(,,03)
+a.synal					(,,08)		! ???
+
+!---> RULE / WAY / CRDAYS / DELIVWAY
+   print '0000000'                      (,,07)
+
+a.note					(,,30)
+
+   print '000000'			(,,06)
+
+   do totals (&a.aa, #net_value, #tfpa1, #tfpa2)
+   print #net_value			(,,10)		edit 0000000000
+   print #tfpa1				(,,07)		edit 0000000
+   print #tfpa2				(,,07)		edit 0000000
+
+   do getsxet (&a.aa, $sx_parkvd, $sx_seira, #sx_parno)
+   if    $sx_parkvd  = 'пп '
+         move '000' to $sx_parkvd
+   end-if 
+   print $sx_parkvd                     (,,03)
+   print $sx_seira			(,,02)
+   print $sx_parno			(,,05)		edit 00000
+
+!---> PFLAG 1-2-3
+   print '111'			        (,,03)
+
+   do eidh(&a.aa)
+
+   next-listing
+
+
+from sy_parmas a, ap_par b
+where a.parkvd         = b.parkvd
+and   a.parno > 0
+and   a.hmer_e between $hmer_apo and $hmer_evs
+[$SQLCMD]
+order by a.hmer_e, a.parkvd, a.seira, a.parno
+End-Select
+End-Procedure
+
+! ******************************************************************************
+
+begin-procedure totals (#aa, :#net_value, :#tfpa1, :#tfpa2)
+  
+  move 0 to #net_value
+  move 0 to #tfpa1
+  move 0 to #tfpa2
+
+begin-select 
+a.fpa				() NOP
+sum(a.ajia)	&ajia		() NOP
+sum(a.ajia_fpa) &ajia_fpa	() NOP
+
+  let #net_value = #net_value + &ajia
+  if (&a.fpa = 6) or (&a.fpa = 8)
+     let #tfpa1 = #tfpa1 + &ajia_fpa
+  else
+     let #tfpa2 = #tfpa2 + &ajia_fpa
+  end-if
+
+from sy_pardet a
+where a.aa = #aa
+group by a.fpa		
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure getsxet (#aa, :$sx_parkvd, :$sx_seira, :#sx_parno)
+
+  move '' to $sx_parkvd
+  move '' to $sx_seira
+  move 0  to #sx_parno
+
+begin-select
+s.parkvd		() NOP
+s.seira			() NOP
+s.parno			() NOP
+
+  move &s.parkvd to $sx_parkvd
+  move &s.seira  to $sx_seira
+  move &s.parno  to #sx_parno
+
+from sy_parsxet s
+where s.aa = #aa
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure eidh (#aa)
+
+  move 1 to #inx
+
+begin-select 
+a.aux_code				(,,03)
+a.eidos					(,,07)
+  print ' '				(,,01)
+a.posothta      &a.posothta             () NOP
+	let #tmp = &a.posothta * 10
+	print #tmp			(,,09) edit 000000000
+a.ajia					() NOP
+
+  if  &a.posothta <> 0
+      let #timh = &a.ajia / &a.posothta
+  else
+      let #timh = &a.ajia * 1
+  end-if
+  let #tmp = #timh * 10
+
+  print #tmp			        (,,06) edit 000000
+  
+  let #inx  = #inx + 1
+
+from sy_pardet a
+where a.aa = #aa
+end-select
+
+  while #inx < 16
+        print ' '	         	(,,11)	fill
+        print 0                         (,,09)  edit 000000000
+        print 0                         (,,06)  edit 000000
+	let #inx  = #inx + 1
+  end-while
+
+end-procedure
+
+! ******************************************************************************
+
+! ******************************************************************
+! ***** FIND_ELE_PARKVD
+begin-procedure find_ele_parkvd
+ 
+ move '1620' to $ele_parkvd
+ if $parkvd='524' 
+    move '2630' to $ele_parkvd
+ end-if
+ if $parkvd='526' 
+    move '2630' to $ele_parkvd
+ end-if
+ if $parkvd='527' 
+    move '2630' to $ele_parkvd
+ end-if
+ if $parkvd='528' 
+    move '2630' to $ele_parkvd
+ end-if
+end-procedure 
+! ******************************************************************

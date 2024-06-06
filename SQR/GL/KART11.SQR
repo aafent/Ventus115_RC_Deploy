@@ -1,0 +1,209 @@
+!***********************************************************************
+!***** REPORT      : kart11.sqr                                     ****
+!***** DATE        : 1/09/98                                        ****
+!***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+!***** NOTE        : --- ΚΑΤΑΣΤΑΣΗ ΚΑΡΤΕΛΑΣ ΛΟΓΑΡΙΑΣΜΟΥ ---         ****
+!***** AUTHOR      : Mάντη redesign by adr                           ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y                62
+#DEFINE   PAGE-X                100
+#DEFINE   HEAD-SIZE              8		
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   SHORTDATE          DD/MM
+#DEFINE   MASK1     999,999,999.99c
+#DEFINE   MASK7            999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+
+ move $L_CID to $cid
+ move $L_XRHSH to #xrhsh
+
+ input $apohmnia  'Από Ημερομηνία  : '
+ input $evshmnia  'Eως Ημερομηνία  : '
+ input $logar	  'Λογαριασμός	   : '	
+ input $kat       'Κατάστημα       : '
+
+ execute app_datecnv $apohmnia, $apohm output, $apohmpr output
+ execute app_datecnv $evshmnia, $evshm output, $evshmpr output
+
+ unstring $kat   by '"' into $filler1 $kat   $filler1
+ unstring $logar by '"' into $filler1 $logar $filler1
+ 
+!if $synal = '%'
+!   move 'and 1=1 ' to $synal
+! else 
+!   let $synal = 'and c.synal="' || $synal ||'"'
+! end-if
+
+ do main
+
+End-Report
+! ****************************************************************************
+begin-procedure main
+
+do get_xrhsh_arxh($cid,#xrhsh,$xrhsh_arxh)
+
+move 55 to #c1
+move 0 to #tot_xrevsh
+move 0 to #tot_pistvsh
+move 0 to #lns
+  
+begin-select  
+c.logar  		   () nop
+c.synal                    () on-break print=never before=synal_break
+convert(datetime,c.hmer_e) &c.hmer_e    (,01,05)   edit {SHORTDATE}
+    print &c.synal               	(,+1,6)
+c.kat                       () nop
+c.parid                      		(,+1,10)
+c.aitia       		                (,+1,25)
+c.xrevsh			      	(,+1,14)   edit {MASK1}
+c.pistvsh		      		(,+1,14)   edit {MASK1}
+   add  &c.xrevsh    to  #c_pre_xrevsh  
+   add  &c.pistvsh   to  #c_pre_pistvsh   
+
+  let #pre_xrevsh  = #pre_xrevsh  + &c.xrevsh
+  let #pre_pistvsh = #pre_pistvsh + &c.pistvsh
+  let #ypol = #pre_xrevsh - #pre_pistvsh
+
+  ! Γιόλα -21/1/2000
+  add &c.xrevsh to  #mxr
+  add &c.pistvsh to #mpi
+  ! Γιόλα -21/1/2000
+  print #ypol               		(,+1,14)   edit {MASK1}
+     
+  next-listing
+
+from  gl_kin c
+where c.cid   = $cid
+and   c.kat = $kat
+and   c.hmer_e between $apohm and $evshm
+[$SQLCMD]
+and  c.logar = $logar
+order by  c.logar,c.synal,c.hmer_e, c.parid
+end-select
+    ! Γιόλα   21/1/2000
+    ! PROLOGIC let #mypol=#ypol - #mypol
+    ! PROLOGIC let #mxp  =#pre_xrevsh - #mxp
+    ! PROLOGIC let #mpi  =#pre_pistvsh - #mpi
+    !let #mypol=#ypol - #mypol
+    !let #mxp  =#pre_xrevsh - #mxp
+    !let #mpi  =#pre_pistvsh - #mpi
+  let #mypol=#mxr - #mpi 
+  let #ypol=#c_pre_xrevsh - #c_pre_pistvsh  
+    ! Γιόλα   21/1/2000
+  print 'Σ Υ Ν Ο Λ Α   Π Ε Ρ Ι Ο Δ Ο Υ:' (,10,30)
+  print #mxr	    	 (,#c1,14) edit {MASK1}
+  print #mpi  		 (,+1,14)  edit {MASK1}
+  print #mypol           (,+1,14)  edit {MASK1}
+  print 'Σ Υ Ν Ο Λ Α :'  (+1,10,20)
+  print #c_pre_xrevsh      (,#c1,14) edit {MASK1}
+  print #c_pre_pistvsh     (,+1,14)  edit {MASK1}
+  print #ypol            (,+1,14)  edit {MASK1}
+end-procedure main
+! ****************************************************************************
+begin-procedure synal_break
+  do getypol ($cid,$kat,  $xrhsh_arxh, &c.logar, $apohm,  &c.synal, #pre_xrevsh, #pre_pistvsh)  
+  let #ypol = #pre_xrevsh - #pre_pistvsh
+  if (#pre_xrevsh <> 0) or (#pre_pistvsh <> 0)
+	  print 'ΠΡΟΗΓΟΥΜΕΝΗ ΚΙΝΗΣΗ : ' (,10,20)
+	  print #pre_xrevsh             (,#c1,14) edit {MASK1}
+	  print #pre_pistvsh            (,+1,14) edit {MASK1}
+	  print #ypol                   (,+1,14) edit {MASK1}
+          ! Γιόλα 21/1/2000
+          add  #pre_xrevsh    to  #c_pre_xrevsh  
+          add  #pre_pistvsh   to  #c_pre_pistvsh   
+          ! Γιόλα 21/1/2000
+	  next-listing
+  else  
+          next-listing
+  end-if
+  !let #mxr=#pre_xrevsh
+  ! let #mpi=#pre_pistvsh
+  ! let #mypol=#ypol
+end-procedure 
+! *******************************************************************************************
+begin-procedure getypol ($cid,$kat, $xrhsh_arxh, $logar, $hmerapo,$syn, :#xrevsh, :#pistvsh)
+move 0 to #xrevsh
+move 0 to #pistvsh
+begin-select  
+isnull(sum(d.xrevsh), 0)  &xrevsh    () nop
+isnull(sum(d.pistvsh), 0) &pistvsh   () nop
+
+   move &xrevsh  to #xrevsh
+   move &pistvsh to #pistvsh
+
+from  gl_kin d
+where  d.hmer_e <  $hmerapo
+     and  d.hmer_e >= $xrhsh_arxh
+     and  d.cid = $cid
+     and  d.kat = $kat
+     and  d.logar = $logar
+     and  d.synal = $syn
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure makelogform($cid, #xrhsh, $inlogar, :$outlogar)
+  execute glp_logfrm @cid       = $cid, 
+                     @xrhsh     = #xrhsh, 
+                     @in_logar  = $inlogar, 
+                     @out_logar = $outlogar output
+end-procedure
+! ****************************************************************************
+begin-procedure get_xrhsh_arxh($cid,#xrhsh,:$xrhsh_arxh)
+begin-select
+a.xrhsh_arxh () nop
+    move &a.xrhsh_arxh to $xrhsh_arxh
+from ap_xrhsh  a
+where cid=$cid
+  and xrhsh=#xrhsh
+end-select
+end-procedure
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ΚΑΡΤΕΛΑ ΚΙΝΗΣΗΣ ΛΟΓΑΡΙΑΣΜΟΥ' (2,01) center
+ let $msg = '[ ' || $logarpr || ' - ' || $logar_per ||' ]'
+! print $msg                          (4,01) center
+   print 'ΑΠΟ :'			(5,1,5)
+   print  $apohmpr			(,+1,10)
+   print 'ΕΩΣ :'			(,+2,5)
+   print  $evshmpr			(,+1,10)
+
+   print 'ΗΜΕΡ'                             (7,1,05)
+   print 'ΣΥΝΑΛΛΑΣ.'                        (,+1,20)
+   print 'ΠΑΡΑΣΤ/ΚΟ'                        (,+1,10)
+   print 'ΑΙΤΙΟΛΟΓΙΑ'                       (,+1,15)
+
+   print '|   ΧΡΕΩΣΗ   |'      	            (,+1,14)  
+   print '   ΠΙΣΤΩΣΗ   |'      	            (,+1,14)  
+   print '   ΥΠΟΛΟΙΠΟ  |'      	            (,+1,14)  
+
+End-Heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	2	1	114	kart11	rs	X	01},TITLE{Κατάσταση Καρτέλλας Λογαριασμού}
+!	PARCOUNT{4}
+!	PAR1{Ημερομηνία	DUMP	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{Λογαρισμός	DUMP1	1	=	varchar		X}
+!	PAR3{Κατάστημα	DUMP2	1	=	varchar		X}
+!	PAR4{Συναλλασόμενος	c.synal	1	LIKE	varchar		}
+!REPORTHELP{F}
+!</pcalib>

@@ -1,0 +1,222 @@
+!***********************************************************************
+!***** REPORT      : pinakio.sqr                                    ****
+!***** DATE        : 10/07/1998                                     ****
+!***** APPLICATION : Aниоцяажа                                      ****
+!***** AUTHOR      : тяипеяима цеыяциа                              ****
+!***** NOTE        : --- пимайио                ----                ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    140
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+  
+ input $seira		' сЕИЯА пИМАЙъОУ'
+ input $arith_pin	'AЯИХЛЭР пИМАЙъОУ'
+ execute app_floatcnv   $arith_pin, #arith_pin output
+ unstring $seira by '"' into $filler $seira  $filler
+   display $seira                             
+   display #arith_pin
+          		   
+  !do get_eidos
+  move 0 to #lines
+  do main
+
+End-Report
+! *******************************************************************************
+begin-procedure get_eidos
+begin-select
+k.eidos_ajiogr
+k.perigrafh
+
+from aj_eidh k
+where k.eidos_ajiogr=$eidos
+end-select
+end-procedure
+! *******************************************************************************
+begin-procedure main
+begin-select
+a.ypok                 () nop
+a.ariumos              () nop
+a.arith_pin            () nop
+a.seira                () nop
+convert(varchar(11),a.hm_lhjhs ,103) &hm_lhjhs       () nop
+convert(varchar(11),a.hm_ekdoshs ,103) &hm_ekdoshs   () nop
+convert(varchar(11),a.hm_paral,103) &hm_paral        () nop
+a.aa_ajiogr            () nop
+a.eidos_ajiogr         () nop
+a.aa_ref               () nop 
+a.cid                  () nop
+a.ypok_trap            () nop 
+a.trapeza              () nop            
+a.ekdoths              () nop
+a.apodekths            () nop 
+a.synal                () nop 
+a.ajia                 () nop 
+a.aitia                () nop
+a.topos_plhr           () nop 
+a.logar                () nop                          
+a.ajia_j_n             () nop
+a.eidos_j_nom          () nop
+a.flag_xartof          () nop 
+a.flag_tritvn          () nop 
+   
+  move &a.arith_pin to #prev_arithmos
+  move &a.seira    to $prev_seira
+
+  add &a.ajia to #s_ajia  
+  do get_trapeza
+  do get_apodekths
+  do get_last
+  do ektyp
+  NEXT-LISTING
+  add 1 to #lines
+  if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+from aj_mas a
+where a.seira=$seira                 
+      and a.arith_pin=#arith_pin 
+order by a.arith_pin,a.seira
+[$SQLCMD]
+end-select
+  print 'цемийо сумоко:'  (,5,)
+  do printtotse
+end-procedure
+! *******************************************************************************
+begin-procedure change_arithmos
+    next-listing
+     do totse
+     move 0 to #lines                                                                    
+end-procedure
+! *******************************************************************************
+
+begin-procedure get_trapeza
+begin-select
+c.synal
+c.epvnymia
+
+from sy_synal c
+where c.synal=&a.trapeza
+end-select
+end-procedure
+! *******************************************************************************
+begin-procedure get_apodekths
+begin-select
+d.synal
+d.epvnymia
+
+from sy_synal d
+where d.synal=&a.apodekths
+end-select
+end-procedure
+! *******************************************************************************
+begin-procedure get_last
+begin-select
+e.synal
+e.epvnymia
+
+from sy_synal e
+where e.synal=&a.synal
+end-select
+end-procedure
+! *****************************************************************************
+begin-procedure totse
+	    next-listing
+	    print 'сумоко се летажояа' (,5)
+            do printtotse
+            next-listing
+	    new-page
+             
+	    next-listing
+	    print 'сумоко апо летажояа' (,5)
+            do printtotse
+            next-listing
+         
+end-procedure 
+
+! ******************************************************************************
+begin-procedure printtotse
+	    print #s_ajia  (,120) edit 99999999999 
+end-procedure
+! *******************************************************************************
+begin-procedure ektyp
+
+print &a.aa_ajiogr               (,1,)  edit 9999
+
+print &a.ypok              (,+1,2) 
+print &c.epvnymia          (,+1,10) 
+print &hm_lhjhs            (,+1,12)
+print &hm_ekdoshs          (,+1,12)
+print &hm_paral            (,+1,12)
+print &a.ekdoths           (,+1,10)
+print &d.epvnymia          (,+1,10)      
+print &a.logar             (,+1,10)     
+print &a.topos_plhr        (,+1,10)
+print &e.epvnymia          (,+1,10)
+print &a.ajia              (,+1,) 	edit 999999999999
+print &a.ariumos           (+1,1,)   	edit 999999999999
+print &a.aitia              (,19) 
+
+
+!print &a.eidos_j_nom
+end-procedure
+! *******************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ 
+  print 'пINAKIO' (3,+1) center
+  print 'сеияа пимайиоу:'     (4,1)
+  print  $prev_seira          (,+1)
+  print 'Aяихлос пимайиоу'    (,+1)
+  print  #prev_arithmos      (,+1)
+   
+print 'аяих'            (6,1,)    
+print 'уп'              (,+1,2) 
+print 'тяапефа'         (,+1,10) 
+print 'гл.кгнгс'        (,+1,12)
+print 'гл.ейдосгс'      (,+1,12)
+print 'гл.паяакаб'      (,+1,12)
+print 'ейдотгс'         (,+1,10)
+print 'аподейтгс'       (,+1,10)      
+print 'коцая/слос'      (,+1,10) 
+print 'топос пкгя'      (,+1,10)
+print 'тек.описх'       (,+1,10)
+print 'аниа'            (,+1,) edit 999999  
+
+print '/Aя.етаияиас'     (7,3)
+PRINT '/ аитиокоциа'    (7,19)
+
+End-Heading
+
+
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{AJ	1	12	5150	pinakio	rs	X	01},TITLE{пИМэЙИО}
+!	PARCOUNT{3}
+!	PAR1{сЕИЯэ пИМАЙъОУ	dump1	2	BETWEEN	char(5)		X}
+!	PAR2{аЯИХЛЭР пИМАЙъОУ	dump2	2	BETWEEN	integer		X}
+!	PAR3{аЯИХЛЭР пИМАЙъОУ	dump2	2	BETWEEN	integer		X}
+!</pcalib>

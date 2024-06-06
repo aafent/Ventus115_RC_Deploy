@@ -1,0 +1,853 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : kauoliko.sqr                                           ****
+! **** DATE        : 14/10/97                                               ****
+! **** APPLICATION : ΑΠΟΘΗΚΗ                                                ****
+! **** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ / Χ.ΑΠΟΣΤΟΛΟΥ                        ****
+! **** NOTE        : ΑΝΑΛΥΤΙΚΟ ΚΑΘΟΛΙΚΟ                                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                66 !  88  cap
+#DEFINE   PAGE-X               139
+#DEFINE   HEAD-SIZE             9
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+!
+! (v) adr den ekana allages sta DEFINES giati eixe dekadika (tha to dv me ton C.A.)
+!
+#DEFINE   MASK1P       b9999999.99c
+#DEFINE   MASK2A         b9999.999c
+#DEFINE   MASK3A    b9999999999.99c
+#DEFINE   MASK6P       99999999.99c
+#DEFINE   MASK7               09999
+#DEFINE   SHORTDATE           DD/MM 
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+End-Setup
+
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc" 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+
+ ! position 0 --> Παραστατικό
+ ! position 1 --> Κίνηση Περιόδου (ΑΝΑΛΥΣΗ)
+ ! position 2 --> Είδος
+ ! position 3 --> Αποθήκη
+ ! position 4 --> Κατηγορία είδους
+ ! position 5 --> Ιδιοκτήτης
+ ! position 6 --> Γενικά Σύνολα
+
+ create-array name=synola size=7 field=eis_posot:number
+                                 field=eis_ajia:number
+                                 field=eja_posot:number
+                                 field=eja_ajia:number
+				 field=prod_posot:number
+
+ ! (v) EIDIKA GIA AYTH THN KATASTASH UA PREPEI PANTA H EPILEGMENH ETAIREIA NA EINAI H : 1
+ move '1' to $L_CID
+
+ input $apo_eidos  'Apo eidos :'
+ input $evs_eidos  'Evs eidos :'
+ input $hmerapo    'ΑΠΟ ΗΜ/ΝΙΑ'
+ input $hmerevs    'ΕΩΣ ΗΜ/ΝΙΑ'
+ input $ianal      'ΑΝΑΛΥΤΙΚΑ (Ν/Ο) ? '
+ input $datahdlr   'HDLR ? '
+ input $theor	   'THEOR N/O '
+ 
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+ unstring $ianal     by '"' into $filler $anal $filler
+ unstring $apo_eidos by '"' into $filler $apo_eidos $filler
+ unstring $evs_eidos by '"' into $filler $evs_eidos $filler
+ unstring $datahdlr  by '"' into $filler $datahdlr  $filler
+ unstring $theor     by '"' into $filler $theor     $filler
+
+ move $L_CID to $cid
+
+ if ($theor = 'N') or ($theor = 'n') or ($theor = 'Ν') or ($theor = 'ν')
+    move 'T' to $theor
+ else
+    move 'F' to $theor
+ end-if
+ 
+
+ move 0 to #hdlr
+ move 'F' to $flag_aitia
+
+ !
+ ! (v) Parse input flag : ianal
+ !
+ if ($anal = 'N') or ($anal = 'n') or ($anal = 'Ν') or ($anal = 'ν')
+    move 'T' to $anal
+    move 'a.aux_code, a.kathg, a.apouhkh, a.eidos, a.hmeromhnia, a.parkvd, a.seira, a.parno' to $SQLORD
+ else
+ if ($anal = 'S') or ($anal = 's') or ($anal = 'Σ') or ($anal = 'σ')
+    move 'S' to $anal
+    move 'a.aux_code,a.kathg, a.apouhkh, a.eidos, a.parkvd' to $SQLORD
+ else
+  if ($anal = 'A') or ($anal = 'a') or ($anal = 'Α') or ($anal = 'α')
+    move 'F' to $anal
+    move 'T' to $flag_aitia
+    move 'a.aux_code,a.kathg, a.apouhkh, a.eidos, a.parkvd, a.perigrafh_txt' to $SQLORD
+ else
+    move 'F' to $anal
+    move 'a.aux_code,a.kathg, a.apouhkh, a.eidos, a.parkvd' to $SQLORD
+ end-if
+ end-if
+ end-if
+
+ ! (v) Handler Syntax :
+ ! <number>	: use parkvds from table wh_tmpankau with hdlr=<number>
+ ! <number>+	: use as parkvd the last 2 chars of col parkvd from table wh_tmpankau with hdlr=<number>
+ ! *     	: don't use indivitual parkvds
+ !
+
+ display 'mod. SQLORD : ' noline
+ display $SQLORD
+
+ move '' to $DATASET1
+ move '' to $CLEANCMD1
+ if $datahdlr<>'*'
+    let #p=instr($datahdlr, '+', 0)
+
+    if #p>0 
+       let $datahdlr=substr($datahdlr,1, #p - 1)
+    end-if
+
+    if $anal='F' and $flag_aitia='T'
+       move 0 to #p
+    end-if
+
+    if #p>0 
+       let $DATASET1=' and (a.parkvd is null or (substring(a.parkvd+"52",4,2) in (select parkvd from wh_tmpankau where hdlr='||$datahdlr||')) )'
+       do print_extra_cover(1,$datahdlr)
+    else
+       let $DATASET1=' and (a.parkvd is null or (a.parkvd in (select parkvd from wh_tmpankau where hdlr='||$datahdlr||')))'
+       do print_extra_cover(2,$datahdlr)
+    end-if
+
+    let $CLEANCMD1='delete from wh_tmpankau where hdlr=' || $datahdlr
+
+ end-if
+
+ display 'DATASET1:' noline
+ display $DATASET1
+
+ if $theor='F' 
+    do pca_printcover
+ end-if
+
+ ! (v) call init function to collect data into temp. table wh_tmpankau 
+ do Init
+
+ display 'HM. APO : ' noline
+ display $hmer_apo 
+ display 'HM. EVS : ' noline
+ display $hmer_evs
+ display 'CID : ' noline
+ display $cid
+
+
+ if #hdlr < 1 
+     next-listing
+     print '**** ΠΡΟΒΛΗΜΑ ΜΕ ΤΗΝ ΕΚΤΕΛΕΣΗ ΤΗΣ ΚΑΤΑΣΤΑΣΗΣ ****' () center
+     next-listing
+ else
+     ! (v) Repare the report based on temp. table wh_tmpankau
+     do Main
+     do CleanUpDB
+ end-if
+
+End-Report
+
+! ==============================================================================
+Begin-Procedure Init
+
+Begin-Select -C1
+x.xrhsh				() NOP
+x.xrhsh_arxh			() NOP
+   	move &x.xrhsh      to #xrhsh
+	move &x.xrhsh_arxh to $xrhsh_arxh
+from ap_xrhsh x
+where cid = $cid
+and $hmer_apo between xrhsh_arxh and xrhsh_telos
+End-Select
+
+move 0 to #hdlr
+
+move '' to $CLEANCMD2
+
+let $msg='execute -C1 whp_ankau1 "SQR", #hdlr output,"'||$anal||'", "'||$cid||'", "'||$hmer_apo||'", "'||$hmer_evs||'", "'||$apo_eidos||'", "'||$evs_eidos||'"'
+display $msg
+execute -C1 whp_ankau1 'SQR', #hdlr output,$anal, $cid, $hmer_apo, $hmer_evs, $apo_eidos, $evs_eidos
+!move 268910 to #hdlr
+
+display 'APO EIDOS :' noline
+display $apo_eidos
+display 'EVS EIDOS :' noline
+display $evs_eidos
+
+if $anal='F' and $flag_aitia='T'
+  move #hdlr to $msg 9999999999999
+  let $msg='execute -C2 whp_ankau2 "SQR", '||$msg
+  display $msg
+  execute -C2 whp_ankau2 'SQR', #hdlr
+end-if
+
+move #hdlr to $CLEANCMD2 999999999999
+let $CLEANCMD2='delete from wh_tmpankau where hdlr=' || $CLEANCMD2
+
+display 'HDLR ' noline
+display #hdlr
+
+move '' to $g_apouhkh
+move '' to $g_kathgoria
+move '' to $g_eidos
+
+End-Procedure
+
+! ==============================================================================
+Begin-Procedure CleanUpDB
+	display 'DISABLED CLEANUP CMDS :'
+	display $CLEANCMD1
+	display $CLEANCMD2
+End-Procedure
+
+Begin-Procedure CleanUpDBlakis
+display 'CLEANUP CMDS :'
+display $CLEANCMD1
+display $CLEANCMD2
+begin-sql -C1
+[$CLEANCMD1]
+[$CLEANCMD2]
+end-sql
+End-Procedure
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+  move '' to $hmeromhnia
+  move  21 to #col1
+  move  53 to #col2		
+  move  91 to #col3		
+  move 129 to #col4		
+
+begin-select 
+
+a.aux_code				()		on-break print = never
+                        save   = $idiokthths
+                        level  = 1
+                        after  = tot-idiokthths
+                        
+a.aux_perigrafh				() 		on-break print = never
+                                     level  = 1
+            				                 save   = $idiok_txt
+
+a.kathg					()		on-break print = never
+							save   = $kathg
+							level  = 1
+							before = new-kathg
+							after  = tot-kathg
+
+a.apouhkh				()		on-break print = never
+  							save   = $apouhkh ! $apoth
+							level  = 3
+							before = new-apoth
+                                                        after  = tot-apoth
+
+a.eidos  				()		on-break print = never
+							                 save   = $eidos
+							                 level  = 4
+                                                                         before = new-eidos
+							                 after  = tot-eidos
+
+a.parkvd                                ()              on-break print = never
+                                                                 save   = $parkvd
+                						 level  = 5
+                						 !after  = tot-parkvd
+                						 
+a.perigrafh_txt				() 		on-break print  = never
+                                                        save   = $parkvd_txt
+                                                        level  = 5
+                                                        after  = tot-parkvd
+
+e.perigrafh		&apoth_txt	() NOP
+b.perigrafh                             () NOP
+convert(datetime,a.hmeromhnia)  &hmer  	() NOP
+a.aa                            	() NOP
+a.f_eis					() NOP
+a.f_eja					() NOP
+a.seira                 	        () NOP
+a.parno                 	        () NOP    
+a.posothta				() NOP
+a.ajia                                  () NOP
+
+  move &a.aux_code  to $aux_code    ! capostolou 2000
+  move &a.posothta  to #posothta
+  move &a.ajia      to #ajia
+
+  display &a.parkvd noline 
+  display '  #posothta : ' noline
+  display #posothta
+  display &a.parkvd noline
+  display '   ' noline
+  display &a.perigrafh_txt
+
+  ! (^) 11/5/2k : ebala round prin to insert sto sp whp_ankau1 giati logo toy oti den
+  ! typvname dekadika sthn ajia o sqr ekane apokoph me apotelesma ta genika synola
+  ! ana epipedo na mhn symfvnoyn me ta epimeroys
+  ! to sp kanei round thn ajia panta se scale=0, sto wh_kin yparxoyn ajies me dekadika
+  
+  if #posothta <> 0
+     let #timh = abs(#ajia) / abs(#posothta)
+  else
+     let #timh = 0
+  end-if
+
+  if not isnull(&a.f_eis)
+     move #col2 to #col-x
+     do add-totals (0, #posothta, #ajia, 0, 0)
+  else
+     move #col3 to #col-x
+     do add-totals (0, 0, 0, #posothta, #ajia)
+  end-if
+
+
+  if $anal = 'T' and &a.parno <> 0  ! cap 8-9-2000
+     print &hmer			(,01,05)	edit {SHORTDATE}
+     print &a.seira			(,+1,03)
+     if isnull(&a.seira) 
+	     print ' '			()
+     else
+             print '/'                  ()
+     end-if
+
+     if &a.parno = 0
+     	 print ' '			(,  ,05)
+     else
+	     print &a.parno			(,  ,05)	edit {MASK7}
+     end-if
+
+     print &a.parkvd			(,+1,05)
+     print &a.perigrafh_txt		(,+1,28)
+     print #posothta                    (,#col-x,11)	edit {MASK1P}	
+     print #timh                   	(,+1,09)	edit {MASK2A}
+     print #ajia			(,+1,14)	edit {MASK3A}
+     get #ypol from synola (2) prod_posot
+     print #ypol                        (,#col4,11)	edit {MASK1P}
+     next-listing
+  end-if
+
+  do check-selida
+
+from wh_tmpankau a, wh_eidh b, wh_apouhk e
+where a.hdlr       = #hdlr
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and   a.eidos      between $apo_eidos and $evs_eidos   ! CApostolou. 17/3/99
+and   a.eidos      = b.kvdikos
+and   e.cid	   = $cid
+and   a.apouhkh	   = e.kvdikos
+[$DATASET1]
+[$SQLCMD]
+order by 
+[$SQLORD]
+End-Select
+
+  do print-totals (6, 'ΓΕΝΙΚΑ ΣΥΝΟΛΑ.............:', #col1, #col2, #col3, #col4)
+
+End-Procedure
+
+! ******************************************************************************
+
+
+begin-procedure tot-idiokthths
+
+  do print-totals (5, 'ΣΥΝΟΛΑ ΙΔΙΟΚΤΗΤΗ.........:', #col1, #col2, #col3, #col4)
+
+  ! print '='					(,01,{PAGE-X})	fill
+  ! next-listing
+  new-page
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-apoth
+
+  print &a.apouhkh				(,01,03)
+  print &apoth_txt				(,+1,30)
+
+  let $g_apouhkh=&a.apouhkh||' '||&apoth_txt
+  !let $g_apouhkh=&apoth_txt
+
+  next-listing
+  ! print '='					(,01,{PAGE-X})	fill
+  !  next-listing      ca 8-9-2000
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure tot-apoth
+
+  do print-totals (3, 'ΣΥΝΟΛΑ ΑΠΟΘΗΚΗΣ.........:', #col1, #col2, #col3, #col4)
+
+ print '*'             	(,01,{PAGE-X})	fill
+ next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-kathg
+
+  print &a.kathg				(,01,03)
+  
+  do getkathg (&a.kathg,$kathg_txt)
+  print $kathg_txt				(,+1,30)
+
+  let $g_kathgoria=$kathg_txt
+
+  next-listing
+  next-listing
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure getkathg ($kathg, :$kathg_txt)
+  move $kathg to $kathg_txt
+
+begin-select
+a.perigrafh  () NOP
+
+from wh_fkeidhinf a
+where kvdinf =1
+and inf =$kathg
+end-select
+
+!   let $kathg_txt='KATHGORIA : ' ||$kathg_txt
+   move &a.perigrafh to $kathg_txt 
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure tot-kathg
+
+  do getkathg ($kathg,$kathg_txt)
+  let $kathg_txt = 'ΣΥΝΟΛΑ  ' || $kathg_txt || '.....:'
+  do print-totals (4, $kathg_txt,#col1, #col2, #col3, #col4)
+
+  print '*'					(,01,{PAGE-X})	fill
+  next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure new-eidos
+
+  print &a.eidos				(,02,15)
+  print &b.perigrafh				(,+1,50)
+
+  display &a.eidos
+  display 'idiot=' noline
+  display $idiokthths 
+  display 'aux=' noline 
+  display $aux_code
+
+  let $g_eidos=&a.eidos||' '||&b.perigrafh
+
+! -v- ΠΡΟΗΓΟΥΜΕΝΑ ΣΥΝΟΛΑ
+
+   move 0 to #eis_posot
+   move 0 to #eis_ajia
+   move 0 to #eja_posot
+   move 0 to #eja_ajia
+
+! do get_pro_eis($cid,$DATASET1,$SQLCMD,&a.apouhkh,&a.eidos,$xrhsh_arxh,$hmer_apo,#eis_posot,#eis_ajia)
+! do get_pro_eja($cid,$DATASET1,$SQLCMD,&a.apouhkh,&a.eidos,$xrhsh_arxh,$hmer_apo,#eja_posot,#eja_ajia)
+
+
+ do get_pro_eis($cid,$DATASET1,$SQLCMD,&a.aux_code,&a.apouhkh,&a.eidos,$xrhsh_arxh,$hmer_apo,#eis_posot,#eis_ajia)
+ do get_pro_eja($cid,$DATASET1,$SQLCMD,&a.aux_code,&a.apouhkh,&a.eidos,$xrhsh_arxh,$hmer_apo,#eja_posot,#eja_ajia)
+
+! -v- ΠΡΟΗΓΟΥΜΕΝΑ ΣΥΝΟΛΑ
+
+  next-listing
+
+  if not( (#eis_posot=0) and (#eis_ajia=0) and (#eja_posot=0) and (#eja_ajia=0) )
+
+	 do add-totals (2, #eis_posot, #eis_ajia, #eja_posot, #eja_ajia)
+
+ 	 print 'ΠΡΟΗΓΟΥΜΕΝΑ ΣΥΝΟΛΑ :'			(,18,30)
+	 print #eis_posot				(,#col2,11)	edit {MASK1P}
+	 print 0					(,+1,09)	edit {MASK2A}
+	 print	#eis_ajia				(,+1,14)	edit {MASK3A}
+	 print #eja_posot				(,#col3,11)	edit {MASK1P}
+	 print 0					(,+1,09)	edit {MASK2A}
+	 print	#eja_ajia				(,+1,14)	edit {MASK3A}
+	 let   #ypol = #eis_posot - #eja_posot
+	 print #ypol					(,#col4,11)	edit {MASK1P}
+
+
+	 next-listing
+
+  end-if
+
+end-procedure
+
+! ******************************************************************************
+
+!begin-procedure get_pro_eis($cid,$DATASET,$SQLCMD,$apouhkh,$eidos,$xrhsh_arxh,$hmer_apo,:#eis_posot,:#eis_ajia)
+begin-procedure get_pro_eis($cid,$DATASET,$SQLCMD,$idiokthths,$apouhkh,$eidos,$xrhsh_arxh,$hmer_apo,:#eis_posot,:#eis_ajia)
+!display 'EIS : '
+!display $cid
+!display $DATASET
+!display $SQLCMD
+!display $apouhkh
+!display $eidos
+!display $xrhsh_arxh
+!display $hmer_apo
+
+
+ move 0 to #eis_posot
+ move 0 to #eis_ajia
+
+begin-select
+sum(a.posothta * a2.syntel_p)		&eis_posot
+sum(a.ajia     * a2.syntel_a)		&eis_ajia
+
+   move &eis_posot to #eis_posot
+   move &eis_ajia  to #eis_ajia
+
+from wh_kin a, ap_par a2
+where a.cid    in (select cid1 from cu_cid where cid2= $cid )
+and a.apouhkh = $apouhkh
+and a.aux_code= $idiokthths  !     capostolou 2000
+and a.eidos   = $eidos
+and a.parkvd  = a2.parkvd
+and a2.f_eis   is not null
+and a.hmeromhnia >= $xrhsh_arxh
+and a.hmeromhnia <  $hmer_apo
+[$DATASET]
+[$SQLCMD]
+end-select
+
+end-procedure
+
+
+!begin-procedure get_pro_eja($cid,$DATASET,$SQLCMD,$apouhkh,$eidos,$xrhsh_arxh,$hmer_apo,:#eja_posot,:#eja_ajia)
+begin-procedure get_pro_eja($cid,$DATASET,$SQLCMD,$idiokthths,$apouhkh,$eidos,$xrhsh_arxh,$hmer_apo,:#eja_posot,:#eja_ajia)
+
+ move 0 to #eja_posot
+ move 0 to #eja_ajia
+
+!display 'EJA : '
+!display $cid
+!display $DATASET
+!display $SQLCMD
+!display $apouhkh
+!display $eidos
+!display $xrhsh_arxh
+!display $hmer_apo
+
+begin-select
+sum(a.posothta * a4.syntel_p)		&eja_posot
+sum(a.ajia     * a4.syntel_a)		&eja_ajia
+
+   move &eja_posot to #eja_posot
+   move &eja_ajia  to #eja_ajia
+
+from wh_kin a, ap_par a4
+where a.cid   in (select cid1 from cu_cid where cid2= $cid )
+and a.apouhkh = $apouhkh
+and a.eidos   = $eidos
+and a.aux_code= $idiokthths !  capostolou 2000
+and a.parkvd  = a4.parkvd
+and a4.f_eja   is not null
+and a.hmeromhnia >= $xrhsh_arxh
+and a.hmeromhnia <  $hmer_apo
+[$DATASET]
+[$SQLCMD]
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure tot-eidos
+
+!  print '-'					(,01,{PAGE-X})	fill
+!  next-listing   ! cap 8-9-2000
+
+  do print-totals (1, 'ΣΥΝΟΛΑ ΑΝΑΛΥΣΗΣ.........:', #col1, #col2, #col3, #col4)
+  do print-totals (2, 'ΣΥΝΟΛΑ ΕΙΔΟΥΣ...........:', #col1, #col2, #col3, #col4)
+  do reset-totals (2,'ALL')
+
+ if $theor = 'F'
+   print '='					(,01,{PAGE-X})	fill
+   next-listing
+ end-if
+ end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure tot-parkvd
+
+  if $anal = 'F'
+     print $parkvd				(,#col1,05)
+     print $parkvd_txt				(,+1,28)
+
+     do print-totals (0, '', #col1, #col2, #col3, #col4)
+  end-if
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print-totals (#inx, $perigrafh, #col1, #col2, #col3, #col4)
+
+  get #eis_posot from synola(#inx) eis_posot
+  get #eis_ajia  from synola(#inx) eis_ajia
+  get #eja_posot from synola(#inx) eja_posot
+  get #eja_ajia  from synola(#inx) eja_ajia
+
+ 
+  move 0 to #eis_timh
+  move 0 to #eja_timh
+ 
+  if #inx = 0
+     if #eis_posot <> 0
+     	let #eis_timh = abs(#eis_ajia) / abs(#eis_posot)
+     end-if
+     if #eja_posot <> 0
+     	let #eja_timh = abs(#eja_ajia) / abs(#eja_posot)
+     end-if
+  else
+     move 0 to #eis_timh
+     move 0 to #eja_timh
+  end-if
+  get #ypol  from synola(#inx) prod_posot
+
+  if    #eis_posot=0 and #eis_ajia=0 and #eja_posot=0 and #eja_ajia = 0 and #ypol=0 
+      and $perigrafh = 'ΣΥΝΟΛΑ ΑΝΑΛΥΣΗΣ.........:'
+       let #nothing = 0
+  else
+ 
+  display ' #EIS_POxxxS: ' noline
+  display #ypol
+ 
+     print $perigrafh				(,#col1,30)
+      print #eis_posot				(,#col2,11)	edit {MASK1P}
+  
+      print #eis_timh				(,+1,09)	edit {MASK2A}
+      print #eis_ajia				(,+1,14)	edit {MASK3A}
+      print #eja_posot				(,#col3,11)	edit {MASK1P}
+      print #eja_timh				(,+1,09)	edit {MASK2A}
+      print #eja_ajia				(,+1,14)	edit {MASK3A}
+      if #ypol <> 0 
+        print #ypol				(,#col4,14)	edit {MASK6P}
+      end-if
+      next-listing
+  end-if
+  do reset-totals (#inx,'TOTALS')
+  do check-selida 
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure reset-totals (#inx,$reset_type)
+
+ ! reset types : 'TOTALS', 'ALL'
+
+ while #inx >= 0
+     put 0 into synola(#inx) eis_posot
+     put 0 into synola(#inx) eis_ajia
+     put 0 into synola(#inx) eja_posot
+     put 0 into synola(#inx) eja_ajia
+
+
+     if $reset_type = 'ALL'
+        put 0 into synola(#inx) prod_posot
+	put 0 into synola(1) prod_posot
+	put 0 into synola(2) prod_posot
+	put 0 into synola(3) prod_posot
+	put 0 into synola(4) prod_posot
+	put 0 into synola(5) prod_posot
+	put 0 into synola(6) prod_posot
+     end-if
+
+     let #inx = #inx - 1
+ end-while
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure add-totals (#inx, #eis_posot, #eis_ajia, #eja_posot, #eja_ajia)
+
+ !display 'EIS : ' noline
+ !display #eis_ajia noline
+ !display ' EJA : ' noline
+ !display #eja_ajia 
+
+ while #inx <= 6
+     array-add #eis_posot to synola(#inx) eis_posot
+     array-add #eis_ajia  to synola(#inx) eis_ajia
+     array-add #eja_posot to synola(#inx) eja_posot
+     array-add #eja_ajia  to synola(#inx) eja_ajia
+     let #ypol = #eis_posot - #eja_posot
+ 
+    array-add #ypol      to synola(#inx) prod_posot
+
+     let #inx = #inx + 1
+ end-while
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure check-selida
+
+  if #current-line >= 65 !   (87   , 65  htan 60 CAP)
+     new-page
+
+     if #page-count > 1
+        print 'Συνέχεια : '     (,1)
+        print $g_apouhkh        ()
+        print '  ***  '               ()
+        print $g_eidos          ()
+        print '  ***  '               ()
+        print $g_kathgoria      ()
+        next-listing
+     end-if
+  end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure print_extra_cover(#rep_type,$datahdlr)
+
+  move $datahdlr to #hdlr
+  print ' Κατάσταση για τις κινήσεις : ' (,11) 
+  next-listing
+  
+  if #rep_type = 1 
+     do print_extra_cover_t1(#hdlr)
+  else
+     do print_extra_cover_t2(#hdlr)
+  end-if
+
+  next-listing
+
+end-procedure
+
+begin-procedure print_extra_cover_t1(#hdlr)
+display 'EXTRA COVER 1'
+move 0 to #lns
+print ' ' (,10)
+begin-select -C1
+a.kvdikos               (,+1,5)
+a.perigrafh   		(,+1,30)
+    add 1 to #lns
+    if mod(#lns,2) = 0
+	    next-listing
+	    print ' ' (,10)
+    else  
+            print ' '   (,+10)
+    end-if
+from ap_ci a, wh_tmpankau b
+where a.omada = 'ELE1'
+  and a.kvdikos = b.parkvd
+  and b.hdlr    = #hdlr
+end-select
+end-procedure
+
+begin-procedure print_extra_cover_t2(#hdlr)
+display 'EXTRA COVER 2'
+move 0 to #lns
+print ' ' (,10)
+begin-select -C1
+a.parkvd                (,+1,5)
+a.perigrafh   		(,+1,30)
+    add 1 to #lns
+    if mod(#lns,2) = 0
+	    next-listing
+	    print ' ' (,10)
+    else  
+            print ' '   (,+10)
+    end-if
+from ap_par a, wh_tmpankau b
+where a.parkvd = b.parkvd
+  and b.hdlr    = #hdlr
+end-select
+end-procedure
+
+
+! ******************************************************************************
+ 
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  
+  if $theor = 'F'
+!     #INCLUDE "{$L_GDATA}\sqr\FOOT01.inc"
+  end-if
+
+End-Footing
+
+
+! ------------------------------------------------------------------------------
+
+Begin-Heading {HEAD-SIZE}
+
+if $theor = 'F'
+
+  #INCLUDE "{$L_GDATA}\sqr\HEAD01.inc"
+  let $msg = 'ΑΝΑΛΥΤΙΚΟ ΚΑΘΟΛΙΚΟ ΑΠΟΘΗΚΩΝ'
+  print $msg 					(3,) Center
+end-if
+  let $msg = '( ' || $hmerapopr || ' ΕΩΣ ' || $hmerevspr || ' )'
+  print $msg					(4,) Center
+! end-if
+   
+  print 'ΙΔΙΟΚΤΗΤΗΣ :'				(5,1,12)
+  print $idiokthths				(,+1,03)
+  print $idiok_txt				(,+1,17)
+
+
+!if $theor = 'F'
+  print '[------------------ ΠΑΡΑΣΤΑΤΙΚΟ ------------------]'  	(7,1,51) 
+  print '[--------- ΕΙΣΑΓΩΓΕΣ ---------------]'                      	(,+1,37) 
+  print '[--------- ΕΞΑΓΩΓΕΣ ----------------]'                      	(,+1,37) 
+  print '  ΥΠΟΛΟΙΠΟ'           					(,+1,11) 
+
+  print 'ΗΜ/ΝΙΑ'                               	(8,1,05) 
+  print 'ΣΕΙΡ/ΑΡΙΘ'                        	(,+1,09) 
+  print '    ΑΙΤΙΑ ΚΙΝΗΣΗΣ'                     (,+1,35) 
+  print ' ΠΟΣΟΤΗΤΑ'           			(,+1,11) 
+  print 'ΤΙΜΗ ΜΟΝ.'           			(,+1,09) 
+  print '    ΑΞΙΑ'           			(,+3,14) 
+  print ' ΠΟΣΟΤΗΤΑ'           			(,+1,11) 
+  print 'ΤΙΜΗ ΜΟΝ.'           			(,+1,09) 
+  print '    ΑΞΙΑ'           			(,+3,14) 
+  print 'ΠΟΣΟΤΗΤΑ'           			(,+1,11) 
+!end-if
+
+
+End-Heading
+
+!<pcalib help>
+!Η Κατάσταση αναλυτικού καθολικού αποθηκών
+!παρουσιάζει την κίνηση των αποθηκών κατά ιδιοκτήτη,
+!αποθήκη, κατηγορία ειδών και είδος.
+!ΠΡΟΣΟΧΗ : Αυτό το πρόγραμμα διαθέτει ειδική οθόνη παραμέτρων
+!          διαφοροποιημένη από την τυπική των εφαρμογών.
+!</pcalib help>
+

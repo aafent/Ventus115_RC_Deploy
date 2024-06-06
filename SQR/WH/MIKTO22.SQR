@@ -1,0 +1,371 @@
+! **********************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                     ****
+! **** REPORT      : mikto22.sqr                                    ****
+! **** DATE        : 13/04/95                                       ****
+! **** APPLICATION : WH                                             ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                  ****
+! **** NOTE        : υπο,απο,τιμ-κοσ,μικ-κερ,αγο,πωλ,κοσ-πωλ,κοσ-υπο****
+! **********************************************************************
+
+#DEFINE   PAGE-Y          62 
+#DEFINE   PAGE-X         136
+#DEFINE   HEAD-SIZE        8
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        5
+
+#DEFINE   MASK1       999999    !     999,999     size  6
+#DEFINE   MASK2    999999999    ! 999,999,999     size  9
+#DEFINE   MASK21    99999999    !  99,999,999     size  8
+#DEFINE   MASK3         9999.9  !       9,999.9   size  6
+#DEFINE   MASK4       999999    !     999,999     size  6
+#DEFINE   MASK5          999.9  !         999.9   size  5
+#DEFINE   MASK6        99999    !     999,999     size  5
+
+#DEFINE   MASK1-0                     999,999   ! size  7
+#DEFINE   MASK2-0                 999,999,999   ! size 11
+#DEFINE   MASK21-0                 99,999,999   ! size 10
+#DEFINE   MASK3-0                       9,999.9 ! size  7
+#DEFINE   MASK4-0                     999,999   ! size  7
+#DEFINE   MASK5-0                         999.9 ! size  5
+#DEFINE   MASK6-0                     999,999   ! size  7
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $apohmeromhnia 'ΑΠΟ Ημερομηνια'
+ input $evshmeromhnia 'Εως Ημερομηνια'
+
+ execute app_datecnv  $apohmeromhnia, $apohm out, $apohmp out
+ execute app_datecnv  $evshmeromhnia, $evshm out, $evshmp out
+ execute app_geteom   $evshm        , $evshm out
+ execute app_getxrhsh @hmeromhnia = $evshm,
+                      @xrhsh_arxh = $xa output
+
+ do main0($apohm,$evshm,$xa,$SQLCMD,$SQLORD)
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main0($apohm,$evshm,$xa,$SQLCMD,$SQLORD)
+
+ let #tot_apo_pos       = 0
+ let #tot_ypo_pos       = 0
+ let #tot_pre_ypo_pos   = 0
+ let #tot_pre_mes_tim   = 0
+ let #tot_pre_kos_ypo   = 0
+ let #tot_ypo_aji_ago   = 0
+ let #tot_ypo_aji_pvl   = 0
+ let #tot_kos_ypo       = 0
+ let #tot_kos_pvl       = 0
+ let #tot_mik_ker_aji   = 0
+ let #tot_mik_ker_pos   = 0
+
+begin-select
+dateadd(mm,-1,$apohm) &prehm () NOP
+end-select 
+
+  execute app_geteom &prehm, $prehm out
+
+begin-select
+a.kvdikos     &tmhma    ()      NOP
+a.perigrafh             (, 1,40)
+
+  do main ($apohm,$evshm,$prehm,$xa,&tmhma,#tot_apo_pos,#tot_ypo_pos,#tot_pre_ypo_pos,#tot_pre_mes_tim,#tot_pre_kos_ypo,#tot_ypo_aji_ago,#tot_ypo_aji_pvl,#tot_kos_ypo,#tot_kos_pvl,#tot_mik_ker_aji,#tot_mik_ker_pos)
+
+from ap_tmhma a
+where 1=1
+[$SQLCMD]
+order by
+[$SQLORD]
+end-select
+
+ if #tot_kos_pvl <> 0
+  let #tot_mik_ker_pos = ( #tot_mik_ker_aji * 100 ) / #tot_ypo_aji_pvl
+ else
+  let #tot_mik_ker_pos = 0
+ end-if
+
+ next-listing
+
+ print 'ΣΥΝΟΛΑ : '        (, 1,40)
+ print #tot_pre_kos_ypo   (,+1,11) edit {MASK2-0}
+ print #tot_ypo_aji_ago   (,+2,11) edit {MASK2-0}
+ print #tot_kos_ypo       (,+2,11) edit {MASK2-0}
+ print #tot_ypo_aji_pvl   (,+2,11) edit {MASK2-0}
+ print #tot_kos_pvl       (,+2,11) edit {MASK2-0}
+ print #tot_mik_ker_aji   (,+2,11) edit {MASK2-0}
+ print #tot_mik_ker_pos   (,+2, 7) edit {MASK3-0}
+ 
+ next-listing
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure main($apohm,$evshm,$prehm,$xa,#tmhma,:#tot_apo_pos,:#tot_ypo_pos,:#tot_pre_ypo_pos,:#tot_pre_mes_tim,:#tot_pre_kos_ypo,:#tot_ypo_aji_ago,:#tot_ypo_aji_pvl,:#tot_kos_ypo,:#tot_kos_pvl,:#tot_mik_ker_aji,:#tot_mik_ker_pos)
+ 
+ let #tmh_apo_pos       = 0
+ let #tmh_ypo_pos       = 0
+ let #tmh_pre_ypo_pos   = 0
+ let #tmh_pre_mes_tim   = 0
+ let #tmh_pre_kos_ypo   = 0
+ let #tmh_ypo_aji_ago   = 0
+ let #tmh_ypo_aji_pvl   = 0
+ let #tmh_kos_ypo       = 0
+ let #tmh_kos_pvl       = 0
+ let #tmh_mik_ker_aji   = 0
+ let #tmh_mik_ker_pos   = 0
+ 
+begin-select
+a.kvdikos  &eidos   ()         NOP
+
+ do dorest(&eidos,$apohm,$evshm,$prehm,$xa,#tmh_apo_pos,#tmh_ypo_pos,#tmh_pre_ypo_pos,#tmh_pre_mes_tim,#tmh_pre_kos_ypo,#tmh_ypo_aji_ago,#tmh_ypo_aji_pvl,#tmh_kos_ypo,#tmh_kos_pvl,#tmh_mik_ker_aji,#tmh_mik_ker_pos)
+
+from     wh_eidh a, wh_pvlomades b
+where    a.pvlomada = b.pvlomada
+and      b.tmhma    = #tmhma
+and      a.energo is not null
+end-select
+
+ if #tmh_kos_pvl <> 0
+  let #tmh_mik_ker_pos = ( #tmh_mik_ker_aji * 100 ) / #tmh_ypo_aji_pvl
+ else
+  let #tmh_mik_ker_pos = 0
+ end-if
+ 
+  let #tot_apo_pos       = #tot_apo_pos + #tmh_apo_pos
+  let #tot_ypo_pos       = #tot_ypo_pos + #tmh_ypo_pos
+  let #tot_pre_ypo_pos   = #tot_pre_ypo_pos + #tmh_pre_ypo_pos
+  let #tot_pre_kos_ypo   = #tot_pre_kos_ypo + #tmh_pre_kos_ypo
+  let #tot_ypo_aji_ago   = #tot_ypo_aji_ago + #tmh_ypo_aji_ago
+  let #tot_ypo_aji_pvl   = #tot_ypo_aji_pvl + #tmh_ypo_aji_pvl
+  let #tot_kos_ypo       = #tot_kos_ypo + #tmh_kos_ypo
+  let #tot_kos_pvl       = #tot_kos_pvl + #tmh_kos_pvl
+  let #tot_mik_ker_aji   = #tot_mik_ker_aji + #tmh_mik_ker_aji
+
+ print #tmh_pre_kos_ypo   (,+1,11) edit {MASK2-0}
+ print #tmh_ypo_aji_ago   (,+2,11) edit {MASK2-0}
+ print #tmh_kos_ypo       (,+2,11) edit {MASK2-0}
+ print #tmh_ypo_aji_pvl   (,+2,11) edit {MASK2-0}
+ print #tmh_kos_pvl       (,+2,11) edit {MASK2-0}
+ print #tmh_mik_ker_aji   (,+2,11) edit {MASK2-0}
+ print #tmh_mik_ker_pos   (,+2, 7) edit {MASK3-0}
+ 
+ next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure dorest($e,$apohm,$evs,$pre,$xa,:#tmh_apo_pos,:#tmh_ypo_pos,:#tmh_pre_ypo_pos,:#tmh_pre_mes_tim,:#tmh_pre_kos_ypo,:#tmh_ypo_aji_ago,:#tmh_ypo_aji_pvl,:#tmh_kos_ypo,:#tmh_kos_pvl,:#tmh_mik_ker_aji,:#tmh_mik_ker_pos)
+
+  let #pre_apo_pos  = 0
+  let #pre_ypo_pos  = 0
+  let #apo_pos      = 0
+  let #ypo_pos      = 0
+  let #ypo_pos_apo  = 0
+  let #ypo_aji_apo  = 0
+  let #ypo_pos_ago  = 0
+  let #ypo_aji_ago  = 0
+  let #ypo_pos_pvl  = 0
+  let #ypo_aji_pvl  = 0
+  let #pre_mes_tim  = 0
+  let #pre_kos_ypo  = 0
+  let #mes_tim      = 0
+  let #kos_ypo      = 0
+  let #kos_pvl      = 0
+  let #mik_ker_aji  = 0
+  let #mik_ker_pos  = 0
+  let #mik_ker_tem  = 0
+
+
+  execute whp_getmsk2    @eidos       = $e,
+                         @hmer        = $pre,
+                         @msk         = #pre_mes_tim out,
+                         @ypoloipo    = #pre_ypo_pos out,
+                         @pvl_p       = #pre_ypo_pos_pvl out,
+                         @pvl_a       = #pre_ypo_aji_pvl out,
+                         @ago_p       = #pre_ypo_pos_ago out,
+                         @ago_a       = #pre_ypo_aji_ago out,
+                         @apo_p       = #ypo_apo_pos out,
+                         @apo_a       = #ypo_apo_aji out
+
+
+  execute whp_getmsk2    @eidos       = $e,
+                         @hmer        = $evs,
+                         @msk         = #mes_tim out,
+                         @ypoloipo    = #ypo_pos out,
+                         @pvl_p       = #ypo_pos_pvl out,
+                         @pvl_a       = #ypo_aji_pvl out,
+                         @ago_p       = #ypo_pos_ago out,
+                         @ago_a       = #ypo_aji_ago out,
+                         @apo_p       = #apo_pos out,
+                         @apo_a       = #apo_aji out
+! = = = = = = = = = = = = = =
+
+  execute whp_getpvl2    @eidos       = $e,
+                         @hm_apo      = $apohm,
+                         @hm_evs      = $evs,
+                         @pvl_p       = #pra_pvl_pos out,
+
+  execute whp_getpvl2    @eidos       = $e,
+                         @hm_apo      = $xa,           
+                         @hm_evs      = $pre,
+                         @pvl_p       = #pre_pra_pvl_pos out,
+
+  let #ypo_aji_pvl = #ypo_aji_pvl - #pre_ypo_aji_pvl 
+  let #ypo_pos_pvl = #ypo_pos_pvl - #pre_ypo_pos_pvl 
+  let #ypo_aji_ago = #ypo_aji_ago - #pre_ypo_aji_ago 
+  let #ypo_pos_ago = #ypo_pos_ago - #pre_ypo_pos_ago 
+ 
+! let #pre_kos_ypo = #pre_ypo_pos * #pre_mes_tim
+! let     #kos_ypo =     #ypo_pos *     #mes_tim
+
+  let #pre_kos_ypo=(#ypo_apo_pos+#pre_ypo_pos_ago-#pre_pra_pvl_pos)*#pre_mes_tim
+  let     #kos_ypo=(#ypo_apo_pos+    #ypo_pos_ago-    #pra_pvl-pos)*    #mes_tim
+
+! let #ypo_aji_pvl = #ypo_aji_pvl - #pre_ypo_aji_pvl 
+! let #ypo_pos_pvl = #ypo_pos_pvl - #pre_ypo_pos_pvl 
+! let #ypo_aji_ago = #ypo_aji_ago - #pre_ypo_aji_ago 
+! let #ypo_pos_ago = #ypo_pos_ago - #pre_ypo_pos_ago 
+!
+   
+! -----------------------------------------------------------
+  let #kos_pvl     = (#pre_kos_ypo + #ypo_aji_ago) - #kos_ypo
+! -----------------------------------------------------------
+! 9.5.95 Papadopoulos directive - 29.5.95      "         "       No 2
+! -----------------------------------
+  let #kos_pvl  =  #pra_pvl_pos * #mes_tim                 
+  if #kos_pvl < 0
+    let #kos_pvl = 0
+  end-if
+! -------------------------------------------
+! = = = = = = = = = = = = = = 
+! let #kos_pvl     = (#pre_kos_ypo + #ypo_aji_ago) - #kos_ypo
+! let #kos_pvl     =  #ypo_pos_pvl * #mes_tim                 
+  let #mik_ker_aji =  #ypo_aji_pvl                 - #kos_pvl
+  
+  if  #ypo_pos_pvl != 0
+    let #mes_tim_pvl = #ypo_aji_pvl / #ypo_pos_pvl
+  else 
+    let #mes_tim_pvl = 0
+  end-if
+
+  if  #mes_tim_pvl != 0
+    let #mik_ker_tem = #mes_tim_pvl - #mes_tim
+  else 
+    let #mik_ker_tem = 0
+  end-if
+
+!  if #mes_tim_pvl != 0
+!    let #dia = ( (#mes_tim_pvl - #tim_pvl ) * 100 ) / #mes_tim_pvl
+!  else 
+!    let #dia = 0
+!  end-if
+
+  if #ypo_aji_pvl != 0
+    let #mik_ker_pos = ( #mik_ker_aji * 100 ) / #ypo_aji_pvl
+  else
+    let #mik_ker_pos = 0
+  end-if
+ 
+  let #o_a_p       = #o_a_p + #apo_pos
+  let #o_y_p       = #o_y_p + #ypo_pos
+  
+  let #tmh_pre_ypo_pos   = #tmh_pre_ypo_pos + #pre_ypo_pos
+  let #tmh_pre_kos_ypo   = #tmh_pre_kos_ypo + #pre_kos_ypo
+  let #tmh_mes_tim       = #tmh_mes_tim     + #mes_tim
+  let #tmh_mes_tim_pvl   = #tmh_mes_tim_pvl + #mes_tim_pvl
+  let #tmh_mik_ker_tem   = #tmh_mik_ker_tem + #mik_ker_tem
+  let #tmh_ypo_aji_ago   = #tmh_ypo_aji_ago + #ypo_aji_ago
+  let #tmh_ypo_aji_pvl   = #tmh_ypo_aji_pvl + #ypo_aji_pvl
+  let #tmh_kos_ypo       = #tmh_kos_ypo + #kos_ypo
+  let #tmh_kos_pvl       = #tmh_kos_pvl + #kos_pvl
+  let #tmh_mik_ker_aji   = #tmh_mik_ker_aji + #mik_ker_aji
+
+! ******************************************************************************
+! 
+!   let #pre_ypo_pos = #pre_ypo_pos + #pre_apo_pos
+!   let     #ypo_pos =     #ypo_pos +     #apo_pos
+! 
+!   let #aji_eis = #ypo_aji_apo + #ypo_aji_ago
+!   let #pos_eis = #ypo_pos_apo + #ypo_pos_apo
+! 
+! !  if #pos_eis <> 0
+! !    let #my_mes_tim  =  #aji_eis / #pos_eis
+! !  else
+! !    let #my_mes_tim  =  0
+! !  end-if
+! 
+!   let #pre_kos_ypo = #pre_ypo_pos * #pre_mes_tim
+!   let     #kos_ypo =     #ypo_pos *     #mes_tim
+!    
+!   let #kos_pvl     = (#pre_kos_ypo + #ypo_aji_ago) - #kos_ypo
+!   let #mik_ker_aji =  #ypo_aji_pvl                 - #kos_pvl
+!   
+!   if  #ypo_pos_pvl <> 0
+!     let #mes_tim_pvl = #ypo_aji_pvl / #ypo_pos_pvl
+!   else 
+!     let #mes_tim_pvl = 0
+!   end-if
+! 
+!   if  #mes_tim_pvl <> 0
+!     let #mik_ker_tem = #mes_tim_pvl - #mes_tim
+!   else 
+!     let #mik_ker_tem = 0
+!   end-if
+! 
+! !  if #mes_tim_pvl <> 0
+! !    let #dia = ( (#mes_tim_pvl - #tim_pvl ) * 100 ) / #mes_tim_pvl
+! !  else 
+! !    let #dia = 0
+! !  end-if
+! 
+!   if #ypo_aji_pvl <> 0
+!     let #mik_ker_pos = ( #mik_ker_aji * 100 ) / #ypo_aji_pvl
+!   else
+!     let #mik_ker_pos = 0
+!   end-if
+!  
+!   let #tmh_apo_pos       = #tmh_apo_pos + #apo_pos
+!   let #tmh_ypo_pos       = #tmh_ypo_pos + #ypo_pos
+!   let #tmh_pre_ypo_pos   = #tmh_pre_ypo_pos + #pre_ypo_pos
+!   let #tmh_pre_kos_ypo   = #tmh_pre_kos_ypo + #pre_kos_ypo
+!   let #tmh_ypo_aji_ago   = #tmh_ypo_aji_ago + #ypo_aji_ago
+!   let #tmh_ypo_aji_pvl   = #tmh_ypo_aji_pvl + #ypo_aji_pvl
+!   let #tmh_kos_ypo       = #tmh_kos_ypo + #kos_ypo
+!   let #tmh_kos_pvl       = #tmh_kos_pvl + #kos_pvl
+!   let #tmh_mik_ker_aji   = #tmh_mik_ker_aji + #mik_ker_aji
+  
+end-procedure
+
+! ******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ let $mmm = 'ΑΠΟ : ' || $apohmp || '  ΕΩΣ : ' || $evshmp 
+ print 'ΟΙΚΟΝΟΜΙΚΑ ΣΤΟΙΧΕΙΑ ΚΑΤΑ ΤΜΗΜΑ'                    (3,)      Center
+ print $mmm                                                (4,)      Center
+ print ' '                                                 (6, 1,40) fill
+ print '    εναρξης'                          (6,+1,)
+ print '|---------------------------- περιοδου ---------------------------------|' (6,+1,)
+ print 'Τμήμα'                 (7,1,40)
+ print '    κοσ-υπο'           (,+1,11) 
+ print '     αγορες'           (,+2,11) 
+ print '    κοσ-υπο'           (,+2,11) 
+ print '   πωλησεις'           (,+2,11) 
+ print '    κοσ-πωλ'           (,+2,11) 
+ print '    μικ-κερ'           (,+2,11) 
+ print '  ποσ %'               (,+2,07)  
+End-Heading

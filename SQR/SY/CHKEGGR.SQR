@@ -1,0 +1,148 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : chkeggr.sqr                                    ****
+!***** DATE        : 27/04/95                                       ****
+!***** APPLICATION : Check Sy_Eggr                                  ****
+!***** AUTHOR      :                                                ****
+!***** NOTE        : Check Sy_eggr,Sy_kin,Gl_kin               ---  ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    80
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  6
+
+#DEFINE   MASK1      99,999,999
+#DEFINE   MASK_AA    99,999,999
+#DEFINE   DATEMASK   DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ihm_apo 'hmer_apo'
+ input $ihm_evs 'hmer_evs'
+ execute app_datecnv    $ihm_apo, $hm_apo output, $hm_apopr output
+ execute app_datecnv    $ihm_evs, $hm_evs output, $hm_evspr output
+
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+move 0 to #xre
+move 0 to #pis
+
+begin-select
+a.aa          &breakkiki    () on-break print=never after=printtot
+a.aa          &aa           (, 1,10) edit {MASK_AA}
+a.id          &id           (,+1, 1)
+a.xp          &xp           (,+1, 1)
+a.logar       &logar        (,+1,10)
+substring(a.logar,1,2) &log () NOP
+a.xrevsh                    () NOP
+a.pistvsh                   () NOP
+	if &xp = 'P'
+		move &a.pistvsh to #ajia
+	else
+		move &a.xrevsh  to #ajia
+	end-if
+	print #ajia         (,+1,10) edit {MASK1}
+a.synal       &synal        () NOP
+ 
+
+    do check_gl (&aa)
+
+ if  &log<>'38'  
+ and &log<>'33'
+    do check_synal (&aa,&logar,#ajia,&synal)
+ end-if
+
+ if &xp = 'Χ'
+    let #xre = #xre + #ajia
+ else
+    let #pis = #pis + #ajia
+ end-if
+
+ next-listing
+
+from sy_eggr a
+where a.hmer_e between $hm_apo and $hm_evs
+order by a.hmer_e,a.aa,a.xp
+
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure printtot
+
+  next-listing
+  print #xre (, 1) edit {MASK1}
+  print #pis (,40) edit {MASK1}
+  next-listing
+
+move 0 to #xre
+move 0 to #pis
+
+end-procedure 
+! ------------------------------------------------------------------------------
+
+begin-procedure check_synal (#aa,$logar,#ajia,$synal)
+
+begin-select
+b.aa                               () NOP
+b.logar                            () NOP
+b.synal                            (,+1,10)  
+b.xrevsh+b.pistvsh &b.ajia         () NOP   
+from sy_kin b
+where   b.aa = #aa 
+and     b.logar = $logar
+and     b.synal = $synal
+
+end-select
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure check_gl (#aa)
+
+begin-select
+c.aa                              () NOP
+c.aruro                           (,+1,10)
+from gl_ref c
+where c.aa = #aa
+
+end-select
+
+end-procedure
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΕΛΕΓΧΟΣ ΠΕΛΑΤΩΝ '
+  let $msg1='ΗΜΕΡΟΜΗΝΙΑ ΑΠΟ : '||$hm_apopr || '  ΕΩΣ : ' || $hm_evspr
+  print $msg  (3,) center
+  print $msg1 (4,) center
+  print 'Ταυτ.Εγγρ.'                               (7, 1,10)
+  print 'Α'                                        ( ,+1, 1)
+  print 'X/Π '                                     ( ,+1, 1) 
+  print 'Λογαριασμός'                              ( ,+1,11)
+  print '     Αξία'                                ( ,+1,10)
+  print 'Αρθρο'                                    ( ,+1,10)
+  print 'Συναλλασόμενος'                           ( ,+1,20)
+end-heading

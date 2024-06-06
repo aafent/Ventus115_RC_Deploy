@@ -1,0 +1,545 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : stat03.sqr                                             ****
+! **** DATE        : 05/05/94                                               ****
+! **** APPLICATION : ¡–œ»« ≈”- –ŸÀ«”≈…”                                     ****
+! **** AUTHOR      : Mal Nick                                               ****
+! **** NOTE        : ”‘¡‘…”‘… ¡ ≈…ƒŸÕ - ”‘œ◊œ… –ŸÀ«”≈ŸÕ                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y      64
+#DEFINE   PAGE-X     160 
+#DEFINE   HEAD-SIZE    7
+#DEFINE   FOOT-SIZE    1
+#DEFINE   HEAD-LINE    4
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK2              9,999
+#DEFINE   MASK3         99,999,999
+#DEFINE   MASK4            999,999.99
+#DEFINE   MASK5            999,999
+
+#DEFINE   DATEMASK        DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##total (kvdinf int,
+                      inf    char(5), 
+                      py_pos float, py_aji float, 
+                       p_pos float,  p_aji float, 
+                         pos float,    aji float )
+end-sql
+
+begin-sql -C2
+create table ##total_polh (kvdinf int,
+                           inf    char(5), 
+                           py_pos float, py_aji float, 
+                            p_pos float,  p_aji float, 
+                              pos float,    aji float )
+end-sql
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+  
+ input $ietaireia   '≈Ù·ÈÒÂﬂ·                  : '
+ input $evshmnia    'E˘Ú «ÏÂÒÔÏÁÌﬂ·            : '
+
+ execute app_datecnv   $evshmnia, $evshm output, $evshmpr output
+ execute app_geteom    $evshm   , $evshm output
+
+ unstring $ietaireia  by '"' into $filler7 $cid      $filler6
+
+ execute app_getxrhsh @cid=$cid,@hmeromhnia=$evshm,@xrhsh_arxh=$xrhsh_a output
+
+ let $apohm = $xrhsh_a
+
+ move $apohm to $apohmpr DD/MM/YY
+ move $evshm to $evshmpr DD/MM/YY
+
+ if $cid = '='
+    execute app_retdefcid $cid,$cid out
+ end-if
+
+ let $SQLINF   = ' and c.kvdinf in (101,102,103,104,201,202,203,204) '
+ let $THERE_IS = 'NO'
+
+!    $THERE_IS ≈¡Õ ’–¡—◊œ’Õ ≈…ƒ« –œ’ ƒ≈Õ ≈◊œ’Õ  ¡‘¡◊Ÿ—«»≈… ”‘…” –À«—œ÷œ—…≈”
+
+ let $THERE_IS = 'NO'
+
+ !   do find_all 
+
+ if $THERE_IS = 'YES'
+    new-page
+ end-if
+
+ let #SIZE_PER = 30
+ let #P_PER    = 10
+ let #P_POS    =  7
+ let #POS      =  7
+ let #P_AJI    = 11
+ let #AJI      = 11
+ let #EPI      = #POS+#AJI+1
+
+   do main02
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure find_all 
+  let #how      = 1
+begin-select
+a.kvdikos   &1 () NOP
+a.perigrafh &2 () NOP
+b.pvlomada  &3 () NOP
+
+  let $THERE_IS = 'YES'
+  if #how = 1
+     print '‘¡ –¡—¡ ¡‘Ÿ ≈…ƒ« ƒ≈Õ ’–¡—◊œ’Õ ”¡Õ –À«—œ÷œ—…≈”' (,1,)
+     next-listing
+  end-if
+
+  print &1 (, 1,15)
+  print &2 (,+1,40)
+  print &3 (,+1,15)
+
+  let #how = #how + 1
+
+  next-listing
+
+from wh_eidh a,wh_pvlomades b
+where a.pvlomada = b.pvlomada
+and   b.tmhma    in (1,2)
+and   a.kvdikos not in ('1≈','2≈')
+and   not exists ( select c.kvdikos 
+                   from   wh_eidhinf c
+                   where  a.kvdikos = c.kvdikos 
+                   [$SQLINF] )
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure main02
+
+ let $ektyp='YES'
+
+begin-select
+substring (convert(varchar,c.kvdinf),1,1)  &total () NOP
+
+    let $total = &total
+
+c.kvdinf            &kvdinf (,1, 5)                     on-break print =never
+                                                                 after =do_it2 
+                                                                 before=do_it1
+             
+    let #kvdinf = &kvdinf
+
+    if $next_list='YES' and $ektyp = 'YES' 
+       do find_per
+       let $next_list='NO'
+    end-if
+
+c.inf               &inf    () NOP
+a.perigrafh         &per    () NOP
+
+     print  &per (, 1,#SIZE_PER)
+
+sum(d.apo_p)        &apo_p    (,+1,#POS) EDIT {MASK5}
+sum(d.apo_a)        &apo_a    (,+1,#AJI) EDIT {MASK1}
+sum(d.ago_p)        &ago_p    (,+1,#POS) EDIT {MASK5}
+sum(d.ago_a)        &ago_a    (,+1,#AJI) EDIT {MASK1}
+sum(d.pvl_p)        &pvl_p    (,+1,#POS) EDIT {MASK5}
+sum(d.pvl_a)        &pvl_a    (,+1,#AJI) EDIT {MASK1}
+sum(d.gen_p)        &gen_p    (,+1,#POS) EDIT {MASK5}
+sum(d.gen_a)        &gen_a    (,+1,#AJI) EDIT {MASK1}
+sum(d.dia_p)        &dia_p    (,+1,#POS) EDIT {MASK5}
+sum(d.dia_a)        &dia_a    (,+1,#AJI) EDIT {MASK1}
+
+sum(d.apo_p)+sum(d.ago_p)-sum(d.pvl_p)+sum(d.gen_p)+sum(d.dia_p) &ypo_p   (,+1,#POS) EDIT {MASK5}
+
+   !   sum(d.apo_a)+sum(d.ago_a)-sum(d.pvl_a)+sum(d.gen_a)+sum(d.dia_a) &ypo_a (,+1,#AJI) EDIT {MASK1}
+
+  let #msk=0
+  let $inf    = &inf
+  let #kvdinf = &kvdinf
+
+
+  let #tot_apo_p =#tot_apo_p +&apo_p 
+  let #tot_apo_a =#tot_apo_a +&apo_a
+  let #tot_ago_p =#tot_ago_p +&ago_p 
+  let #tot_ago_a =#tot_ago_a +&ago_a 
+  let #tot_pvl_p =#tot_pvl_p +&pvl_p 
+  let #tot_pvl_a =#tot_pvl_a +&pvl_a 
+  let #tot_gen_p =#tot_gen_p +&gen_p 
+  let #tot_gen_a =#tot_gen_a +&gen_a 
+  let #tot_dia_p =#tot_dia_p +&dia_p 
+  let #tot_dia_a =#tot_dia_a +&dia_a 
+  let #tot_ypo_p =#tot_ypo_p +&ypo_p 
+
+  do find_eidos
+
+  let #tot_ypo_a =#tot_ypo_a + round(#tot_kos,0)
+  
+   if &ypo_p <> #tot_ypol
+
+   print #tot_ypol (,+1,#AJI) EDIT {MASK1}
+      next-listing
+      print 'R' (,1,{PAGE-X}) fill
+      next-listing
+      print 'W' (,1,{PAGE-X}) fill
+      new-page
+
+      display #kvdinf noline
+      display ' '  noline
+      display $inf noline
+      display ' ' noline
+      display #tot_ypo_p noline
+      display ' ' noline
+      display #tot_ypol
+
+      stop
+   end-if
+
+   print #tot_kos (,+1,#AJI) EDIT {MASK1}
+
+
+      let $inf        = &inf
+
+
+      let $prev_total = $total
+
+
+         next-listing
+
+from  wh_fkeidhinf a,
+      wh_eidhinf   c,
+      wh_kint1     d
+
+where c.kvdikos = d.eidos
+and   a.inf     = c.inf
+and   a.kvdinf  = c.kvdinf
+and   c.cid     = $cid
+and   d.cid     = $cid
+and   c.cid     = d.cid
+and   d.hmeromhnia between $apohm and $evshm
+[$SQLINF]
+[$SQLCMD]
+group by c.kvdinf,substring(convert(varchar,c.kvdinf),1,1),c.inf,a.perigrafh
+order by c.kvdinf,a.perigrafh
+end-select
+
+   let $flag = '’√—¡'
+    do do_it3
+    do do_it4
+end-procedure
+
+! ******************************************************************************
+begin-procedure do_it1   
+
+  let $next_list='YES'
+
+   if $prev_total != $total and $prev_total != ''
+
+      let $prev_total = $total
+      let $flag = '÷¡ ŸÕ'
+      do do_it3
+
+   end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure do_it2   
+
+   print ' '      (, 1,#SIZE_PER)
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_PER) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+
+   next-listing
+   print  '” ’ Õ œ À ¡  : ' (, 1,#SIZE_PER)
+
+  print #tot_apo_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_apo_a  (,+1,#AJI) EDIT {MASK1}
+  print #tot_ago_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_ago_a  (,+1,#AJI) EDIT {MASK1}
+  print #tot_pvl_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_pvl_a  (,+1,#AJI) EDIT {MASK1}
+  print #tot_gen_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_gen_a  (,+1,#AJI) EDIT {MASK1}
+  print #tot_dia_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_dia_a  (,+1,#AJI) EDIT {MASK1}
+  print #tot_ypo_p  (,+1,#POS) EDIT {MASK5}
+  print #tot_ypo_a  (,+1,#AJI) EDIT {MASK1}
+
+  let #s_tot_apo_p =#s_tot_apo_p + #tot_apo_p 
+  let #s_tot_apo_a =#s_tot_apo_a + #tot_apo_a
+  let #s_tot_ago_p =#s_tot_ago_p + #tot_ago_p 
+  let #s_tot_ago_a =#s_tot_ago_a + #tot_ago_a 
+  let #s_tot_pvl_p =#s_tot_pvl_p + #tot_pvl_p 
+  let #s_tot_pvl_a =#s_tot_pvl_a + #tot_pvl_a 
+  let #s_tot_gen_p =#s_tot_gen_p + #tot_gen_p 
+  let #s_tot_gen_a =#s_tot_gen_a + #tot_gen_a 
+  let #s_tot_dia_p =#s_tot_dia_p + #tot_dia_p 
+  let #s_tot_dia_a =#s_tot_dia_a + #tot_dia_a 
+  let #s_tot_ypo_p =#s_tot_ypo_p + #tot_ypo_p 
+  let #s_tot_ypo_a =#s_tot_ypo_a + #tot_ypo_a 
+
+  let #tot_apo_p = 0
+  let #tot_apo_a = 0
+  let #tot_ago_p = 0 
+  let #tot_ago_a = 0 
+  let #tot_pvl_p = 0 
+  let #tot_pvl_a = 0 
+  let #tot_gen_p = 0 
+  let #tot_gen_a = 0 
+  let #tot_dia_p = 0 
+  let #tot_dia_a = 0 
+  let #tot_ypo_p = 0 
+  let #tot_ypo_a = 0 
+
+   next-listing
+   next-listing
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure do_it3   
+  
+ 
+   position (-1,1)
+   print ' '      (  , 1,#SIZE_PER)
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+
+   next-listing
+
+   position (-1,1)
+  if $flag = '÷¡ ŸÕ'
+    print  '” ’ Õ œ À ¡   ÷ ¡   Ÿ Õ : ' (, 1,#SIZE_PER)
+  else
+    print  '” ’ Õ œ À ¡   ’ √ — Ÿ Õ : ' (, 1,#SIZE_PER)
+  end-if
+
+  print #s_tot_apo_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_apo_a  (,+1,#AJI) EDIT {MASK1}
+  print #s_tot_ago_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_ago_a  (,+1,#AJI) EDIT {MASK1}
+  print #s_tot_pvl_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_pvl_a  (,+1,#AJI) EDIT {MASK1}
+  print #s_tot_gen_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_gen_a  (,+1,#AJI) EDIT {MASK1}
+  print #s_tot_dia_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_dia_a  (,+1,#AJI) EDIT {MASK1}
+  print #s_tot_ypo_p  (,+1,#POS) EDIT {MASK5}
+  print #s_tot_ypo_a  (,+1,#AJI) EDIT {MASK1}
+
+  let #ss_tot_apo_p =#ss_tot_apo_p + #s_tot_apo_p 
+  let #ss_tot_apo_a =#ss_tot_apo_a + #s_tot_apo_a
+  let #ss_tot_ago_p =#ss_tot_ago_p + #s_tot_ago_p 
+  let #ss_tot_ago_a =#ss_tot_ago_a + #s_tot_ago_a 
+  let #ss_tot_pvl_p =#ss_tot_pvl_p + #s_tot_pvl_p 
+  let #ss_tot_pvl_a =#ss_tot_pvl_a + #s_tot_pvl_a 
+  let #ss_tot_gen_p =#ss_tot_gen_p + #s_tot_gen_p 
+  let #ss_tot_gen_a =#ss_tot_gen_a + #s_tot_gen_a 
+  let #ss_tot_dia_p =#ss_tot_dia_p + #s_tot_dia_p 
+  let #ss_tot_dia_a =#ss_tot_dia_a + #s_tot_dia_a 
+  let #ss_tot_ypo_p =#ss_tot_ypo_p + #s_tot_ypo_p 
+  let #ss_tot_ypo_a =#ss_tot_ypo_a + #s_tot_ypo_a 
+
+  let #s_tot_apo_p = 0
+  let #s_tot_apo_a = 0
+  let #s_tot_ago_p = 0 
+  let #s_tot_ago_a = 0 
+  let #s_tot_pvl_p = 0 
+  let #s_tot_pvl_a = 0 
+  let #s_tot_gen_p = 0 
+  let #s_tot_gen_a = 0 
+  let #s_tot_dia_p = 0 
+  let #s_tot_dia_a = 0 
+  let #s_tot_ypo_p = 0 
+  let #s_tot_ypo_a = 0 
+
+
+      next-listing need=2
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure do_it4   
+  
+ 
+
+   print ' '      (, 1,#SIZE_PER)
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+
+   next-listing
+
+    print  '√ ≈ Õ …   ¡  ” ’ Õ œ À ¡ :' (, 1,#SIZE_PER)
+
+  print #ss_tot_apo_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_apo_a  (,+1,#AJI) EDIT {MASK1}
+  print #ss_tot_ago_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_ago_a  (,+1,#AJI) EDIT {MASK1}
+  print #ss_tot_pvl_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_pvl_a  (,+1,#AJI) EDIT {MASK1}
+  print #ss_tot_gen_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_gen_a  (,+1,#AJI) EDIT {MASK1}
+  print #ss_tot_dia_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_dia_a  (,+1,#AJI) EDIT {MASK1}
+  print #ss_tot_ypo_p  (,+1,#POS) EDIT {MASK5}
+  print #ss_tot_ypo_a  (,+1,#AJI) EDIT {MASK1}
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_eidos        
+
+  let #tot_kos  = 0
+  let #tot_ypol = 0
+
+begin-select
+c.kvdikos           &eidos   () NOP
+
+  let #msk    = 0
+  let #ypol   = 0
+  let $eidos  = &eidos
+
+  do getmsk
+
+  let #tot_ypol = #tot_ypol +   #ypol
+  let #tot_kos  = #tot_kos  + ( #ypol * #msk )
+
+from  wh_eidhinf   c
+
+where c.inf     = $inf
+and   c.kvdinf  = #kvdinf
+and   c.cid     = $cid
+group by c.kvdikos
+
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_per        
+
+begin-select
+c.kvdinf                               () NOP   
+convert(varchar,c.kvdinf)    &kvdinf_p () NOP   
+c.perigrafh                            (,1,#SIZE_PER) 
+  
+
+  let $kvdinf_p = ' ( ' || &kvdinf_p || ' ) '
+
+  print $kvdinf_p (,+1,)
+
+   let #kvd = &c.kvdinf
+
+   next-listing
+
+from wh_fkeidhkvdinf c
+where c.kvdinf = #kvdinf
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure getmsk        
+
+  
+  execute whp_getmsk2    @eidos       = $eidos         ,
+                         @cid         = $cid           ,
+                         @hmer        = $evshm         ,
+                         @msk         = #msk       out ,
+                         @ypoloipo    = #ypol      out
+
+
+  let #msk     = round(#msk    ,0)
+
+end-procedure
+
+! ******************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+   let   $msg  = ' …Õ«”« ≈…ƒŸÕ  ¡‘¡  Ÿƒ… œ –À«—œ÷œ—…¡”'
+
+   let   $msg4=  '–≈—…œƒœ”         : ¡–œ  ' || $apohmpr || '  ≈Ÿ”  ' || $evshmpr
+ 
+   print $msg     (2,1,) center
+   print $msg4    (3,1,) 
+
+print  '         '           (5, 1,#SIZE_PER)
+print '---- ¡–œ√—¡÷« -----'  (,+1,19)
+print '----  ¡√œ—≈”  -----'  (,+1,19)
+print '---- –ŸÀ«”≈…” -----'  (,+1,19)
+print '----- √≈Õ… ¡ ------'  (,+1,19)
+print '--- ƒ…¡ …Õ«”≈…” ---'  (,+1,19)
+print '---- ’–œÀœ…–œ -----'  (,+1,19)
+
+print  '–≈—…√—¡÷«'           (6, 1,#SIZE_PER)
+
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+print '–ÔÛ¸ÙÁÙ'      ( ,+1, 7)
+print '       ¡Óﬂ·'  ( ,+1,11)
+
+end-Heading

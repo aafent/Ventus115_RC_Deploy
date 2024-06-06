@@ -1,0 +1,238 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : elegxos.sqr                                      ****
+! ***** DATE        : 04/08/94                                         ****
+! ***** APPLICATION : Application environment                          ****
+! ***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                                ****
+! ***** NOTE        : Κατασταση ελεγχου ημερ.εγγραφων Αποθήκης         ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK5    99.99
+#DEFINE   MASK4    9999
+#DEFINE   MASK7    99999
+#DEFINE   MASKQ    999,999.99
+#DEFINE   MASKA    99,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+! input $icid   'Εταιρεία    :'
+ input $iapou1 'apouhkh apo :'
+ input $iapou2 'apouhkh evs :'
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ unstring $iapou1 by '"' into $filler $apou1 $filler
+ unstring $iapou2 by '"' into $filler $apou2 $filler
+! unstring $icid   by '"' into $filler $et    $filler
+
+! if $et != '='
+!    move $et to $cid
+!    do find_etaireia
+! end-if
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.parkvd                                        () NOP
+   print &a.parkvd                              ()
+            On-Break print =  Never
+		  Save     = $parast
+		  Level    = 1
+                  Before   = print_parast
+                  After    = print_parast_totals
+a.apouhkh                                       (, 01,02) 
+a.seira                                         (,+01,03) 
+a.parno                                         (,,05) edit {MASK7}
+a.aitia                                         (,+01,10)
+a.eidos                                         (,+03,04) edit {MASK4}
+d.perigrafh                                     (,+01,15)
+a.synal                                         (,+01,05)
+b.epvnymia                                      (,+01,20)
+a.posothta                                      () NOP
+a.ajia                                          () NOP
+a.fpa                                           () NOP
+c.f_eis                                         () NOP
+c.f_eja                                         () NOP
+c.syntel_p                                      () NOP
+c.syntel_a                                      () NOP
+
+  do find_ajies_eidoys                  
+
+  print #eis_qt                                 (,+01,10) edit {MASKQ}
+  print #eis_aj                                 (,+01,10) edit {MASKA}
+  print #eis_fpa                                (,+01,05) edit {MASK5}
+  print #eja_qt                                 (,+01,10) edit {MASKQ}
+  print #eja_aj                                 (,+01,10) edit {MASKA}
+  print #eja_fpa                                (,+01,05) edit {MASK5}
+  next-listing
+
+from wh_kin a, sy_synal b, ap_par c, wh_eidh d ! ap_omadapar g, wh_eidh d
+where     a.cid          = $cid				
+      and a.synal        = b.synal
+      and a.eidos        = d.kvdikos 
+      and a.parkvd       = c.parkvd
+!      and a.parkvd       = g.parkvd             
+!     and g.omada        = 'APOU-ELEX'
+      and a.hmeromhnia   between $apohm and $evshm
+      and a.apouhkh      between $apou1 and $apou2
+[$SQLCMD]
+order by a.parkvd,a.apouhkh,a.hmeromhnia
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure print_parast
+  if $parast = ''
+      move &a.parkvd to $parast
+  end-if
+begin-select
+c.perigrafh
+  move &c.perigrafh to $perigrafh
+from ap_par c
+where   c.parkvd = $parast
+end-select
+  print $parast                            (, 01,03)
+  print $perigrafh                         (,+01,30)
+  next-listing
+  print '-'                                (, 01,34) Fill
+  next-listing
+  
+end-procedure
+
+! ******************************************************************
+begin-procedure find_ajies_eidoys
+     move 0 to #eis_qt
+     move 0 to #eis_aj
+     move 0 to #eis_fpa
+     move 0 to #eja_qt
+     move 0 to #eja_ej
+     move 0 to #eja_fpa
+  if &c.f_eis != ''
+     let #eis_qt  = &a.posothta * &c.syntel_p
+     let #eis_aj  = &a.ajia * &c.syntel_a
+     let #eis_fpa = &a.fpa  
+  end-if
+  if &c.f_eja != ''
+     let #eja_qt  = &a.posothta * &c.syntel_p
+     let #eja_aj  = &a.ajia * &c.syntel_a
+     let #eja_fpa = &a.fpa
+  end-if
+
+  let #par_eis_qt  = #par_eis_qt  + #eis_qt
+  let #par_eis_aj  = #par_eis_aj  + #eis_aj
+  let #par_eja_qt  = #par_eja_qt  + #eja_qt
+  let #par_eja_aj  = #par_eja_aj  + #eja_aj
+
+end-procedure
+
+! ******************************************************************
+begin-procedure print_parast_totals
+  next-listing
+  let $msg = 'Σύνολα Παραστατικού ['||$parast||']'
+  print $msg                         ( ,36,27)
+  print #par_eis_qt                  (, 74,10) edit {MASKQ}
+  print #par_eis_aj       	     (,+01,10) edit {MASKA}
+  print #par_eja_qt                  (,+07,10) edit {MASKQ}
+  print #par_eja_aj            	     (,+01,10) edit {MASKA}
+  next-listing
+  print '-'                          (, 36,96) Fill
+  next-listing
+
+  move 0 to #par_eis_qt
+  move 0 to #par_eis_aj
+  move 0 to #par_eja_qt
+  move 0 to #par_eja_aj
+
+end-procedure
+
+! ******************************************************************
+begin-procedure synola_apouhkhs
+  let $msg = 'Σύνολα Αποθήκης ['||$apouhkh||']'
+  print $msg                         ( ,20,27)
+  print #tot_eis_qt                  (, 43,09) edit {MASKQ}
+  print #tot_eis_aj       	     (,+01,09) edit {MASKA}
+  print #tot_eja_qt                  (,+01,09) edit {MASKQ}
+  print #tot_eja_aj            	     (,+01,09) edit {MASKA}
+  next-listing
+  
+  move 0 to #tot_eis_qt
+  move 0 to #tot_eis_aj
+  move 0 to #tot_eja_qt
+  move 0 to #tot_eja_aj
+  new-page
+end-procedure
+
+! ******************************************************************
+begin-procedure find_etaireia
+begin-select
+a.l1          &per1 () NOP
+a.l2          &per2 () NOP
+  let $p_et1 = &per1
+  let $p_et2 = &per2
+from ap_comp a
+where a.cid = $cid
+end-select
+end-procedure
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+!  let $head1 = $p_et1
+!  let $head2 = $p_et2
+!  print $head1                                         (1,1,50)
+!  print $head2                                         (2,1,50)
+
+  let $epk1='Κατάσταση Ελέγχου Ημερησίων Εγγραφών ]  απο '||$apohmpr||' εως '||$evshmpr
+  print  $epk1                        (3,01,99)
+  print 'Κω'                          (5,01,02)
+  print 'ΣE'                          (,+01,02)
+  print ' No. '                       (,+01,05)
+  print 'Α ι τ ι α '                  (,+01,10)
+  print ' Ε Ι Δ Ο Σ'                  (,+06,19)
+  print ' Συναλλασόμενος'             (,+01,19)
+  print '     Ε ι σ α γ ω γ ή'        (,+05,21)
+  print '  %  '                       (,+03,05)
+  print '     Ε ξ α γ ω γ ή'          (,+01,21)
+  print '  %  '                       (,+01,05)
+
+  print 'Απ'                          (6,01,02)
+  print 'Πρ'                          (,+01,02)
+  print 'Παρασ'                       (,+01,05)
+  print ' Εγγραφής '                  (,+01,10)
+  print 'Κωδ.'                        (,+03,04)
+  print 'Περιγραφή           '        (,+01,15)
+  print 'Kωδικ'                       (,+01,05)
+  print 'Επωνυμία'                    (,+01,20)
+  print '  Ποσότητα'                  (,+01,10)
+  print '  Α ξ ί α'                   (,+01,10)
+  print '  ΦΠΑ'                       (,+01,05)
+  print '  Ποσότητα'                  (,+01,10)
+  print '  Α ξ ί α'                   (,+01,10)
+  print '  ΦΠΑ'                       (,+01,05)
+end-heading

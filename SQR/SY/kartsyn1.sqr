@@ -1,0 +1,355 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : kartsyn1.sqr                                     ****
+! ***** DATE        : 04/12/02                                         ****
+! ***** AUTHOR      : ”’ œ’‘—«” «À…¡”                                  ****
+! ***** NOTE        : ≈ÍÙ˝˘ÛÁ  ·ÒÙÂÎ·Ú –ÂÎ‹ÙÁ                         ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     96
+#DEFINE   HEAD-SIZE   5
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5 
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   DATEM    DD/MM
+#DEFINE   MASK6         999999
+#DEFINE   MASK9      999999999
+#DEFINE   MASK5          99999
+#DEFINE   MASK11   99999999.99
+#DEFINE   MASK12  9,999,990.00
+#DEFINE   MASK1v3  9.999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $isynal1 'synalapo'
+ unstring $isynal1 by '"' into $filler $synal1 $filler
+ input $isynal2 'synalevs'
+ unstring $isynal2 by '"' into $filler $synal2 $filler
+ 
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ do find_xrhsh
+ do find_all_synal
+ 
+End-Report
+
+! ******************************************************************
+
+begin-procedure find_xrhsh
+
+begin-select -C1
+xr.xrhsh_arxh   &xrhsh_arxh      () NOP
+from ap_xrhsh xr
+where xr.cid=$cid
+  and $apohm between xr.xrhsh_arxh and xr.xrhsh_telos
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_all_synal
+begin-select -C1
+a.synal             () NOP
+  move &a.synal to $synal
+  do find_one_synal
+  do print_synal_header1
+  do print_synal_header2
+  do print_synal_header3
+  do print_synal_header4
+  do print_synal_detail
+  do synola_synal 
+  new-page
+from sy_synal a
+where a.synal between $synal1 and $synal2
+and exists (select 1 from sy_kint2 b
+            where a.synal=b.synal )
+and exists (select 1 from sy_synaleidos c
+            where a.synal=c.synal
+              and c.cid=$cid
+              and c.eidos like('PELAT%'))
+[$SQLCMD]
+end-select
+end-procedure
+
+
+! *************************************************************************
+begin-procedure allagh_selidas
+
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  new-page
+  do print_synal_header1
+  do print_synal_header3
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure print_synal_detail
+
+ move 0 to #cnt
+ move &prev_xrevsh  to #prod_xrevsh
+ move &prev_pistvsh to #prod_pistvsh
+
+begin-select -C2
+
+  do print_back( $L_X3  )
+convert(char(8),a.hmeromhnia,3)                 ( ,03,10)
+a.par_syntmhsh                                  (,+01,05)
+a.seira                                         (,+01,02)
+a.parno                                         (,+00,05)  edit {MASK5}
+a.xrevsh                                        (,+01,12)  edit {MASK12}
+a.pistvsh                                       (,+01,12)  edit {MASK12}
+
+  let #prod_xrevsh = #prod_xrevsh + &a.xrevsh
+  let #prod_pistvsh= #prod_pistvsh+ &a.pistvsh
+
+  print #prod_xrevsh                                   (,+02,12) edit {MASK12}
+  print #prod_pistvsh                                   (,+01,12) edit {MASK12}
+
+  let #ypol = (#prod_xrevsh - #prod_pistvsh)
+  print #ypol                                   (,+02,12) edit {MASK12}
+
+  do print_back( $L_X3  )
+
+  next-listing
+
+  let #cnt = #cnt + 1
+
+  if #current-line > 60
+     do allagh_selidas
+  end-if
+
+from sy_kinv1 a
+where a.cid          = $cid				
+  and a.hmeromhnia   between $apohm and $evshm
+  and a.synal	     =$synal 
+  and a.logar like '30%'
+
+order by a.hmeromhnia, a.aa
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_one_synal
+
+begin-select -C2
+sum(g1.xrevsh) &prev_xrevsh         () NOP
+sum(g1.pistvsh) &prev_pistvsh       () NOP
+from sy_kinv1 g1
+where g1.cid     =  $cid
+  and g1.synal   =  $synal
+  and g1.hmeromhnia < $apohm
+  and g1.hmeromhnia >= &xrhsh_arxh
+  and g1.logar like '30%'
+end-select
+
+begin-select -C2
+g2.epvnymia                   () NOP
+g2.epagg_perig                () NOP
+g2.afm                        () NOP
+g2.dieyuynsh		      () NOP
+g2.polh                       () NOP
+g2.thl                        () NOP
+g2.taxkvd            	      () NOP
+g2.doy                        () NOP
+g2.doy_perig                  () NOP
+g2.fax                        () NOP
+
+   move &g2.epvnymia    to $epvnymia
+   move &g2.epagg_perig to $epagg_perig  
+   move &g2.afm         to $afm
+   move &g2.dieyuynsh   to $dieyuynsh   
+   move &g2.polh        to $polh
+   move &g2.thl         to $thl   
+   move &g2.fax         to $fax
+   move &g2.taxkvd      to $taxkvd   
+   move &g2.doy         to $doy
+   do get_doy($doy,&g2.doy_perig,$doy_perig)
+
+from sy_synal g2
+where g2.synal  = $synal
+end-select
+
+move '' to $praktor_per
+begin-select -C2
+g3.praktorio                     () NOP
+
+   move &g3.praktorio     to $praktorio
+
+from sy_synaltopos g3
+where g3.synal  = $synal
+  and g3.topos  = 0
+end-select
+
+begin-select -C2
+g4.epvnymia                     () NOP
+
+   move &g4.epvnymia     to $praktor_per
+
+from sy_synal g4
+where g4.synal  = $praktorio
+end-select
+
+end-procedure
+					
+! ******************************************************************
+
+begin-procedure synola_synal
+
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  next-listing
+  do print_back( $L_X3  )
+  print ''   	                  (,03,10)    edit {DATEMASK}
+  print '” ’ Õ œ À ¡'              (,+01,14)
+  print ''                                (,+01,12)
+  print ''                                (,+01,12)
+  print #prod_xrevsh                     (,+01,12)    edit {MASK12}
+  print #prod_pistvsh                    (,+01,12)    edit {MASK12}
+  let #ypol = #prod_xrevsh - #prod_pistvsh
+  print #ypol                            (,+02,12)    edit {MASK12}
+
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_synal_header1
+  print '≈–ŸÕ’Ã…¡  :'	      ( ,01,11)
+  print $synal                ()
+  print ' '                   ()
+  print $epvnymia             (,,60)
+  next-listing
+end-procedure
+
+begin-procedure print_synal_header2
+  print '≈–¡√√≈ÀÃ¡ :'	      ( ,01,11)
+  print $epagg_perig          ( ,  ,34)
+  print 'FAX       :'	      ( ,  ,11)
+  print $fax                  ( ,  ,20)
+
+  next-listing
+  print 'ƒ…≈’»’Õ”« :'	      ( ,01,11)
+  print $dieyuynsh            ( ,  ,34)
+  print '‘«À≈÷ŸÕœ  :'	      ( ,  ,11)
+  print $thl                  ( ,  ,40)
+
+  next-listing
+  print 'ƒ.œ.’.    :'	      ( ,01,11)
+  print $doy_perig            ( ,  ,34)
+  print '¡.÷.Ã.    :'	      ( ,  ,11)
+  print $afm                  ( ,  ,40)
+
+  next-listing
+  print '–œÀ«      :'	      ( ,01,11)
+  print $polh		      ( ,  ,22)
+  print '‘. .:'	              ( ,33,05)
+  print $taxkvd               ( ,  ,05)               
+  print '–—¡ ‘œ—≈…œ:'	      ( ,+03,11)
+  print $praktor_per          ( , ,40)
+
+end-procedure
+
+
+begin-procedure print_synal_header3
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  
+  next-listing
+  print '«Ã≈—œÃ«Õ…¡'                    ( ,02,10)
+  print '  –¡—¡”‘¡‘… œ'                 (,+02,14)
+  print '    … Õ « ” ≈ … ”'             (,+01,25)
+  print '  –—œœƒ≈’‘… ¡ ”’ÕœÀ¡'          (,+01,25)
+  print '     ’–œÀœ…–œ'                 (,+01,14)
+  do print_back( $L_X3  ) 
+
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+
+  next-listing		
+  print ''                             ( ,02,10)
+  print '≈…ƒ.'                         (,+02,05)
+  print '”—'                           (,+01,02)
+  print '¡—…»Ã.'                       (,+01,05)
+  print '     ◊—≈Ÿ”« '                 (,+01,12)
+  print '    –…”‘Ÿ”« '                 (,+01,12)
+  print '      ◊—≈Ÿ”«'                 (,+01,12)
+  print '     –…”‘Ÿ”«'                 (,+01,12)
+  print '            '                 (,+01,12)
+  do print_back( $L_X3  )
+
+  next-listing
+  print $L_X1                          ( ,01, {PAGE-X} ) Fill
+
+
+end-procedure
+
+
+begin-procedure print_synal_header4
+  next-listing		
+  do print_back( $L_X3  )
+  print ''   	                       (,03,10)    edit {DATEMASK}
+  print '¡–œ Ã≈‘¡÷œ—¡'                 (,+1,14)
+  print ''                             (,+1,25)
+  print &prev_xrevsh                   (,+01,12)   edit {MASK12}
+  print &prev_pistvsh                  (,+01,12)   edit {MASK12}
+
+  add &prev_xrevsh  to #prod_xrevsh
+  add &prev_pistvsh to #prod_pistvsh
+
+  let #ypol = (&prev_xrevsh - &prev_pistvsh)
+  print #ypol                          (,+02,12)    edit {MASK12}
+
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_back ($L_X3 )
+  print $L_X3                                     (,1,01)
+  print $L_X3                                     (,12,01)
+  print $L_X3                                     (,28,01)
+  print $L_X3                                     (,54,01)
+  print $L_X3                                     (,81,01)
+  print $L_X3                                     (,96,01)
+  position (,1)
+end-procedure
+
+! ******************************************************************
+
+#INCLUDE "{$L_GDATA}/sqr/ventus01.inc"
+
+! ******************************************************************
+!begin-footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+!end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  
+  print ' ·ÒÙ›ÎÎ· –ÂÎ‹ÙÁ' (03,01,40) Center
+  
+  let $msg='¡¸  ' || $apohmpr || ' Â˘Ú  ' || $evshmpr
+  print $msg                              (4,+07,40) Center
+end-heading
+
+! ******************************************************************
+

@@ -1,0 +1,361 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : karteid1.sqr                                     ****
+! ***** DATE        : 04/12/02                                         ****
+! ***** AUTHOR      : ΣΥΚΟΥΤΡΗΣ ΗΛΙΑΣ                                  ****
+! ***** NOTE        : Εκτύπωση Καρτελας ειδων κατα Αποθηκη             ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    115
+#DEFINE   HEAD-SIZE   5
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5 
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   DATEM    DD/MM
+#DEFINE   MASK6         999999
+#DEFINE   MASK9      999999999
+#DEFINE   MASK5          99999
+#DEFINE   MASK11   99999999.99
+#DEFINE   MASK1v3  9.999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ move $L_XRHSH to #xrhsh
+ 
+ input $iapou1 'apouhkh apo'
+ unstring $iapou1 by '"' into $filler $apou1 $filler
+
+ input $ieidosapo
+ unstring $ieidosapo by '"' into $filler $eidosapo $filler
+ input $ieidosevs
+ unstring $ieidosevs by '"' into $filler $eidosevs $filler
+ 
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ do find_xrhsh
+ do get_apouhkh($apou1,$apou1_perigrafh) 
+ do find_all_eidh
+ 
+End-Report
+
+! ******************************************************************
+begin-procedure find_xrhsh
+
+begin-select -C1
+xr.xrhsh_arxh      &xrhsh_arxh     () NOP
+xr.xrhsh_telos     &xrhsh_telos    () NOP
+xr.hm_apografhs    &xrhsh_apografh () NOP
+from ap_xrhsh xr
+where xr.cid = $cid
+  and xr.xrhsh=#xrhsh
+end-select
+
+end-procedure
+! ******************************************************************
+
+begin-procedure find_all_eidh
+begin-select distinct -C1
+g.eidos                         () NOP
+  move &g.eidos to $eidos
+  do find_one_eidos
+  do print_eidos_header1
+  do print_eidos_header2
+  do print_eidos_detail
+
+  move 'Γ Ε Ν Ι Κ Ο  Σ Υ Ν Ο Λ Ο' to $total_txt
+  do synola_eidoys
+  new-page
+from wh_kint1 g
+where g.apouhkh =  $apou1
+and   g.eidos between $eidosapo and $eidosevs
+[$SQLCMD]
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure allagh_selidas
+
+  !print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  !next-listing
+  move 'ΣΕ ΜΕΤΑΦΟΡΑ' to $total_txt
+  do synola_eidoys
+
+  new-page
+  do print_eidos_header1
+  move 'ΑΠΟ ΜΕΤΑΦΟΡΑ' to $total_txt
+  do synola_eidoys
+
+  
+  !print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  !next-listing
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure print_eidos_detail
+
+ move 0 to #cnt
+ move 0 to #prood
+
+begin-select -C2
+
+  do print_back( $L_X3  )
+convert(char(8),a.hmeromhnia,3)                 ( ,03,10)
+a.par_perigrafh_txt                             (,+01,42)
+a.seira                                         (,+01,02)
+a.parno                                         (,+00,05)  edit {MASK5}
+a.eis_pos                                       (,+0,09)   edit {MASK9}
+a.eis_aji                                       (,,11)     edit {MASK11}
+a.eja_pos                                       (,+0,09)   edit {MASK9}
+a.eja_aji                                       (,,11)     edit {MASK11}
+  let #ypol = (&prev_eis_pos - &prev_eja_pos) + (&a.eis_pos - &a.eja_pos)
+  let #prood = #prood + #ypol
+  print #prood                                  (,+01,9) edit {MASK9}
+
+  add &a.eis_pos to #eidos_eis_pos
+  add &a.eja_pos to #eidos_eja_pos
+  add &a.eis_aji to #eidos_eis_aji
+  add &a.eja_aji to #eidos_eja_aji
+
+  do print_back( $L_X3  )
+
+  next-listing
+
+  let #cnt = #cnt + 1
+
+  if #current-line > 50
+     do allagh_selidas
+  end-if
+
+from wh_kinv1 a
+where a.cid          = $cid				
+  and a.hmeromhnia   between $apohm and $evshm
+  and a.apouhkh      =$apou1
+  and a.eidos	     =$eidos 
+
+order by a.hmeromhnia, a.aa
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure get_apouhkh($apouhkh,:$perigrafh)
+   move '' to $perigrafh
+begin-select -C3
+a.perigrafh                 () NOP
+   move &a.perigrafh to $perigrafh
+from wh_apouhk a
+where a.kvdikos = $apouhkh
+end-select
+end-procedure
+
+
+! ******************************************************************
+
+begin-procedure get_monada($mon_met, :$mon_txt)
+   move '' to $mon_txt
+begin-select -C3
+a.perigrafh                 () NOP
+   move &a.perigrafh to $mon_txt
+from ap_monades a
+where a.kvdikos = $mon_met
+end-select
+end-procedure
+
+
+! ******************************************************************
+begin-procedure find_one_eidos
+
+begin-select -C2
+sum(g1.eis_pos) &prev_eis_pos       () NOP
+sum(g1.eja_pos) &prev_eja_pos       () NOP
+sum(g1.eis_aji) &prev_eis_aji       () NOP
+sum(g1.eis_aji) &prev_eja_aji       () NOP
+from wh_kinv1 g1
+where g1.cid     =  $cid
+  and g1.apouhkh =  $apou1 
+  and g1.eidos   =  $eidos
+  and g1.hmeromhnia < $apohm
+  and g1.hmeromhnia >=&xrhsh_apografh
+end-select
+
+begin-select -C2 
+g2.perigrafh                  () NOP
+g2.monada                     () NOP
+g2.monada_pvl                 () NOP
+
+   move &g2.monada     to $mon_sys
+   move &g2.monada_pvl to $mon_met   
+
+from wh_eidh g2
+where g2.kvdikos  = $eidos
+end-select
+
+move 0 to #fardos
+begin-select -C2
+g3.fardos                     () NOP
+
+   move &g3.fardos     to #fardos
+
+from cu_eidh g3
+where g3.kvdikos  = $eidos
+end-select
+
+
+move 0 to #eidos_eis_pos
+move 0 to #eidos_eja_pos
+move 0 to #eidos_eis_aji
+move 0 to #eidos_eja_aji
+
+end-procedure
+					
+! ******************************************************************
+
+begin-procedure synola_eidoys
+
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  next-listing
+  do print_back( $L_X3  )
+  !print $evshm   	                  (,03,10)    edit {DATEMASK}
+  print ''            	                  (,03,10)   
+  
+  print $total_txt                        (,+1,42)
+  print ''                                (,+1,02)
+  print ''                                (,+0,05)
+  print #eidos_eis_pos                    (,+0,09)    edit {MASK9}
+  print #eidos_eis_aji                    (,,11)      edit {MASK11}
+  print #eidos_eja_pos                    (,+0,09)    edit {MASK9}
+  print #eidos_eja_aji                    (,,11)      edit {MASK11}
+
+  let #ypol = (&prev_eis_pos - &prev_eja_pos) + (#eidos_eis_pos - #eidos_eja_pos)
+  print #ypol                             (,+01,9)    edit {MASK9}
+
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_eidos_header1
+  print 'Κωδικός Είδους  :'	      ( ,01,17)
+  print $eidos                        ( ,+1,15)
+  next-listing
+
+  print 'Περιγραφή Είδους:'	      ( ,01,17)
+  print &g2.perigrafh                 ( ,+1,30)
+  next-listing
+
+end-procedure
+
+begin-procedure print_eidos_header2
+
+  print 'Μονάδα Μέτρησης :'	      ( ,01,17)
+  do get_monada($mon_met,$mon_txt)
+  print $mon_txt                      ( ,+1,20)
+
+  next-listing
+  print 'Φάρδος Μονάδας  :'	      ( ,01,17)
+  print #fardos                       ( ,+1,5) edit {MASK1v3}
+  next-listing
+  print 'Συσκευασία      :'	      ( ,01,17)
+  do get_monada($mon_sys,$mon_txt)
+  print $mon_txt                      ( ,+1,20)
+
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  next-listing
+  
+
+  do print_back( $L_X3  )
+  print ''                            ( ,02,10)
+  print ''                            (,+02,42)
+  print ''                            (,+01,07)
+  print ' ΧΡΕΩΣΗ - ΕΙΣΑΓΩΓΕΣ '        (,+00,21)
+  print 'ΠΙΣΤΩΣΗ - ΕΞΑΓΩΓΕΣ '         (,+00,21)
+  print ''                            (,+01,9)
+
+  next-listing
+  do print_back( $L_X3  )
+  print 'ΗΜΕΡΟΜΗΝΙΑ'                  ( ,02,10)
+  print 'ΑΙΤΙΟΛΟΓΙΑ ΚΙΝΗΣΗΣ'          (,+02,42)
+  print 'ΣΡ ΑΡΙΘ'                     (,+01,07)
+  print ' Ποσότητα    Α ξ ί α'        (,+00,21)
+  print 'Ποσότητα    Α ξ ί α'         (,+00,21)
+  print 'ΥΠΟΛΟΙΠΟ'                    (,+00,9)
+  next-listing
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+
+
+  next-listing		
+  !print $apohm   	                  (,03,10)    edit {DATEMASK}
+  print ''       	                  (,03,10)
+  print 'ΚΙΝΗΣΗ ΠΡΟΗΓΟΥΜΕΝΗΣ ΠΕΡΙΟΔΟΥ'    (,+1,42)
+  print ''                                (,+1,02)
+  print ''                                (,+0,05)
+  print &prev_eis_pos                     (,+0,09)    edit {MASK9}
+  print &prev_eis_aji                     (,,11)      edit {MASK11}
+  print &prev_eja_pos                     (,+0,09)    edit {MASK9}
+  print &prev_eja_aji                     (,,11)      edit {MASK11}
+
+  add &prev_eis_pos to #eidos_eis_pos
+  add &prev_eja_pos to #eidos_eja_pos
+  add &prev_eis_aji to #eidos_eis_aji
+  add &prev_eja_aji to #eidos_eja_aji
+
+  let #ypol = (&prev_eis_pos - &prev_eja_pos)
+  print #ypol                             (,+01,9)    edit {MASK9}
+  do print_back( $L_X3  )
+  next-listing
+
+  print $L_X1                         ( ,01, {PAGE-X} ) Fill
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_back ($L_X3 )
+  print $L_X3                                     (,1,01)
+  print $L_X3                                     (,12,01)
+  print $L_X3                                     (,55,01)
+  print $L_X3                                     (,64,01)
+  print $L_X3                                     (,84,01)
+  print $L_X3                                     (,104,01)
+  print $L_X3                                     (,114,01)
+  position (,1)
+end-procedure
+
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'Αναλυτική Καρτέλλα Εμπορευμάτων' (03,01,40) Center
+  print 'Αποθήκη:'                        ( 4,01,10)
+  print $apou1_perigrafh                  (,+01,30)
+
+  let $msg='Από :' || $apohmpr || ' εως : ' || $evshmpr
+  print $msg                              (,+07,40) Center
+end-heading
+
+! ******************************************************************
+

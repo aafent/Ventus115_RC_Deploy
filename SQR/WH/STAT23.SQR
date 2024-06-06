@@ -1,0 +1,1089 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : stat03.sqr                                             ****
+! **** DATE        : 05/05/94                                               ****
+! **** APPLICATION : ¡–œ»« ≈”- –ŸÀ«”≈…”                                     ****
+! **** AUTHOR      : Mal Nick                                               ****
+! **** NOTE        : ”‘¡‘…”‘… ¡ ≈…ƒŸÕ - ”‘œ◊œ… –ŸÀ«”≈ŸÕ                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y      62
+#DEFINE   PAGE-X     150 
+#DEFINE   HEAD-SIZE   11
+#DEFINE   FOOT-SIZE    1
+#DEFINE   HEAD-LINE    7
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK2              9,999
+#DEFINE   MASK3         99,999,999
+#DEFINE   MASK4            999,999.99
+
+#DEFINE   DATEMASK        DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##total (kvdinf int,
+                      inf    char(5), 
+                      py_pos float, py_aji float, 
+                       p_pos float,  p_aji float, 
+                         pos float,    aji float )
+end-sql
+
+begin-sql -C2
+create table ##total_polh (kvdinf int,
+                           inf    char(5), 
+                           py_pos float, py_aji float, 
+                            p_pos float,  p_aji float, 
+                              pos float,    aji float )
+end-sql
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+  
+ input $ietaireia   '≈Ù·ÈÒÂﬂ·                  : '
+ input $apohmnia    '¡¸ «ÏÂÒÔÏÁÌﬂ·            : '
+ input $evshmnia    'E˘Ú «ÏÂÒÔÏÁÌﬂ·            : '
+ input $pvlhths     '–˘ÎÁÙÁÚ   (* œÀœ…)        : '
+ input $ianalytika  '≈ÍÙ˝˘ÛÁ ”ıÌ/Ì˘Ì          : '
+ input $iclose      '≈ÍÙ˝˘ÛÁ ”ıÌ/Ì˘Ì          : '
+ input $ipolh       '≈ÍÙ˝˘ÛÁ ”ıÌ¸Î˘Ì ·Ì· –¸ÎÁ :'
+
+ execute app_datecnv   $apohmnia, $apohm output, $apohmpr output
+ execute app_datecnv   $evshmnia, $evshm output, $evshmpr output
+
+ execute app_getsom    $apohm   , $apohm output
+ execute app_geteom    $evshm   , $evshm output
+
+ move $evshm to $evshmpr {DATEMASK}
+ move $apohm to $apohmpr {DATEMASK}
+
+ unstring $pvlhths    by '"' into $filler9 $pvl      $filler8
+ unstring $ietaireia  by '"' into $filler7 $cid      $filler6
+ unstring $ianalytika by '"' into $filler5 $anal     $filler4
+ unstring $iclose     by '"' into $filler5 $close    $filler4
+ unstring $ipolh      by '"' into $filler5 $brk_polh $filler4
+
+ if $brk_polh = 'Õ' 
+ or $brk_polh = 'N'
+    let $brk_polh = 'YES'
+ end-if
+
+ if $cid = '='
+    execute app_retdefcid $cid,$cid out
+ end-if
+
+ if ($anal = 'N' 
+ or  $anal = 'Õ' )
+   let $ektyp = 'YES'
+ else
+   let $ektyp = 'NO'
+ end-if
+ 
+ if ($close = 'N' 
+ or  $close = 'Õ' )
+   let $SQLCLOSE = ' '
+ else
+   let $SQLCLOSE = ' and  not exists ( select e.synal from   sy_synalsxolia e where  e.synal  = a.synal and    e.kvdinf > 92 ) '
+ end-if
+ 
+ let $pvlpr = ''
+
+ if $pvl != '*'
+    let $SQLPVLHTHS = 'and b.pvlhths = ' || $pvl  
+    move $pvl to #pvl
+    do get_pvl 
+ else
+    let $SQLPVLHTHS = 'and b.pvlhths < 10 ' 
+ end-if
+
+ let #SIZE_PER = 30
+ let #P_POS    = 10
+ let #P_AJI    = 11
+ let #P_PER    = 10
+ let $SQLINF   = ' and c.kvdinf in (101,102,103,104,201,202,203,204) '
+ let $THERE_IS = 'NO'
+
+!    $THERE_IS ≈¡Õ ’–¡—◊œ’Õ ≈…ƒ« –œ’ ƒ≈Õ ≈◊œ’Õ  ¡‘¡◊Ÿ—«»≈… ”‘…” –À«—œ÷œ—…≈”
+
+ let $THERE_IS = 'NO'
+
+ do find_all 
+
+ if $THERE_IS = 'YES'
+    new-page
+ end-if
+
+ do find_hmer
+   
+! ¡Ì·ÎıÙÈÍ‹
+! ---------
+   do main01
+
+! ”˝ÌÔÎ·
+! ------
+   let $synal_p     = '”’ÕœÀ¡           : ' || $p
+   let $synal_e     = ' '
+   let $epaggelma_e = ' '
+   let $from_polh   = 'NO'
+   do main03
+
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main01
+
+  let $prev_polh = '1'
+  let #cnt       =  0
+
+ ! $brk_polh   ≈¡Õ »¡ ¬√¡À≈… ”’ÕœÀ¡ ¡Õ¡ –œÀ«
+ ! $prev_polh  –—œ«√œ’Ã≈Õ« –œÀ« ( √…¡ ”’ÕœÀ¡ ¡Õ¡ –œÀ« )
+ ! $from_polh  exec ‘œ main03   ( √…¡ ”’ÕœÀ¡ ¡Õ¡ –œÀ« )
+ ! #cnt        COUNT ”’Õ¡ÀÀ¡”œÃ≈ÕŸÕ
+
+begin-select
+a.synal      &synal     () NOP   
+a.epvnymia   &epvn      () NOP  
+c.dieyuynsh  &dieyuynsh () NOP  
+c.polh       &polh      () NOP
+d.perigrafh  &nomos     () NOP  
+      display $prev_polh
+      display &polh
+      display $prev_polh
+      display $brk_polh
+      if  $prev_polh != &polh 
+      and $prev_polh != '1' 
+      and $brk_polh   = 'YES'
+          move #cnt to $cnt2 9999
+          let $from_polh   = 'YES'
+          let $synal_e     = '”’ÕœÀ¡ –œÀ«”     : ' || $prev_polh
+          let $synal_p     = '”’ÕœÀœ ”’Õ/Ã≈ÕŸÕ : ' || $cnt2
+          let $epaggelma_e = ' '
+          ! new-page
+          do main03
+          do del_total_polh
+             if $cid = '3' 
+                new-page
+             end-if
+          let #cnt       =   0
+          let $from_polh = 'NO'
+
+      end-if
+
+      let $synal   =   &synal
+      let $synal_p =   &synal
+      let $epvn_p  =   &epvn
+      let $dieyu_p =   &dieyuynsh
+      let $polh_p  =   &polh
+      let $nomos_p =   &nomos
+
+      do get_epaggelma
+
+      let $synal_e =     '”’Õ¡ÀÀ¡”œÃ≈Õœ”   : '|| $synal_p  || ' ' || $epvn_p  || ' ' || $dieyu_p || ' ' || $polh_p || ' ' || $nomos_p
+      let $epaggelma_e = '≈–¡√√≈ÀÃ¡   : ' || $epaggelma
+
+      do find_pvlhth
+
+      do main02
+
+      if #current-line > {HEAD-SIZE} + 1
+       !   new-page
+      end-if
+
+      let $prev_polh = $polh_p
+      let #cnt       = #cnt + 1
+
+from  sy_synal      a,
+      sy_synalprog  b,
+      sy_synaltopos c,
+      ap_nomos      d,
+      ap_epaggelma  e
+
+where a.synal          = b.synal
+and   b.synal          = c.synal
+and   a.synal          = c.synal
+and   a.epaggelma      = e.kvdikos
+and   c.topos          = 0
+ ! and   a.synal in
+ ! ANAST("00720", "00784", "00964", "01163", "01275", "01553", "01664","90108")
+ ! SOFLO("00581", "00720", "00911", "00964", "01649", "01664", "90672","999-21")
+and  isnull(c.nomos,0) = d.kvdikos
+[$SQLCLOSE]
+[$SQLPVLHTHS]
+[$SQLCMD]
+group by a.synal, a.epvnymia, c.dieyuynsh, c.polh, d.perigrafh  
+order by d.perigrafh  ,c.polh,c.dieyuynsh,a.synal,a.epvnymia
+end-select
+
+      display $prev_polh
+      display &polh
+      display $prev_polh
+      display $brk_polh
+      if  $brk_polh = 'YES'
+          let $from_polh = 'YES'
+          move #cnt to $cnt2 9999
+          let $synal_e = '”’ÕœÀ¡ –œÀ«”     : ' || $prev_polh
+          let $synal_p = '”’ÕœÀœ ”’Õ/Ã≈ÕŸÕ : ' || $cnt2
+          ! new-page
+          do main03
+          do del_total_polh
+             if $cid = '3' 
+                new-page
+             end-if
+          let $from_polh = 'NO'
+      end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_all 
+  let #how      = 1
+begin-select
+a.kvdikos   &1 () NOP
+a.perigrafh &2 () NOP
+b.pvlomada  &3 () NOP
+
+  let $THERE_IS = 'YES'
+  if #how = 1
+     print '‘¡ –¡—¡ ¡‘Ÿ ≈…ƒ« ƒ≈Õ ’–¡—◊œ’Õ ”¡Õ –À«—œ÷œ—…≈”' (,1,)
+     next-listing
+  end-if
+
+  print &1 (, 1,15)
+  print &2 (,+1,40)
+  print &3 (,+1,15)
+
+  let #how = #how + 1
+
+  next-listing
+
+from wh_eidh a,wh_pvlomades b
+where a.pvlomada = b.pvlomada
+and   b.tmhma    in (1,2)
+and   a.kvdikos not in ('1≈','2≈')
+and   not exists ( select c.kvdikos 
+                   from   wh_eidhinf c
+                   where  a.kvdikos = c.kvdikos 
+                   [$SQLINF] )
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_hmer
+
+begin-select
+dateadd(yy,-1,$apohm) &prev_apohm () NOP
+dateadd(yy,-1,$evshm) &prev_evshm () NOP
+   let $prev_apohm = &prev_apohm
+   let $prev_evshm = &prev_evshm
+
+datepart(yy,dateadd(yy,-1,$evshm)) &prevyear () NOP   
+   move &prevyear to $prevyear 9999
+ 
+   let      $prevyear_apohm = 'Jan  1 ' || $prevyear || ' 12:00AM'
+   let      $prevyear_evshm = 'Dec 31 ' || $prevyear || ' 12:00AM'
+
+end-select
+
+    execute app_geteom    $prev_evshm   , $prev_evshm output
+
+    display '‘—≈◊.–≈—…œƒœ” : ' noline
+    display $apohm             noline
+    display ' - '              noline
+    display $evshm 
+
+    display '–—œ«√.–≈—…œƒœ”: ' noline
+    display $prev_apohm        noline
+    display ' - '              noline
+    display $prev_evshm 
+
+    display '–—œ«√œ’Ã.≈‘œ” : ' noline
+    display $prevyear_apohm    noline
+    display ' - '              noline
+    display $prevyear_evshm 
+
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure main02
+
+  let $prev_total = ''
+
+begin-select
+substring (convert(varchar,c.kvdinf),1,1)  &total () NOP
+
+    let $total = &total
+
+c.kvdinf            &kvdinf (,1, 5)                     on-break print =never
+                                                                 after =do_it2 
+                                                                 before=do_it1
+             
+    let #kvdinf = &kvdinf
+
+    if $next_list='YES' and $ektyp = 'YES' 
+       do find_per
+       let $next_list='NO'
+    end-if
+
+c.inf               &inf    () NOP
+a.perigrafh         &per    () NOP
+
+      if $ektyp = 'YES' 
+        print  &per (, 1,#SIZE_PER)
+      end-if
+
+      let $inf        = &inf
+
+      do find_kin
+
+      let $prev_total = $total
+
+      if $brk_polh = 'YES'
+         if $upd_polh = 'NO'
+            do insert_polh
+         end-if
+
+         if $upd_polh = 'YES'
+            do update_polh
+         end-if
+      end-if
+
+      if $upd = 'NO'
+         do insert
+      else
+         do update
+      end-if
+
+      if  $ektyp = 'YES' 
+         next-listing
+      end-if
+
+from  wh_fkeidhinf a,
+      wh_eidhinf   c,
+      wh_eidh01    b
+
+where c.kvdikos = b.eidos
+and   a.inf     = c.inf
+and   a.kvdinf  = c.kvdinf
+and   c.cid     = $cid
+[$SQLINF]
+group by c.kvdinf,substring(convert(varchar,c.kvdinf),1,1),c.inf,a.perigrafh
+order by c.kvdinf,a.perigrafh
+end-select
+
+   let $flag = '’√—¡'
+   if $total='1'
+      let $flag = '÷¡ ŸÕ'
+   end-if
+   do do_it3
+     ! new-page
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure main03
+  
+  let $prev_total = ''
+  if $from_polh='YES'
+
+  !   let $ektyp='YES'
+
+   end-if
+
+begin-select
+
+substring (convert(varchar,c.kvdinf),1,1)  &total2 () NOP
+
+   let $total = &total2
+
+c.kvdinf            &kvdinf2 (,1, 5)                     on-break print=never
+                                                                 after=do_it2 
+                                                                 before=do_it1
+             
+
+            
+ let #kvdinf = &kvdinf2
+ if $next_list='YES'
+    do find_per
+    let $next_list='NO'
+ end-if
+
+c.inf               &inf2    () NOP
+a.perigrafh         &per2    () NOP
+
+   let $per2 = &per2
+
+   print  &per2 (, 1,#SIZE_PER)
+
+   let $inf        = &inf2
+
+    if $from_polh = 'YES'
+      do find_total_polh
+    else
+      do find_total
+    end-if
+
+   let $prev_total = $total
+
+ next-listing
+
+from wh_fkeidhinf a,wh_eidhinf c ,wh_eidh01 b
+where c.kvdikos = b.eidos
+and   a.inf     = c.inf
+and   a.kvdinf  = c.kvdinf
+and   c.cid     = $cid
+[$SQLINF]
+group by c.kvdinf,substring(convert(varchar,c.kvdinf),1,1),c.inf,a.perigrafh
+order by c.kvdinf,a.perigrafh
+end-select
+
+   let $flag = '’√—¡'
+   if $total='1'
+      let $flag = '÷¡ ŸÕ'
+   end-if
+   do do_it3
+  
+end-procedure
+
+! ******************************************************************************
+begin-procedure do_it1   
+
+  let $next_list='YES'
+
+   if $prev_total != $total and $prev_total != ''
+
+      let $prev_total = $total
+      let $flag = '÷¡ ŸÕ'
+      do do_it3
+      next-listing
+
+   end-if
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure do_it2   
+
+ if ($ektyp = 'YES') or ( $brk_polh ='YES' and $from_polh = 'YES')
+   print  '” ’ Õ œ À ¡  : ' (, 1,#SIZE_PER)
+   print #s_prevyear_pos       (,+1,#P_POS) edit {MASK3}
+   print #s_prevyear_aji       (,+1,#P_AJI) edit {MASK1}
+
+   print #s_for_pos            (,+1,#P_POS) edit {MASK3}
+
+   if #s_prevyear_pos  <>  0
+         let  #spst_for = (100*( #s_for_pos - #s_prevyear_pos ))/#s_prevyear_pos
+   else
+         let  #spst_for = 0
+   end-if
+
+   print #spst_for             (,+1,#P_PER) edit {MASK4}
+
+   print #s_prev_pos           (,+1,#P_POS) edit {MASK3}
+   print #s_prev_aji           (,+1,#P_AJI) edit {MASK1}
+   print #s_pos                (,+1,#P_POS) edit {MASK3}
+   print #s_aji                (,+1,#P_AJI) edit {MASK1}
+
+   if #s_prev_pos  <>  0
+         let  #spst_pos = (100 * (#s_pos - #s_prev_pos )) / #s_prev_pos
+   else
+         let  #spst_pos = #s_pos * 100
+   end-if
+   if #s_prev_aji  <>  0
+         let  #spst_aji = (100 * (#s_aji - #s_prev_aji )) / #s_prev_aji
+   else
+         let  #spst_aji = #s_aji * 100
+   end-if
+
+   print #spst_pos          (,+1,#P_PER) edit {MASK4} 
+   print #spst_aji          (,+1,#P_PER) edit {MASK4} 
+
+   let #ss_prevyear_pos  = #ss_prevyear_pos + #s_prevyear_pos
+   let #ss_prevyear_aji  = #ss_prevyear_aji + #s_prevyear_aji
+   let #ss_for_pos       = #ss_for_pos      + #s_for_pos
+   let #ss_prev_pos      = #ss_prev_pos     + #s_prev_pos
+   let #ss_prev_aji      = #ss_prev_aji     + #s_prev_aji
+   let #ss_pos           = #ss_pos          + #s_pos
+   let #ss_aji           = #ss_aji          + #s_aji
+
+   let #s_prevyear_pos  = 0
+   let #s_prevyear_aji  = 0
+   let #s_for_pos       = 0
+   let #s_prev_pos      = 0
+   let #s_prev_aji      = 0
+   let #s_pos           = 0
+   let #s_aji           = 0
+
+   next-listing
+
+ end-if  !if $ektyp = 'YES'or $brk_polh ='YES'
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure do_it3   
+   display ' ektyp '    noline
+   display $ektyp noline
+   display ' brk_polh '    noline
+   display $brk_polh noline
+   display ' from_polh '    noline
+   display $from_polh 
+
+   ! position (-1,1)
+
+ if ($ektyp = 'YES') or ( $brk_polh ='YES' and $from_polh = 'YES')
+   print ' '      (, 1,#SIZE_PER)
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_PER) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_POS) fill
+   print '-'      (,+1,#P_AJI) fill
+   print '-'      (,+1,#P_PER) fill
+   print '-'      (,+1,#P_PER) fill
+
+   next-listing
+ if $flag = '÷¡ ŸÕ'
+   print  '” ’ Õ œ À ¡   ÷ ¡   Ÿ Õ : ' (, 1,#SIZE_PER)
+ else
+   print  '” ’ Õ œ À ¡   ’ √ — Ÿ Õ : ' (, 1,#SIZE_PER)
+ end-if
+
+   print #ss_prevyear_pos       (,+1,#P_POS) edit {MASK3}
+   print #ss_prevyear_aji       (,+1,#P_AJI) edit {MASK1}
+
+   print #ss_for_pos            (,+1,#P_POS) edit {MASK3}
+
+   if #ss_prevyear_pos  <>  0
+         let  #sspst_for = (100*(#ss_for_pos-#ss_prevyear_pos))/#ss_prevyear_pos
+   else
+         let  #sspst_for = 0
+   end-if
+
+   print #spst_for             (,+1,#P_PER) edit {MASK4}
+   print #ss_prev_pos           (,+1,#P_POS) edit {MASK3}
+   print #ss_prev_aji           (,+1,#P_AJI) edit {MASK1}
+   print #ss_pos                (,+1,#P_POS) edit {MASK3}
+   print #ss_aji                (,+1,#P_AJI) edit {MASK1}
+
+   if #ss_prev_pos  <>  0
+         let  #sspst_pos = (100 * (#ss_pos - #ss_prev_pos )) / #ss_prev_pos
+   else
+         let  #sspst_pos = #ss_pos * 100
+   end-if
+   if #ss_prev_aji  <>  0
+         let  #sspst_aji = (100 * (#ss_aji - #ss_prev_aji )) / #ss_prev_aji
+   else
+         let  #sspst_aji = #ss_aji * 100
+   end-if
+
+   print #sspst_pos          (,+1,#P_PER) edit {MASK4} 
+   print #sspst_aji          (,+1,#P_PER) edit {MASK4} 
+
+   let #ss_prevyear_pos  = 0
+   let #ss_prevyear_aji  = 0
+   let #ss_for_pos       = 0
+   let #ss_prev_pos      = 0
+   let #ss_prev_aji      = 0
+   let #ss_pos           = 0
+   let #ss_aji           = 0
+
+      next-listing need=2
+
+ if $flag != '÷¡ ŸÕ' and $from_polh = 'YES'
+    new-page
+ end-if
+
+ end-if ! $ektyp = 'YES'or $brk_polh ='YES'
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_kin 
+
+   let #prevyear_pos = 0
+   let #prevyear_aji = 0
+   let #prev_pos     = 0
+   let #prev_aji     = 0
+   let #pos          = 0
+   let #aji          = 0
+      
+   execute whp_getpvl3 @synal     =  $synal         ,
+                       @apohm     =  $prevyear_apohm,
+                       @evshm     =  $prevyear_evshm,
+                       @cid       =  $cid           ,
+                       @kvdinf    =  #kvdinf        ,
+                       @inf       =  $inf           ,
+                       @pvl_p     =  #prevyear_pos     out   ,
+                       @pvl_a     =  #prevyear_aji     out
+
+   execute whp_getpvl3 @synal     =  $synal         ,
+                       @apohm     =  $prev_apohm    ,
+                       @evshm     =  $prev_evshm    ,
+                       @cid       =  $cid           ,
+                       @kvdinf    =  #kvdinf        ,
+                       @inf       =  $inf           ,
+                       @pvl_p     =  #prev_pos     out   ,
+                       @pvl_a     =  #prev_aji     out
+
+   execute whp_getpvl3 @synal     =  $synal         ,
+                       @apohm     =  $apohm         ,
+                       @evshm     =  $evshm         ,
+                       @cid       =  $cid           ,
+                       @kvdinf    =  #kvdinf        ,
+                       @inf       =  $inf           ,
+                       @pvl_p     =  #pos     out   ,
+                       @pvl_a     =  #aji     out
+
+     let #for_pos = 0 
+
+     let #s_prevyear_pos    = #s_prevyear_pos   + #prevyear_pos
+     let #s_prevyear_aji    = #s_prevyear_aji   + #prevyear_aji
+
+     let #s_for_pos         = #s_for_pos        + #for_pos
+
+     let #s_prev_pos        = #s_prev_pos       + #prev_pos
+     let #s_prev_aji        = #s_prev_aji       + #prev_aji
+
+     let #s_pos             = #s_pos            + #pos
+     let #s_aji             = #s_aji            + #aji
+
+
+ if $ektyp = 'YES' 
+   print #prevyear_pos (,+1,#P_POS) edit {MASK3}
+   print #prevyear_aji (,+1,#P_AJI) edit {MASK1}
+
+
+   print #for_pos      (,+1,#P_POS) edit {MASK3}
+
+   if #prevyear_pos  <>  0
+         let  #pst_for = (100*( #for_pos - #prevyear_pos ))/#prevyear_pos
+   else
+         let  #pst_for = 0
+   end-if
+
+   print #pst_for      (,+1,#P_PER) edit {MASK4}
+
+   print #prev_pos     (,+1,#P_POS) edit {MASK3}
+   print #prev_aji     (,+1,#P_AJI) edit {MASK1}
+   print #pos          (,+1,#P_POS) edit {MASK3}
+   print #aji          (,+1,#P_AJI) edit {MASK1}
+
+
+   if #prev_pos  <>  0
+         let  #pst_pos = (100 * (#pos - #prev_pos )) / #prev_pos
+   else
+         let  #pst_pos = #pos * 100
+   end-if
+   if #prev_aji  <>  0
+         let  #pst_aji = (100 * (#aji - #prev_aji )) / #prev_aji
+   else
+         let  #pst_aji = #aji * 100
+   end-if
+
+   print #pst_pos          (,+1,#P_PER) edit {MASK4} 
+   print #pst_aji          (,+1,#P_PER) edit {MASK4} 
+
+ end-if ! if $ektyp = 'YES'
+
+  let $upd      = 'NO'
+  let $upd_polh = 'NO'
+
+begin-select -C1
+'YES'   &upd  () NOP
+
+  let $upd = &upd
+
+from  ##total
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-select
+
+begin-select -C2
+'YES'   &upd2  () NOP
+
+  let $upd_polh = &upd2
+
+from  ##total_polh
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-select
+   
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure insert
+begin-sql -C1
+insert into ##total (kvdinf,inf,py_pos,py_aji,p_pos,p_aji,pos,aji)
+ values(#kvdinf,$inf,#prevyear_pos,#prevyear_aji,#prev_pos,#prev_aji,#pos,#aji)
+end-sql
+  let $upd = 'NO'
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure update
+begin-sql -C1
+update ##total set  py_pos = py_pos + #prevyear_pos,
+                    py_aji = py_aji + #prevyear_aji,
+                    p_pos  = p_pos  + #prev_pos,
+                    p_aji  = p_aji  + #prev_aji,
+                    pos    = pos    + #pos,
+                    aji    = aji    + #aji
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-sql
+  let $upd = 'NO'
+end-procedure
+
+! ******************************************************************************
+
+
+begin-procedure insert_polh
+begin-sql -C2
+insert into ##total_polh (kvdinf,inf,py_pos,py_aji,p_pos,p_aji,pos,aji)
+ values(#kvdinf,$inf,#prevyear_pos,#prevyear_aji,#prev_pos,#prev_aji,#pos,#aji)
+end-sql
+  let $upd_polh = 'NO'
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure update_polh
+begin-sql -C2
+update ##total_polh set  py_pos = py_pos + #prevyear_pos,
+                         py_aji = py_aji + #prevyear_aji,
+                         p_pos  = p_pos  + #prev_pos,
+                         p_aji  = p_aji  + #prev_aji,
+                         pos    = pos    + #pos,
+                         aji    = aji    + #aji
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-sql
+  let $upd_polh = 'NO'
+end-procedure
+
+! ******************************************************************************
+begin-procedure find_total
+
+   let #prevyear_pos = 0
+   let #prevyear_aji = 0
+   let #prev_pos     = 0
+   let #prev_aji     = 0
+   let #pos          = 0
+   let #aji          = 0
+      
+begin-select -C1
+py_pos  &prevyear_pos () NOP
+py_aji  &prevyear_aji () NOP
+p_pos   &prev_pos     () NOP
+p_aji   &prev_aji     () NOP
+pos     &pos          () NOP
+aji     &aji          () NOP
+      
+     let        #prevyear_pos  = &prevyear_pos   
+     let        #prevyear_aji  = &prevyear_aji   
+     let        #prev_pos      = &prev_pos       
+     let        #prev_aji      = &prev_aji       
+     let        #pos           = &pos            
+     let        #aji           = &aji            
+     let        #for_pos       = 0 
+
+     let #s_prevyear_pos    = #s_prevyear_pos   + #prevyear_pos
+     let #s_prevyear_aji    = #s_prevyear_aji   + #prevyear_aji
+
+     let #s_for_pos         = #s_for_pos        + #for_pos
+
+     let #s_prev_pos        = #s_prev_pos       + #prev_pos
+     let #s_prev_aji        = #s_prev_aji       + #prev_aji
+
+     let #s_pos             = #s_pos            + #pos
+     let #s_aji             = #s_aji            + #aji
+
+
+   print #prevyear_pos (,+1,#P_POS) edit {MASK3}
+   print #prevyear_aji (,+1,#P_AJI) edit {MASK1}
+
+         let #for_pos = 0 
+
+   print #for_pos      (,+1,#P_POS) edit {MASK3}
+
+   if #prevyear_pos  <>  0
+         let  #pst_for = (100*( #for_pos - #prevyear_pos ))/#prevyear_pos
+   else
+         let  #pst_for = 0
+   end-if
+
+   print #pst_for      (,+1,#P_PER) edit {MASK4}
+
+   print #prev_pos     (,+1,#P_POS) edit {MASK3}
+   print #prev_aji     (,+1,#P_AJI) edit {MASK1}
+   print #pos          (,+1,#P_POS) edit {MASK3}
+   print #aji          (,+1,#P_AJI) edit {MASK1}
+
+
+   if #prev_pos  <>  0
+         let  #pst_pos = (100 * (#pos - #prev_pos )) / #prev_pos
+   else
+         let  #pst_pos = #pos * 100
+   end-if
+   if #prev_aji  <>  0
+         let  #pst_aji = (100 * (#aji - #prev_aji )) / #prev_aji
+   else
+         let  #pst_aji = #aji * 100
+   end-if
+
+   print #pst_pos          (,+1,#P_PER) edit {MASK4} 
+   print #pst_aji          (,+1,#P_PER) edit {MASK4} 
+
+
+from  ##total
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_total_polh
+
+   let #prevyear_pos = 0
+   let #prevyear_aji = 0
+   let #prev_pos     = 0
+   let #prev_aji     = 0
+   let #pos          = 0
+   let #aji          = 0
+
+begin-select -C2
+py_pos  &prevyear_pos2 () NOP
+py_aji  &prevyear_aji2 () NOP
+p_pos   &prev_pos2     () NOP
+p_aji   &prev_aji2     () NOP
+pos     &pos2          () NOP
+aji     &aji2          () NOP
+
+     let        #prevyear_pos  = &prevyear_pos2
+     let        #prevyear_aji  = &prevyear_aji2
+     let        #prev_pos      = &prev_pos2
+     let        #prev_aji      = &prev_aji2
+     let        #pos           = &pos2
+     let        #aji           = &aji2
+     let        #for_pos        = 0 
+
+     let #s_prevyear_pos    = #s_prevyear_pos   + #prevyear_pos
+     let #s_prevyear_aji    = #s_prevyear_aji   + #prevyear_aji
+
+     let #s_for_pos         = #s_for_pos        + #for_pos
+
+     let #s_prev_pos        = #s_prev_pos       + #prev_pos
+     let #s_prev_aji        = #s_prev_aji       + #prev_aji
+
+     let #s_pos             = #s_pos            + #pos
+     let #s_aji             = #s_aji            + #aji
+
+
+   print #prevyear_pos (,+1,#P_POS) edit {MASK3}
+   print #prevyear_aji (,+1,#P_AJI) edit {MASK1}
+
+         let #for_pos = 0 
+
+   print #for_pos      (,+1,#P_POS) edit {MASK3}
+
+   if #prevyear_pos  <>  0
+         let  #pst_for = (100*( #for_pos - #prevyear_pos ))/#prevyear_pos
+   else
+         let  #pst_for = 0
+   end-if
+
+   print #pst_for      (,+1,#P_PER) edit {MASK4}
+
+   print #prev_pos     (,+1,#P_POS) edit {MASK3}
+   print #prev_aji     (,+1,#P_AJI) edit {MASK1}
+   print #pos          (,+1,#P_POS) edit {MASK3}
+   print #aji          (,+1,#P_AJI) edit {MASK1}
+
+
+   if #prev_pos  <>  0
+         let  #pst_pos = (100 * (#pos - #prev_pos )) / #prev_pos
+   else
+         let  #pst_pos = #pos * 100
+   end-if
+   if #prev_aji  <>  0
+         let  #pst_aji = (100 * (#aji - #prev_aji )) / #prev_aji
+   else
+         let  #pst_aji = #aji * 100
+   end-if
+
+   print #pst_pos          (,+1,#P_PER) edit {MASK4} 
+   print #pst_aji          (,+1,#P_PER) edit {MASK4} 
+
+
+from  ##total_polh
+where kvdinf = #kvdinf
+and   inf    = $inf
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_per        
+
+begin-select
+c.kvdinf                               () NOP   
+convert(varchar,c.kvdinf)    &kvdinf_p () NOP   
+c.perigrafh                            (,1,#SIZE_PER) 
+  
+
+  let $kvdinf_p = ' ( ' || &kvdinf_p || ' ) '
+
+  print $kvdinf_p (,+1,)
+
+   let #kvd = &c.kvdinf
+
+   next-listing
+
+from wh_fkeidhkvdinf c
+where c.kvdinf = #kvdinf
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_pvlhth
+
+   let $synal_p = '¡—Ãœƒ…œ” –ŸÀ«‘«” : '
+
+begin-select
+b.perigrafh  &sy_2  () NOP
+
+   let $synal_p = $synal_p || &sy_2 || ' ' 
+
+from sy_synalprog a,sy_pvlhtes b
+where a.pvlhths = b.kvdikos
+and   a.synal   = $synal 
+and   b.kvdikos between 10 and 29
+group by b.perigrafh
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure get_epaggelma 
+   let $epaggelma = 'ƒ≈Õ ’–¡—◊≈…'
+begin-select
+b.perigrafh   &epaggelma () NOP
+
+   let $epaggelma = &epaggelma
+
+from sy_synal a,ap_epaggelma b
+where a.synal = $synal
+and   a.epaggelma = b.kvdikos
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure del_total_polh
+
+begin-sql -C2
+delete from ##total_polh
+end-sql
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure get_pvl
+
+begin-select
+kvdikos2   &ep_1  () NOP
+perigrafh  &ep_2  () NOP
+ 
+ let $pvl_pr = &ep_1
+ let $p      = &ep_2
+
+from sy_pvlhtes
+where kvdikos = #pvl  
+end-select
+
+end-procedure
+
+! ==============================================================================
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+   let   $msg  = '”’√ —…‘… ¡ ”‘œ…◊≈…¡ –ŸÀ«”≈ŸÕ' 
+   if    $pvl  = '*'
+     let $msg2 = '‘Ã«Ã¡            : ”’ÕœÀœ ≈‘¡…—≈…¡” '
+   else  
+     let $msg2 = '‘Ã«Ã¡            : ' || $p
+   end-if
+
+   let   $msg4=  '–≈—…œƒœ”         : ¡–œ  ' || $apohmpr || '  ≈Ÿ”  ' || $evshmpr
+ 
+   print $msg     (2,1,) center
+   print $msg2    (3,1,) 
+   print $msg4    (4,1,) 
+   print $synal_e (5,1,)
+   print $synal_p (6,1,50)
+   print $epaggelma_e (6,100,)
+
+   print ' '                                          (8, 1,#SIZE_PER)
+   print '| –ÒÔÁ„Ô˝ÏÂÌÔ   ≈ÙÔÚ  |'                    ( ,+1,23)
+   print '”Ù¸˜ÔÈ ‘Ò›˜ÔÌÙ. ≈ÙÔıÚ'                      ( ,+1,21) 
+   print '| –ÂÒ.–ÒÔÁ„ÔıÏ. ≈ÙÔıÚ |'                     ( ,+1,23)
+   print ' –ÂÒ.‘Ò›˜ÔÌÙÔÚ ≈ÙÔıÚ |'                     ( ,+1,23)
+   print 'Ã ≈ ‘ ¡ ¬ œ À ≈ ” |'                       ( ,+1,  )
+   print ' ·ÙÁ„ÔÒﬂ· ≈ÏÔÒÂıÏ‹Ù˘Ì'                     (9, 1,#SIZE_PER)
+   print '  –ÔÛ¸ÙÁÙ·'                                 ( ,+1,#P_POS)
+   print '       ¡Óﬂ·'                                ( ,+1,#P_AJI)
+   print '  –ÔÛ¸ÙÁÙ·'                                 ( ,+1,#P_POS)
+   print '  ÃÂÙ·‚ÔÎﬁ'                                 ( ,+1,#P_PER)
+   print '  –ÔÛ¸ÙÁÙ·'                                 ( ,+1,#P_POS)
+   print '       ¡Óﬂ·'                                ( ,+1,#P_AJI)
+   print '  –ÔÛ¸ÙÁÙ·'                                 ( ,+1,#P_POS)
+   print '       ¡Óﬂ·'                                ( ,+1,#P_AJI)
+   print '  –ÔÛ¸ÙÁÙ·'                                 ( ,+1,#P_PER)
+   print '      ¡Óﬂ·'                                 ( ,+1,#P_PER)
+
+   print '                      '                     (10, 1,#SIZE_PER)
+   print ' (‘ÂÏ‹˜È·)'                                 ( ,+1,#P_POS)
+   print '      (ƒ—◊)'                                ( ,+1,#P_AJI)
+   print ' (‘ÂÏ‹˜È·)'                                 ( ,+1,#P_POS)
+   print ' –ÔÛÔÛÙ¸ %'                                 ( ,+1,#P_PER) 
+   print ' (‘ÂÏ‹˜È·)'                                 ( ,+1,#P_POS)
+   print '      (ƒ—◊)'                                ( ,+1,#P_AJI)
+   print ' (‘ÂÏ‹˜È·)'                                 ( ,+1,#P_POS)
+   print '      (ƒ—◊)'                                ( ,+1,#P_AJI)
+   print ' –ÔÛÔÛÙ¸ %'                                 ( ,+1,#P_PER) 
+   print ' –ÔÛÔÛÙ¸ %'                                 ( ,+1,#P_PER) 
+
+
+end-Heading

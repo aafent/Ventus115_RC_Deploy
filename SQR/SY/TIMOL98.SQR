@@ -1,0 +1,328 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : timol.sqr                                      ****
+!***** DATE        : 16/06/94                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : THEOTOKAS JOHNNIE                              ****
+!***** NOTE        : Εκτύπωση παραστατικών                          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    33
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  1
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  1
+
+#DEFINE   $L_GDATA    1
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASKEIDOS 9999
+#DEFINE   MASK1     9999999999
+#DEFINE   MASK11    9,999,999,999c
+#DEFINE   MASK2     9999
+#DEFINE   MASK3     99999.9c
+#DEFINE   MASK4     99999999
+#DEFINE   MASK5     99
+
+Begin-Setup
+#IFNDEF debugR 
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+#ENDIF
+End-Setup
+
+Begin-Report
+#IFNDEF debugR 
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+#ENDIF
+ input $inp_aa  'a/a parastatikoy   '
+
+#IFNDEF debugR 
+ execute app_floatcnv   $inp_aa, #aa output
+#ELSE
+ move $inp_aa to #aa
+#ENDIF
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+position (,1)
+ENCODE '<27>j9' into $rev_lf
+print $rev_lf       ()   code 
+next-listing
+move 02  to #col1
+move 69  to #col2
+
+begin-select 
+a.cid                                  () NOP   
+  move &a.cid to $cid
+a.aa                                   () NOP   
+  move &a.aa to #aa
+a.parkvd                               () NOP   
+a.seira                                () NOP
+a.parno                                () NOP
+  do getsxet(#aa,$sx_parkvd,$sxet)
+  move &a.seira  to $p2
+  move &a.parno  to $p3 99999
+  let $p1 = $p2 || ' ' || $p3
+  print 'ΔΙΟΡΘΩΤΙΚΟ ΣΗΜΕΙΩΜΑ : '        (,2)
+  print $p1                            (,+1)
+  print 'ΤΙΜΟΛΟΓΙΟΥ ('                 (,+12)
+  print $sx_parkvd                     (,,2)
+  print ') :'                          ()
+  print $sxet                          (,+1) 
+convert(datetime, a.hmer_e) &a.hmer_e  (,+2,8) edit {DATEMASK}
+  next-listing
+  next-listing
+  print 'Κωδικός    :'                 (,#col1,12)
+a.synal                                (,+1,5)
+  do getstoix(&a.synal,0,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  print $epvnymia                      (,+1,50)
+  let #p = #col2-6
+  next-listing
+  print 'Επάγγελμα  :'                 (,#col1,12)
+  print $epaggelma                     (,+1,40)
+  next-listing
+  print 'Διεύθυνση  :'                 (,#col1,12)
+  print $dieyuynsh                     (,+1,20)
+  print $polh                          (,+1,20)
+  next-listing
+  print 'Α.Φ.Μ.     :'                 (,#col1,12)
+  print $afm                           (,+1)
+  print $doy                           (,+1)
+
+  next-listing
+  next-listing
+
+a.skopos                               () NOP
+a.tropos_plhr                          () NOP    
+a.prakt                                () NOP     
+a.apouhkh                              () NOP
+  do getstoix(&a.prakt,0,$epvnymia,$dieyuynsh,$polh,$afm,$doy,$thlef,$epaggelma)
+  print 'Πρακτορείο :'                 (,#col1,12)
+  print &a.prakt                       (,+1,05)
+  print $epvnymia                      (,+1,38)
+  next-listing
+  do getstoix2($cid,&a.apouhkh, $a_perigrafh,&a.tropos_plhr,$p_perigrafh)
+  print 'Tόπος Φόρτ.:'                 (,#col1,12)
+  print &a.apouhkh                     (,+1,05)
+  print $a_perigrafh                   (,+1,38)
+
+  next-listing
+  next-listing
+
+  print 'Κωδ. Περιγραφή                 Μ.Μ.  Τεμ' (,1,)
+  print '   Βάρος  Ποσότητα     Τιμή    Αξία  ΦΠΑ' ()
+  next-listing
+  print '========================================' (,1,)
+  print '========================================' ()
+  next-listing
+                                     
+  do printlines(&a.aa,#tot_posothta,$flag_fial)
+
+  let #ln = 22 - #current-line
+  display #ln
+  display #current-line
+  position (+#ln,1)
+  print '----------------------------------------' (,1,)
+  print '----------------------------------------' ()
+  next-listing
+
+  print 'Τρόπος Πληρ:'                 (,#col1,12) 
+  print &a.tropos_plhr                 (,+1,02) edit {MASK5}
+  print $p_perigrafh                   (,+1,30) 
+  print ' | Συν.Ποσοτ :'               (,38,14) 
+  print #tot_posothta                  (,52,07) edit {MASK3}
+  next-listing
+  print '----------------------------------------' (,1,)
+  print '----------------------------------------' ()
+  next-listing
+
+  do getypoloipo($cid,&a.synal,#neo_ypoloipo)
+  do gettot(#aa,#fpa_k1,#fpa_p1,#fpa_a1,#fpa_k2,#fpa_p2,#fpa_a2,#kyd,#eisprajh,#telikh)
+  let #old_ypoloipo = ( #neo_ypoloipo - #telikh + #eisprajh )
+
+  let #fpa_m1 = #fpa_k1 + #fpa_a1
+  let #fpa_m2 = #fpa_k2 + #fpa_a2
+
+  let #tot_fpa_k = #fpa_k1 + #fpa_k2
+
+  print 'Πρ. Υπόλοιπο :'               (,#col1,15) 
+  print #old_ypoloipo                  (,,13) edit {MASK11}
+  
+  if #fpa_p1 != 0
+       print #fpa_k1                   (   ,47,08) edit 99999999
+       print #fpa_p1                   (   ,56,02) edit 99
+       print '%'                       ()
+       print #fpa_a1                   (   ,61,07) edit 9999999
+       print #fpa_m1                   (   ,69,09) edit 999999999
+  end-if
+
+  next-listing
+  print 'Νέο Υπόλοιπο :'               (,#col1,15) 
+  print #neo_ypoloipo                  (,,13) edit {MASK11}
+
+  if #fpa_p2 != 0
+       print #fpa_k2                   (   ,47,08) edit 99999999
+       print #fpa_p2                   (   ,56,02) edit 99
+       print '%'                       ()
+       print #fpa_a2                   (   ,61,07) edit 9999999
+       print #fpa_m2                   (   ,69,09) edit 999999999
+  end-if
+
+  next-listing
+  print 'Είσπραξη     :'               (,#col1,15) 
+  print #eisprajh                      (,,13) edit {MASK11}
+
+  print #tot_fpa_k                     (   ,47,08) edit 99999999
+  print '  Κρατήσεις :'                (   ,55,13)
+  print #kyd                           (   ,69,09) edit 999999999
+
+  next-listing
+
+  print 'Παρατηρήσεις :'               (,#col1,15)
+a.note                                 (,+1,35)
+  print '  Πληρωτέο  :'                (,55,15)
+  print #telikh                        (   ,69,09) edit 999999999
+
+  next-listing
+
+from sy_parmas a 
+where a.aa = #aa 
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printlines (#aa,:#tot_posothta,:$flag_fial)
+
+move 0 to #tot_posothta
+
+begin-select -C2
+a.eidos                                    (,01,04)   edit {MASKEIDOS}
+b.perigrafh                                (,+1,25)
+b.monada                                   (,+1,04)
+a.temaxia                                  (,+1,04)   edit {MASK2}
+a.posothta/a.temaxia      &baros           (,+1,07)   edit {MASK3}
+a.posothta                                 (,+3,07)   edit {MASK3}
+a.timh                                     (,+2,07)   edit {MASK3}
+a.ajia                                     (,+1,08)   edit {MASK4}
+a.fpa                                      (,+1,02)   edit {MASK5}
+
+  let #tot_posothta = #tot_posothta + &a.posothta
+  next-listing 
+
+from sy_pardet a, wh_eidh b
+where a.aa = #aa 
+  and a.eidos = b.kvdikos
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure gettot(#aa,:#fpa_k1,:#fpa_p1,:#fpa_a1,:#fpa_k2,:#fpa_p2,:#fpa_a2,:#kyd,:#eisprajh,:#telikh)
+
+ execute syp_timrettot @aa       = #aa,
+                       @fpa_k1   = #fpa_k1 out,
+                       @fpa_p1   = #fpa_p1 out,
+                       @fpa_a1   = #fpa_a1 out,
+                       @fpa_k2   = #fpa_k2 out,
+                       @fpa_p2   = #fpa_p2 out,
+                       @fpa_a2   = #fpa_a2 out,
+                       @kyd      = #kyd    out,
+                       @eisprajh = #eisprajh out,
+                       @telikh   = #telikh   out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsxet(#aa,:$parkvd,:$sxet)
+
+move '' to $sxet
+move '' to $parkvd
+begin-select
+parkvd    () NOP
+seira     () NOP
+parno     () NOP
+
+   move &parkvd to $parkvd
+   move &parno to $sxet 99999
+   let $sxet = &seira || ' ' || $sxet
+ 
+from sy_parsxet
+where aa=#aa
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix2($cid,$apouhkh,:$a_perigrafh,#tropos,:$p_perigrafh)
+move '' to $a_perigrafh
+move '' to $p_perigrafh
+begin-select
+a1.perigrafh () NOP
+   move &a1.perigrafh to $a_perigrafh
+from wh_apouhk a1
+where a1.cid=$cid
+  and a1.kvdikos=$apouhkh
+end-select
+
+begin-select
+a2.perigrafh () NOP
+   move &a2.perigrafh to $p_perigrafh
+from sy_troposplhr a2
+where a2.kvdikos=#tropos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getstoix($synal,#topos,:$epvnymia,:$dieyuynsh,:$polh,:$afm,:$doy,:$thlef,:$epaggelma)
+
+move ' ' to $epvnymia
+move ' ' to $dieyuynsh
+move ' ' to $epaggelma
+move ' ' to $afm
+move ' ' to $doy
+move ' ' to $thlef
+
+execute syp_timgetsyn @synal = $synal,
+                      @topos = #topos,
+                      @epvnymia = $epvnymia out,
+                      @dieyuynsh = $dieyuynsh out,
+                      @polh = $polh out,
+                      @afm = $afm out,
+                      @doy = $doy out,
+                      @thlef = $thlef out,
+                      @epaggelma = $epaggelma out
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getypoloipo($cid,$synal,:#ypoloipo)
+
+ move 0 to #ypoloipo
+
+ execute syp_getypol @synal    = $synal,
+                     @cid      = $cid,
+                     @ypoloipo = #ypoloipo out
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+end-footing
+
+begin-heading {HEAD-SIZE}
+
+end-heading

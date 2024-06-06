@@ -1,0 +1,174 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : prog.sqr                                       ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Πρόγραμμα εισπρακτόρων                         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    59
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     9999999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $ihmlekt  'hmera lektiko'
+ input $ihmariu  'hmera ariumos'
+ unstring $ihmlekt by '"' into $filler $hmer_lekt $filler
+ execute app_floatcnv  $ihmariu, #hmer_ariu output
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+ let #hmera = #hmer_ariu
+! display #hmera
+
+begin-select 
+b.pvlhths                              () on-break print=never
+                                                   before=printpvlhths
+a.synal                                () NOP  
+a.epvnymia                             () NOP  
+a.thl                                  () NOP  
+a.dieyuynsh                            () NOP
+a.polh                                 () NOP
+a.taxkvd                               () NOP
+b.sxolio                               () NOP  
+		show #hmera
+
+  move &a.synal to $synal
+  do getmore($cid,$synal,$last_eis,$last_pvl,#ypoloipo,$tropos)
+
+  if #ypoloipo > 0
+     print &a.synal                    (,01,05)
+
+     let #epvn_col = #current-column + 1
+
+     print &a.epvnymia                 (,+1,28)
+     print &a.thl                      (,+1,16)
+     print $L_X3                       (,+1,1)
+
+     print $last_eis                   (,+1,08) edit {DATEMASK}
+     print $last_pvl                   (,+1,08) edit {DATEMASK}
+     print #ypoloipo                   (,+1,10) edit {MASK1}
+     print $tropos                     (,+1,40)
+
+     next-listing
+
+     let $dieyuynsh = &a.dieyuynsh||' - '||&a.polh||' TK: '||&a.taxkvd
+     print $dieyuynsh                  (,#epvn_col,45)
+     print $L_X3                       (,+1,1)
+
+     print &b.sxolio                   (,+1,70)
+
+     next-listing
+     print $L_X1                       (,1,{PAGE-X}) fill
+     next-listing
+  end-if
+
+from sy_synal00 a, sy_synalprog b, sy_synaleidos c
+where a.synal = b.synal
+  and a.synal = c.synal
+  and c.eidos = 'PVLHSEIS'
+  and (b.hmer_str = $hmer_lekt or b.hmer_num = #hmera )
+[$SQLCMD]
+order by 
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getmore($cid,$synal,:$last_eis,:$last_pvl,:#ypoloipo,:$tropos)
+
+  execute syp_getlasthm @cid=$cid, @synal=$synal, @job='EISPRAJEIS',
+                        @last_date=$last_eis out
+
+  execute syp_getlasthm @cid=$cid, @synal=$synal, @job='PVLHSEIS',
+                        @last_date=$last_pvl out
+
+  execute syp_getypol  @cid=$cid, @synal=$synal, 
+                       @ypoloipo=#ypoloipo out
+
+move '' to $tropos
+begin-select LOOPS=3
+b3.sxolio  () NOP
+   let $tropos=$tropos||&b3.sxolio||', '
+from sy_synalsxolia b3
+where b3.kvdinf=4
+  and b3.synal=$synal
+order by b3.hmeromhnia desc
+end-select
+                  
+end-procedure
+
+! ******************************************************************
+
+begin-procedure printpvlhths
+
+move '' to $pvlhths
+if #first_page != 1
+   move 1 to #first_page
+else
+   new-page
+end-if
+
+begin-select
+a1.perigrafh     () NOP
+  move &a1.perigrafh to $pvlhths
+from sy_pvlhtes a1
+where a1.kvdikos = &b.pvlhths
+end-select
+
+ move &b.pvlhths to $kpvlhths 999
+ move #hmera     to $txt_hmer 999
+ let $pvlhths=$L_X3||' ΕΙΣΠ : ('||$kpvlhths||') '||$pvlhths||' '||$L_X3
+ let $pvlhths=$pvlhths||$L_X3||' ΗΜΕΡΑ : '||$hmer_lekt||' '||$txt_hmer||' '||$L_X3
+ let #sz = length($pvlhths)
+
+ next-listing  need=4
+ print $L_X2   (,40,#sz) fill
+ next-listing 
+ print $pvlhths  (,40) 
+ next-listing 
+ print $L_X2   (,40,#sz) fill
+ next-listing 
+ print $L_X1                         (,1,{PAGE-X}) fill
+ next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΠΡΟΓΡΑΜΜΑ ΗΜΕΡΗΣΙΑΣ ΕΠΙΣΚΕΨΗΣ ΣΕ ΠΕΛΑΤΕΣ'
+  print $msg (3,) center
+  print 'Συναλλασόμενος / Διεύθυνση / Τηλέφωνα'    (5,01,51)
+  print $L_X3                                      ( ,+1,01)
+  print 'Τελ.Εισπ'                                 ( ,+1,08)
+  print 'Τελ.Τιμο'                                 ( ,+1,08)
+  print '  Υπόλοιπο'                               ( ,+1,10)
+
+end-heading

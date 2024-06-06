@@ -1,0 +1,125 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : akost.sqr                                        ****
+! ***** DATE        : 04/08/94                                         ****
+! ***** APPLICATION : Wherehouse                                       ****
+! ***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                                ****
+! ***** NOTE        : Κατασταση ακοστολόγιτων ειδών                    ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1            999,999.99
+#DEFINE   MASK2            999,999.9999
+#DEFINE   MASK3         99,999,999.9999
+#DEFINE   MASK4     99,999,999,999
+#DEFINE   EIDOS              99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 0 to #total_kostos
+begin-select 
+a.eidos                  () NOP
+b.perigrafh              () NOP
+sum(a.posothta * c.syntel_p) &tot_pos () NOP
+  do getmore($cid,&a.eidos,&b.perigrafh,&tot_pos,#total_kostos)
+from wh_akostol a, wh_eidh b, ap_par c
+where a.eidos=b.kvdikos
+  and a.cid = $cid
+  and a.parkvd = c.parkvd
+[$SQLCMD]
+group by a.eidos,b.perigrafh
+order by a.eidos
+end-select
+
+next-listing
+move 52 to #col1
+
+print $L_X1             (1,49,17) fill
+next-listing
+print #total_kostos     (1,49,17) edit {MASK4}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getmore($cid,$eidos,$perigrafh,#tot_posothta,:#total_kostos)
+
+execute whp_getmsk @cid=$cid, @eidos=$eidos, @msk=#mesh out
+
+let #kostos = #tot_posothta * #mesh
+
+print $eidos          (, 1,05)
+print $perigrafh      (,+1,20)
+print #tot_posothta   (,+1,10)  edit {MASK1}
+print #mesh           (,+1,12)  edit {MASK2}
+print #kostos         (,+1,14)  edit {MASK4}
+
+let #total_kostos = #total_kostos + #kostos
+
+! ;;;; let #col_1 = #current-column + 2
+! ;;;; display #col_1
+
+move 75 to #col1
+
+begin-select
+b.aa                               ()          NOP
+convert(datetime,b.hmeromhnia)     (,#col1,08) edit {DATEMASK}
+b.apouhkh                          (,+2   ,02)
+b.parkvd                           (,+2   ,02)
+b.seira                            (,+1   ,03)
+b.parno                            (,+1   ,05)
+b.posothta                         (,+2   ,10) edit {MASK1}
+
+  next-listing
+
+from wh_akostol b
+where b.eidos = $eidos
+  and b.cid = $cid
+order by b.hmeromhnia
+end-select
+
+
+next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print 'ΕΙΔΗ ΣΕ ΕΚΚΡΕΜΟΤΗΤΑ (ΑΚΟΣΤΟΛΟΓHΤΑ)' (3,) center
+
+  print 'Είδος'            (5,1,05)
+  print 'Περιγραφή'        (,+1,20)
+  print '    Σύνολο'       (,+1,10)
+  print '      Μ.Σ.Κ.'     (,+1,12)
+  print '        Κόστος'   (,+1,14)
+  print 'Α ν ά λ υ σ η   Π α ρ α σ τ α τ ι κ ώ ν' (,75)
+
+end-heading
+

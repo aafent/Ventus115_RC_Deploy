@@ -1,0 +1,139 @@
+!***********************************************************************
+!***** REPORT      : isoz.sqr                                       ****
+!***** DATE        : 12/04/93                                       ****
+!***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+!***** NOTE        : --- ΙΣΟΖΥΓΙΑ          ---                      ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    131 
+#DEFINE   HEAD-SIZE  7 
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  6
+
+#DEFINE   MASK1     999,999,999
+#DEFINE   MASK7     999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+!input #etaireia  'Εταιρεία        : '
+ input $apohmnia  'Από Ημερομηνία  : '
+ input $evshmnia  'Eως Ημερομηνία  : '
+ input $flagdate  'Καταχωρηση/Ενημέρωση  : '
+ execute app_datecnv $apohmnia, $apohm output, $apohmpr output
+ execute app_datecnv $evshmnia, $evshm output, $evshmpr output
+ Do Main
+ !Do Ar_Tot
+ Do Print_Date_Totals
+End-Report
+
+Begin-Procedure Main
+      execute Do=Printing glp_elex
+              @hmer_apo=$apohm, @hmer_evs=$evshm, @hmer_flag=@flagdate
+      into 
+            &aruro        varchar(10),
+            &hmer_e       datetime,
+            &hmer_k       datetime,
+            &logar        varchar(25),
+            &perigrafh    varchar(40),
+            &parid        varchar(10),
+            &parast       varchar(2),
+            &poso         float,
+            &posox        float,
+            &aitia        varchar(40),
+            &hmer_ekt     datetime,
+            &mhxar        float,
+            &flag_xp      varchar(1),
+		&synal varchar(10)
+End-Procedure
+
+Begin-Procedure Printing
+
+      execute glp_logfrm
+              @in_logar=&logar, @out_logar=$logarpr output
+
+Begin-Select
+convert(varchar(9),&hmer_e,3)   &hmer_e_pr
+convert(varchar(9),&hmer_k,3)   &hmer_k_pr
+convert(varchar(9),&hmer_ekt,3) &hmer_ekt_pr
+End-Select
+
+
+ If $flagdate='"K"' 
+ print &hmer_k_pr () on-break print=never Level=1 procedure=Print_Date_Totals
+ Else
+ print &hmer_e_pr () on-break print=never Level=1 procedure=Print_Date_Totals
+ End-If
+
+ print &aruro          (, 1,10) on-break print=change skiplines=1 Level=2 procedure=Ar_tot 
+
+ print $logarpr        (,+1,15)
+ print &perigrafh      (,+1,25)
+ print &parid          (,+1,10)
+ print &aitia          (,+1,40) 
+
+ If &flag_xp='X'
+  print &poso          (,+1,11) edit {MASK1}
+ Let #date_xrevsh=#date_xrevsh+&poso
+ Let #ar_xrevsh=#ar_xrevsh+&poso
+ Else
+  print &poso          (,+13,11) edit {MASK1}
+ Let #date_pistvsh=#date_pistvsh+&poso
+ Let #ar_pistvsh=#ar_pistvsh+&poso
+ End-If
+
+ !print &hmer_ekt_pr    (,+1,9) edit {MASK1}
+ !print &mhxar          (,+1,7) edit {MASK7}
+ Next-Listing
+End-Procedure Printing
+
+Begin-Procedure Ar_tot
+ print 'Σύνολα Αρθρου ... :' (,65,40)
+ print #ar_xrevsh        (,+1,11) edit {MASK1}
+ print #ar_pistvsh       (,+1,11) edit {MASK1}
+ Let #ar_xrevsh=0
+ Let #ar_pistvsh=0
+ position (+1)
+End-Procedure
+
+Begin-Procedure Print_Date_Totals
+ Do Ar_Tot
+ print $L_X2 (,52,78)  Fill
+ Next-Listing
+ print 'Σύνολα Ημέρας ...  : ' (,65,40)
+ print #date_xrevsh         (,+1,11) edit {MASK1}
+ print #date_pistvsh        (,+1,11) edit {MASK1}
+ Let #date_xrevsh=0
+ Let #date_pistvsh=0
+ New-Page
+End-Procedure Printing
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ΚΑΤΑΣΤΑΣΗ ΕΛΕΓΧΟΥ' (2,+1) center
+
+ If $flagdate='"K"' 
+   let $msg2='ΚΑΤΑΧΩΡΗΣΗΣ : '||&hmer_k_pr
+ Else
+   let $msg2='ΕΝΗΜΕΡΩΣΗΣ : '||&hmer_e_pr
+ End-If
+   
+ let $msg='ΜΕ ΗΜΕΡΟΜΗΝΙΑ '||$msg2
+ print $msg (3,+1) center
+ print
+ '   Αρθρο   Λογαριασμός     Περιγραφή           Παραστατικό            Αιτιολογία                              Χρέωση     Πίστωση'   (5,1)
+
+!'   Αρθρο   Λογαριασμός     Περιγραφή           Παραστατικό  Αιτιολογία         Χρέωση     Πίστωση     Ημερομηνία  Μηχανογ.'   (7,1)
+!print 
+!'                                                                                                       Λογιστ.    Αριθμός   '   (8,1)
+End-Heading

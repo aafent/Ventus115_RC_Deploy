@@ -1,0 +1,669 @@
+!***********************************************************************
+!***** REPORT      : theopa1.sqr                                    ****
+!***** DATE        : 04/03/96                                       ****
+!***** APPLICATION : лГТЯЧО пАЦъЫМ                                  ****
+!***** NOTE        : ---                                ---         ****
+!***********************************************************************
+#DEFINE   PAGE-Y    66
+#DEFINE   PAGE-X    175
+#DEFINE   HEAD-SIZE  9
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     9,999,999.99c
+#DEFINE   MASK4    99999999
+#DEFINE   MASK2     999999999
+#DEFINE   MASK3   9,999,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $cid  'аПЭ кОЦАЯИАСЛЭ  : '
+ input $year    'EЫР кОЦАЯИАСЛЭ  : '
+ input $report_type 'сЕКъДА'
+
+ unstring $cid 	by '"' into $filler $cid $filler
+ unstring $year   by '"' into $filler $year1   $filler
+  unstring $report_type   by '"' into $filler $sel   $filler
+ 
+ display $SQLCMD
+  move '0' to $memka
+  move '0' to $memka1
+  move 0 to #s2quantity
+  move 0 to #s2purch_amount
+  move 0 to #s2ydepres_sum_amount
+  move 0 to #s2depres_sum_amount
+  move 0 to #s2undepres_sum_amount
+  move 0 to #squantity
+		move 0 to #spurch_amount
+		move 0 to #sydepres_sum_amount
+		move 0 to #sdepres_sum_amount
+		move 0 to #sundepres_sum_amount
+move 0 to #s1quantity
+		move 0 to #s1purch_amount
+		move 0 to #s1ydepres_sum_amount
+		move 0 to #s1depres_sum_amount
+		move 0 to #s1undepres_sum_amount
+  move $year1 to #year
+  move $sel to #sel
+  do main
+  !do synola
+  !do synola1
+  do synola11
+End-Report
+! ****************************************************************************
+begin-procedure main
+	move 'F' to $ask1
+	move 'T' to $ask
+	move 1 to #lns
+	move 1 to #laa
+	move 'F' to $flag_new_page
+
+!   	next-listing
+begin-select
+g.asset_code
+g.quantity
+g.amount       
+g.trans_date
+g.depres_date
+g.depres_factor
+g.trans_code  
+g.trans_code_no
+g.seq_no
+g.ass_category
+g.quantity_factor
+g.amount_factor
+g.trans_description
+g.trans_description1
+g.trans_description2
+
+  if $flag_new_page = 'T'
+	!let #sel=#sel+1
+     new-page
+     !position (,1)
+     move 'F' to $flag_new_page
+     print 'сумока апо летажояа :'               (,1,22)
+	do synola1
+	print '-'			(,1,175) fill
+        move 1 to #lns
+	move 0 to #squantity
+	move 0 to #spurch_amount
+	move 0 to #sydepres_sum_amount
+	move 0 to #sdepres_sum_amount
+	move 0 to #sundepres_sum_amount
+	
+     next-listing
+  end-if
+	move &g.asset_code to $asset_code
+        move &g.quantity to #quantity
+        move &g.amount to #purch_amount          
+        move &g.trans_date to $purch_date
+        move &g.depres_date to $depres_date
+        move &g.depres_factor to #depres_factor
+	move &g.trans_code to $trans_code 
+        move &g.trans_code_no to $trans_code_no
+        move &g.seq_no to #seq_no
+        display #seq_no
+        move &g.ass_category to $ass_category
+        move &g.quantity_factor to $qnt_factor
+        move &g.amount_factor to  $am_factor
+        move &g.trans_description to  $trans_description
+        move &g.trans_description1 to $trans_description1
+        move &g.trans_description2 to $trans_description2
+        
+	do paname
+	do find_account
+	
+	let #cor_qnt = 0
+	let #cor_amount=0
+        
+	do purch_amount
+        do amounts
+	
+	let #a=#current-line
+	
+
+	if #purch_amount = (#depres_sales_after + #sales_aposb2) 
+	let #undepres_sum_amount=0
+        end-if 
+
+	if #undepres_sum_amount > 0.0000000001 or $asset_code='14.00.00.0253' or #last_depres_year=#year !savopoulos	
+
+	
+	let #quantity=#quantity - #qsales1
+ 	let #purch_amount=#purch_amount - #orig_sales1
+ 	let #depres_sum_amount=#depres_sum_amount - #sales_aposb01
+ 	let #undepres_sum_amount=#undepres_sum_amount + #orig_sales1 - #sales_aposb01
+	let #undepres_sum_amount=#purch_amount + #sales_aposb - #depres_sum_amount - #ydepres_sum_amount - #orig_sales
+	if #purch_amount = (#depres_sales_after + #sales_aposb2) 
+	let #sales_aposb = #sales_aposb - #undepres_sum_amount
+	let #undepres_sum_amount=0
+        end-if 
+        if  #quantity!=0
+	do ektyp
+        
+	add #quantity to #squantity
+        add #quantity to #s1quantity
+	add #quantity to #s2quantity
+	add #purch_amount to #spurch_amount
+    	add #purch_amount to #s1purch_amount
+    	add #purch_amount to #s2purch_amount
+	add #depres_sum_amount to #sdepres_sum_amount
+  	add #depres_sum_amount to #s1depres_sum_amount
+  	add #depres_sum_amount to #s2depres_sum_amount
+	add #ydepres_sum_amount to #sydepres_sum_amount
+  	add #ydepres_sum_amount to #s1ydepres_sum_amount
+  	add #ydepres_sum_amount to #s2ydepres_sum_amount
+	add #orig_sales to #scor_amount
+  	add #orig_sales to #s1cor_amount
+  	add #orig_sales to #s2cor_amount
+	add #sales_aposb to #ssales_aposb
+  	add #sales_aposb to #s1sales_aposb
+  	add #sales_aposb to #s2sales_aposb
+	add #undepres_sum_amount  to #sundepres_sum_amount 
+  	add #undepres_sum_amount  to #s1undepres_sum_amount 
+  	add #undepres_sum_amount  to #s2undepres_sum_amount 
+	
+	end-if
+
+	let #laa = #laa + 1
+  	let #lns = #lns + 1
+        
+	end-if
+
+  	if #lns > 48
+	!let #sel=#sel+1
+	print 'сумока се летажояа :'                (+1,1,22)
+	do synola1
+     	move 'T' to $flag_new_page
+	!print '-'			(+1,1,166) fill
+	end-if
+
+from    pa_kin g
+where   g.comp_id = $cid
+and     g.trans_code like '%'
+!and 	g.trans_code !=23
+and     g.trans_code_no like '%' 
+and     g.seq_no >= 0
+and     (g.purch_flag ='1' or g.approv_flag = '1')
+and 	g.trans_date <= convert(datetime,('12'+'/31/'+$year1))
+!and     g.comp_year= #year
+!and     isnull(g.no_mhtrvo_flag,'0')  != '1'
+!and     g.ass_category between '0' and 'ы'
+!and     g.asset_code between '0' and 'ы'
+[$SQLCMD]   
+order by g.ass_category,g.asset_code,g.trans_date  
+end-select
+end-procedure
+
+! ****************************************************************************
+begin-procedure paname
+begin-select 
+asset_name
+
+  move &asset_name to $asset_name 
+  display $asset_name
+from   pa_pagio
+where  comp_id = $cid
+and    asset_code = $asset_code
+end-select
+end-procedure
+
+! ****************************************************************************
+begin-procedure find_account
+begin-select  
+asset_account_no,
+depres_account_no
+
+  move &asset_account_no to $asset_account_no
+  move &depres_account_no to $depres_account_no
+  if $asset_account_no =''
+   do find_account1
+  end-if
+
+from    pa_pagio_logar
+where   comp_id = $cid
+!and     comp_year = #year
+and     asset_code = $asset_code
+end-select
+end-procedure
+
+! ****************************************************************************
+begin-procedure find_account1
+begin-select
+a.asset_account_no,
+a.depres_account_no
+
+  move &a.asset_account_no to $asset_account_no
+  move &a.depres_account_no to $depres_account_no
+
+from    pa_kateg_logar a
+where   a.comp_id = $cid
+!and     a.comp_year = #year
+and     a.asset_category = $ass_category
+end-select
+end-procedure
+
+! ****************************************************************************
+begin-procedure purch_amount
+begin-select 
+sum(isnull(quantity,0))         &cor_qnt
+sum(round(isnull(amount,0),2))  &cor_amount
+    move &cor_qnt to #cor_qnt
+    move &cor_amount to #cor_amount
+    display 'klkl'
+    display #cor_amount
+    let #purch_amount = #purch_amount + #cor_amount
+    !add #purch_amount to #spurch_amount
+    !add #purch_amount to #s1purch_amount
+    !add #purch_amount to #s2purch_amount
+from pa_kin
+where comp_id          = $cid
+and trans_code    like '%'
+and trans_code_no    = $trans_code_no
+and seq_no           > 0
+and purch_seq_no     = #seq_no
+and coresp_flag      = '1'
+and datepart(yy,trans_date) <= #year
+end-select
+
+begin-select 
+sum(round(isnull(amount,0),2))	&orig_sales
+
+      move &orig_sales to #orig_sales
+
+from pa_kin    
+where comp_id          = $cid    
+and asset_code       = $asset_code    
+and trans_code    like '%' 
+and trans_code_no    = $trans_code_no    
+and seq_no           > 0    
+and purch_seq_no     = #seq_no    
+and sales_flag       = '1'    
+and datepart(yy,trans_date) = #year  
+end-select
+
+
+begin-select
+sum(isnull(depres_amount,0)) 		&sales_aposb1
+sum(isnull(depres_amount_after,0))	&sales_aposb2 
+sum(isnull(sales_amount_after,0))	&depres_sales_after 
+
+  move &sales_aposb1 to #sales_aposb1
+  move &sales_aposb2 to #sales_aposb2
+  let #sales_aposb=#sales_aposb1 + #sales_aposb2
+  move &depres_sales_after to #depres_sales_after
+
+from    pa_aposbesi    
+where   comp_id         = $cid    
+and     asset_code      = $asset_code     
+and     purch_seq_no    = #seq_no     
+and     trans_type      = 'S'    
+and     datepart(yy,depres_date) = #year 
+end-select
+
+
+!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+
+ let #orig_sales1=0
+ let #sales_aposb11=0
+ let #sales_aposb21=0
+ let #sales_aposb01=0
+ let #qsales1=0
+
+begin-select 
+sum(round(isnull(quantity,0),2))	&qsales1
+
+      move &qsales1 to #qsales1
+
+from pa_kin    
+where comp_id          = $cid    
+and asset_code       = $asset_code    
+and trans_code    like '%' 
+and trans_code_no    = $trans_code_no    
+and seq_no           > 0    
+and purch_seq_no     = #seq_no    
+and sales_flag       = '1'    
+and datepart(yy,trans_date) < #year  
+end-select
+
+begin-select 
+sum(round(isnull(amount,0),2))	&orig_sales1
+
+      move &orig_sales1 to #orig_sales1
+
+from pa_kin    
+where comp_id          = $cid    
+and asset_code       = $asset_code    
+and trans_code    like '%' 
+and trans_code_no    = $trans_code_no    
+and seq_no           > 0    
+and purch_seq_no     = #seq_no    
+and sales_flag       = '1'    
+and datepart(yy,trans_date) < #year  
+end-select
+
+begin-select
+sum(isnull(depres_amount,0)) 		&sales_aposb11
+sum(isnull(depres_amount_after,0))	&sales_aposb21 
+sum(isnull(sales_amount_after,0))	&depres_sales_after1 
+
+  move &sales_aposb11 to #sales_aposb11
+  move &sales_aposb21 to #sales_aposb21
+  let #sales_aposb01=#sales_aposb11 + #sales_aposb21
+  move &depres_sales_after1 to #depres_sales_after1
+
+from    pa_aposbesi    
+where   comp_id         = $cid    
+and     asset_code      = $asset_code     
+and     purch_seq_no    = #seq_no     
+and     trans_type      = 'S'    
+and     datepart(yy,depres_date) < #year 
+end-select
+
+!dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd
+
+
+end-procedure
+
+! ****************************************************************************
+begin-procedure amounts
+begin-select 
+sum(isnull(depres_amount,0))   &sum_from_depres
+   move &sum_from_depres to #sum_from_depres
+   display #sum_from_depres
+   display #seq_no 
+from    pa_aposbesi
+where   comp_id         = $cid
+and     asset_code      = $asset_code 
+and     purch_seq_no    = #seq_no 
+and     trans_type      = 'A'
+and     datepart(yy,depres_date) < #year
+end-select
+
+begin-select
+sum(isnull(depres_amount,0))  &sum_from_sales
+  move &sum_from_sales to #sum_from_sales
+  display #sum_from_sales
+from    pa_aposbesi
+where   comp_id         = $cid
+and     asset_code      = $asset_code 
+and     purch_seq_no    = #seq_no 
+and     trans_type     = 'S'
+and     approved_flag   = '0'
+and     datepart(yy,depres_date) < #year
+end-select
+  
+  let #depres_sum_amount = #sum_from_depres + #sum_from_sales
+  !add #depres_sum_amount to #sdepres_sum_amount
+  !add #depres_sum_amount to #s1depres_sum_amount
+  !add #depres_sum_amount to #s2depres_sum_amount
+begin-select
+sum(isnull(sales_amount,0)) &sales_amount
+  move &sales_amount to #sales_amount
+from    pa_aposbesi
+where   comp_id     = $cid
+and     asset_code  = $asset_code 
+and     purch_seq_no = #seq_no 
+and     trans_type   = 'S'
+and     datepart(yy,depres_date) <= #year
+end-select
+
+  let #undepres_sum_amount = #purch_amount - #depres_sum_amount - #sales_amount
+  !add #undepres_sum_amount to #sundepres_sum_amount
+  !add #undepres_sum_amount to #s1undepres_sum_amount
+  !add #undepres_sum_amount to #s2undepres_sum_amount
+
+begin-select
+sum(isnull(depres_amount,0))   &year_depres
+
+  move &year_depres to #year_depres
+
+from    pa_aposbesi
+where   comp_id      = $cid
+and     asset_code   = $asset_code 
+and     purch_seq_no = #seq_no 
+and     trans_type   = 'A'
+and     datepart(yy,depres_date) = #year
+end-select
+
+ do sales
+
+begin-select
+datepart(year,max(depres_date)) &last_depres_year
+
+ move &last_depres_year to #last_depres_year
+ 
+from    pa_aposbesi
+where   comp_id          = $cid
+and     asset_code       = $asset_code
+and     purch_seq_no     = #seq_no
+and     trans_type       = 'S'
+end-select
+
+ let #undepres_sum_amount = #undepres_sum_amount - #ydepres_sum_amount - #depres_sales_after
+  !add #undepres_sum_amount to #sundepres_sum_amount
+  !add #undepres_sum_amount to #s1undepres_sum_amount
+  !add #undepres_sum_amount to #s2undepres_sum_amount
+
+end-procedure
+
+! ****************************************************************************
+begin-procedure ektyp
+
+print $asset_code	(,01,15)
+print $asset_name	(,+1,39) 
+do mkdatemask($purch_date,$tmp)
+print $tmp	        (,+1,09)
+print $trans_code_no    (,+1,12) !_no (,+13,13)
+move #quantity to $quantity
+print $quantity		(,+1,8) edit {MASK4}
+print #depres_factor    (,+1,9)  edit {MASK2}
+print #purch_amount	(,+1,12) edit {MASK1}
+print #depres_sum_amount   (,+1,12) edit {MASK1}
+!do mkdatemask($depres_date,$tmp)
+!print $tmp	(,+1,10)
+print #ydepres_sum_amount  (,+1,12) edit {MASK1}
+print #orig_sales	   (,+1,12) edit {MASK1}
+print #sales_aposb	   (,+1,12) edit {MASK1}
+print #undepres_sum_amount (,+1,12) edit {MASK1}
+!next-listing
+!print $asset_name	(,1,130) 
+!next-listing
+!print $asset_account_no    (,1,25)
+!print 'аитиокоциа'	   (,1,10)
+!print $trans_description   (,+1,32)
+!print $trans_description1  (,+1,32)
+!print $trans_description2  (,+1,32)
+!print 'а/а'		(,,4)
+!print #seq_no		(,,15)
+end-procedure
+
+! ****************************************************************************
+begin-procedure sales
+begin-select
+sum(isnull(b.depres_amount,0)) &year_sales   
+  move &year_sales to #year_sales
+  display 'koko2'
+  display #year_sales
+from    pa_aposbesi b
+where   b.comp_id                  = $cid
+and     b.asset_code               = $asset_code 
+and     b.purch_seq_no             = #seq_no 
+and     b.trans_type               = 'S'
+and     b.approved_flag            = '0'
+and     datepart(yy,b.depres_date) = #year
+end-select
+ let #ydepres_sum_amount = #year_depres + #year_sales
+   display 'kok'
+   display #year_depres
+   display #year_sales
+   display #ydepres_sum_amount
+  !add #ydepres_sum_amount to #sydepres_sum_amount
+  !add #ydepres_sum_amount to #s1ydepres_sum_amount
+  !add #ydepres_sum_amount to #s2ydepres_sum_amount
+end-procedure
+
+! *************************************************************************
+begin-procedure synola
+move 'сумока' to $sxolio
+!if #current-line=8
+!print $asset_code	(,01,12)
+! do paname
+! print $asset_name	(+1,1,130)
+! print '-'			(+1,1,130) fill
+!position (+2,1)
+!next-listing
+!end-if
+!print '-'			(+1,1,159) fill
+!print $sxolio			(+1,20,34)
+!print #squantity		(,+24,6) 
+print #spurch_amount	(,+1,16) edit {MASK3}
+print #sydepres_sum_amount  (,+11,16) edit {MASK3}
+print #sdepres_sum_amount   (,,16) edit {MASK3}
+print #sundepres_sum_amount (,,16) edit {MASK3}
+!print '-'			(+1,1,159) fill
+end-procedure
+
+! ****************************************************************************
+begin-procedure synola1
+begin-select -C3
+convert(varchar(10),convert(int,#sel)) &tmp () nop
+end-select
+ move &tmp to $sel
+ move $sel to #sel
+move 'сумока йатгцояиас' to $sxolio1
+!print '-'			(+1,1,159) fill
+!print $sxolio1			(+1,20,34)
+print #s1purch_amount	(,+76,12) edit {MASK1}
+print #s1depres_sum_amount   (,+1,12) edit {MASK1}
+print #s1ydepres_sum_amount  (,+1,12) edit {MASK1}
+print #s1cor_amount	   (,+1,12) edit {MASK1}
+print #s1sales_aposb	   (,+1,12) edit {MASK1}
+print #s1undepres_sum_amount (,+1,12) edit {MASK1}
+!print '-'			(+1,1,159) fill
+
+end-procedure
+
+! ****************************************************************************
+begin-procedure synola11
+move 'цемийа сумока' to $sxolio11
+!print '-'			(+1,1,159) fill
+print $sxolio11			(+1,1,22)
+print #s2purch_amount	(,+76,12) edit {MASK1}
+print #s2depres_sum_amount   (,+1,12) edit {MASK1}
+print #s2ydepres_sum_amount  (,+1,12) edit {MASK1}
+print #s2cor_amount	   (,+1,12) edit {MASK1}
+print #s2sales_aposb	   (,+1,12) edit {MASK1}
+print #s2undepres_sum_amount (,+1,12) edit {MASK1}
+!print '-'			(+1,1,159) fill
+
+end-procedure
+
+! ****************************************************************************
+begin-procedure mkdatemask($hm,:$dtmask)
+
+  move '' to $dtmask
+ ! move $hm to $tmp DD/MM/YYYY
+
+begin-select -C3
+convert(varchar(10), convert(datetime,$hm),103) &tmpdt () nop
+end-select
+  
+  move &tmpdt to $tmp
+  
+display 'mkdatemask() : ' noline
+display $hm noline
+display '  --[' noline
+display &tmpdt noline
+display '] (' noline
+display $tmp noline
+display ')-- ' noline
+
+
+  if $tmp > '' 
+  	let $dtmask=substr($tmp,1,2)||'/'||substr($tmp,4,2)||'/'||substr($tmp,9,2)
+  end-if
+   !move $tmp to $dtmask
+display $dtmask
+
+end-procedure
+
+! ****************************************************************************
+begin-procedure ask($cid,$year1,$asset_code,:$ask)
+begin-select
+u.asset_code
+ 
+ move &u.asset_code to $asset_code1
+
+ if $asset_code1=$asset_code
+ let $ask='F'
+ end-if
+
+from    pa_kin u
+where   u.comp_id = $cid
+and     u.trans_code like '%'
+and 	u.trans_code='23'
+and     u.trans_code_no like '%' 
+and     u.seq_no >= 0
+and     (u.purch_flag ='1' or u.approv_flag = '1')
+and 	u.trans_date <= convert(datetime,('12'+'/31/'+$year1))
+and     u.asset_code=$asset_code
+end-select
+end-procedure
+! ****************************************************************************
+!Begin-Footing {FOOT-SIZE}
+ !#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+!End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD03.inc"
+ print $select15cpi (1,1) code
+ print 'бибкио пациым ' (2,+1) center
+ !next-listing 
+ print $select12cpi () code
+ print 'еяцосе'        (4,1,6) 
+ print $year1	       (,+1,4)
+ print 'сЕКъДА: '	(,+140,8)
+ print $sel		(,+1,4)
+ let #sel=#sel + 1
+! print '='			(+2,1,166) fill
+! let $msg='пеяиодоу '||$apohmpr||' - '||$evshmpr
+
+! print $msg (3,+1) center
+
+ print 'йыдийос пациоу'				 (08,01,15)
+ print 'пеяицяажг пациоу'			 (,+1,39)
+ print 'аявийг гл'				 (,+1,09)
+ print 'паяастатийо'				 (,+1,12)
+ print 'посотгта'				 (,+1,08) 
+ print 'сумт.тайт'				 (,+1,09)
+ print 'аявийг аниа '				 (,+1,12)
+ print 'апосб.апоцяа'			         (,+1,12)
+ print 'тайтийес апо'    			 (,+1,12)
+ print 'аниа пыкгсгс'    			 (,+1,12)
+ print 'леиысеис апо'				 (,+1,12)
+ print 'амапосбестг'				 (,+1,12)
+! print '='			(+1,1,159) fill
+ !print $asset_code	(+2,01,12)
+ !do paname
+ !print $asset_name	(+1,1,130)
+ !print '-'			(+1,1,130) fill
+ !next-listing
+ !position (11,1) 
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{PA	1	12	6004	theopa	rs	X	01},TITLE{хеыяглемо лгтяыо пациым}
+!	PARCOUNT{2}
+!	PAR1{йЫДИЙЭР пАЦъОУ	g.asset_code	2	BETWEEN	varchar(30)		}
+!	PAR2{йАТГЦОЯъА пАЦъОУ	g.ass_category	2	BETWEEN	varchar(30)		}
+!REPORTHELP{F}
+!</pcalib>
+!print $select15cpi (1,1) code

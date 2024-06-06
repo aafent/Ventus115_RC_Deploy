@@ -1,0 +1,409 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        : –≈À¡‘≈” ¡‘‘… «” œ–‘… œ…                        ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y      62
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE    6
+#DEFINE   FOOT-SIZE    1
+#DEFINE   HEAD-LINE    4
+
+#DEFINE   MASK1      999,999
+#DEFINE   MASK2      999,999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK5       99999
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ !  input $hmer '«ÏÂÒÔÏÁÌÈ·'
+
+ !  execute app_datecnv  $hmer, $hm out, $hmp out
+
+ !  execute app_getsom $hm, $apohm out
+ !  execute app_geteom $hm, $evshm out
+
+
+      do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select distinct
+inf           &omada  () NOP
+perigrafh     &per    () NOP
+
+  let $omada = &omada
+  let $per   = &per  
+
+  print $omada  (, 1,15)
+  print $per    (,+1,40)
+
+  do insert1 
+  let #cnt=1
+
+  do main2
+
+  next-listing
+
+from  wh_fkeidhinf
+where kvdinf    =     200
+ ! and   perigrafh like '%BL %'
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure insert1
+
+begin-select
+convert(varchar,'9420002'+substring($omada,2,3))   &ins_omada    () NOP
+convert(varchar,''+$per)             &ins_per      () NOP
+substring($omada,2,3)                              &ins_serlogar () NOP
+
+  let $ins_omada     = &ins_omada
+  let $ins_per       = &ins_per  
+  let $ins_serlogar  = &ins_serlogar  
+
+  print $ins_omada     (,+1,15)       
+  print $ins_per       (,+1,50)       
+  print $ins_serlogar  (,+1,15)         
+
+  next-listing
+
+end-select
+
+!begin-sql
+!
+! insert into gl_logar 
+!          (cid,logar     ,perigrafh,serlogar     ,parent   ,log_level)
+! values   ('1',$ins_omada,$ins_per ,$ins_serlogar,'9420001',        4)
+!end-sql
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main2
+  
+begin-select distinct
+a.kvdikos &eidos () NOP
+
+ let $eidos     = &eidos
+ let $omada_eid = ''
+ let $per_eid   = ''
+ 
+ do get_omadaeid
+ do insert2
+
+ let #cnt=#cnt+1
+
+from   wh_eidhinf a, wh_eidhmore b
+where  a.cid     =     '1' 
+and    a.cid     =      b.cid 
+and    a.inf     =      $omada 
+and    a.kvdikos =      b.eidos
+and    b.energo  is not null 
+and    b.logar   is     null
+! v   Mal Nick
+and    a.kvdinf  = 200
+! ^   Mal Nick
+! and    a.inf     <     '0050'
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per2
+
+  let $ins_per2 = $ins_per
+   display $omada_eid
+  evaluate $omada_eid
+
+ when = '2CS'              
+    let $ins_per2 = '’√—œ ÷.≈. CONDITIONING 120ml'             
+ break
+ when = '2CT'              
+    let $ins_per2 = '‘¡Ã–À≈‘≈”  ¡»¡—…”Ãœ’ ÷.≈.'                
+ break
+ when = '2DC'              
+    let $ins_per2 = '’√—œ ÷.≈. DAILY 30ML'                     
+ break
+ when = '2LL'              
+    let $ins_per2 = '’√—œ ÷.≈. LUBRICANT 15ML'                 
+ break
+ when = '2MPS'             
+    let $ins_per2 = '’√—œ ÷.≈. MULTI 240ml'                    
+ break
+ when = '2MPS-120*'        
+    let $ins_per2 = 'ƒ≈…√Ã¡-’√—œ ÷.≈. MULTI 120ml'             
+ break
+ when = '2MPS-355'         
+    let $ins_per2 = '’√—œ ÷.≈. MULTI 355ml'                    
+ break
+ when = '2ctst'            
+    let $ins_per2 = 'cleaning tablets'                         
+ break
+ when = '2lcst'            
+    let $ins_per2 = 'lenscase'                                 
+ break
+ when = '2mpst'            
+    let $ins_per2 = 'multi purpose sol 12'                     
+ break
+ when = '2spst'            
+    let $ins_per2 = '‘”¡Õ‘¡ …¡'                                
+ break
+ when = '2SS'              
+    let $ins_per2 = '’√—œ ÷.≈. SALINE 240ml'                   
+ break
+ when = 'TABLETS'          
+    let $ins_per2 = 'TABLETS'                                  
+ break
+ when = 'DAILY 15ml'       
+    let $ins_per2 = 'DAILY 15ml'                               
+ break
+ when = 'MPS st'           
+    let $ins_per2 = 'MULTI PURPOSE SOL 12'                     
+ break
+ when = '2MPSTR-50'        
+    let $ins_per2 = '’√—œ ÷.≈. MPS-50ml TRAVELER'              
+ break
+ when = '2MPS-120'         
+    let $ins_per2 = '’√—œ ÷.≈. MULTI 120ml(12‘≈Ã)'             
+ break
+ when = '2CC'              
+    let $ins_per2 = '’√—œ ÷.≈. CONCENTRATED 30ml'              
+ break
+ when = '2RENU-240'        
+    let $ins_per2 = '’√—œ ÷.≈.RENU MPS-240ml'                  
+ break
+ when = '2RENU-355'        
+    let $ins_per2 = '’√—œ ÷.≈.RENU MPS-355ml'                  
+ break
+ when = '2RENU-240ƒ≈…√Ã¡'  
+    let $ins_per2 = '’√—œ ÷.≈ RENU-240 ƒ≈…√Ã¡'                 
+ break
+ when = '2ONES-360-F'      
+    let $ins_per2 = '’√—¡ ÷.≈–¡÷«” 2œNES-360-F'                
+ break
+ when = 'MPS'              
+    let $ins_per2 = '’√—œ ÷.≈.MULTI 240ml'                     
+ break
+ when = '2ONESEPT-360'     
+    let $ins_per2 = '’√—œ ÷.≈–¡÷«” ONESEPT 360ml'              
+ break
+  when = 'AQUA U4'
+          let $ins_per2 = $ins_per2 || ' AQUAMARINE U4'
+          break
+
+! else =  let $ins_per2 = $ins_per2 || $omada_eid
+!         break
+
+  end-evaluate
+
+
+  if $omada = '0009'
+     let $ins_per2 = $ins_per2 || ' ' || $omada_eid
+  end-if
+
+  if $omada = '0008'
+     let $ins_per2 = $per_eid
+  end-if
+
+  if $omada = '0015'
+     let $ins_per2 = $per_eid
+  end-if
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per3
+
+begin-select
+patindex('%[-,+]%',$eidos) &ch_index () NOP
+
+  let #ch_index = 0
+  let #ch_index = &ch_index
+
+end-select
+
+  if  #ch_index   != 0
+  let #eidos_l     = length($eidos)
+  if (#ch_index+1) < #eidos_l
+      move #ch_index to #ch_index2 9999
+      move #eidos_l  to #eidos_l2  9999
+      do make_per4
+  end-if
+  end-if
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure make_per4
+
+  let #ch_index3 = #ch_index2 + 1
+  let #ch_iii    = #ch_index2
+  let #eidos_l3  = #eidos_l2  - 1
+  let #kiki4     = #eidos_l3  - #ch_index3 + 1
+  let $p         = '.'
+
+begin-select
+ 
+convert(int,#ch_iii   ) &lala  () NOP
+convert(int,#eidos_l2 ) &kiki  () NOP
+   
+convert(int,#ch_index3) &lala3 () NOP
+convert(int,#eidos_l3 ) &kiki3 () NOP
+
+convert(int,#kiki4    ) &kiki4 () NOP
+end-select
+
+begin-select
+substring($eidos, convert(int,&lala3),convert(int,&kiki3)) &dioptr  () NOP
+substring($eidos, convert(int,&lala ),                 1)  &dioptr2 () NOP
+stuff(
+substring($eidos, convert(int,&lala3),convert(int,&kiki3)),convert(int,&kiki4),0,$p) &dioptr3 () NOP
+
+     let  $dioptr3  =  &dioptr3
+     let  $dioptr2  =  &dioptr2
+     
+  display $eidos        noline
+  display ' charindex ' noline
+  display #ch_index     noline
+  display ' length '    noline
+  display #eidos_l      noline
+
+  display ' dioptr2 '   noline
+  display $dioptr2      noline
+  display ' dioptr3 '   noline
+  display $dioptr3      noline
+  display ' dioptr '    noline
+  display &dioptr       noline
+  display ' lala '      noline
+  display &lala         noline
+  display ' lala3 '     noline
+  display &lala3        noline
+  display ' kiki3 '     noline
+  display &kiki3   
+
+     if   $dioptr3  =  'P.LANO'
+     let  $dioptr3  =  '00.00'
+     end-if
+     if   $dioptr3  =  'PL.ANO'
+     let  $dioptr3  =  '00.00'
+     end-if
+     if   $dioptr3  =  'PLA.NO'
+     let  $dioptr3  =  '00.00'
+     end-if
+
+     move $dioptr3  to $dioptr3 00.00
+
+     let $ins_per2 = $ins_per2 || ' ' || $dioptr2 || $dioptr3
+         
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure get_omadaeid
+
+begin-select
+a.pvlomada  &omada_eid () NOP
+a.perigrafh &per_eid   () NOP
+  
+  let $omada_eid = &omada_eid
+  let $per_eid   = &per_eid  
+
+from  wh_eidh a
+where a.kvdikos = $eidos
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure insert2
+
+ move #cnt to $cnt   0000
+
+begin-select
+convert(varchar,$ins_omada+convert(varchar,$cnt))  &logar       () NOP
+convert(varchar,$ins_omada)                        &ins_parent2 () NOP
+  
+  let $ins_per2    = ''
+
+  do  make_per2
+   !  */*/*/*/*/*/*/
+   !  do  make_per3
+   !  */*/*/*/*/*/*/
+
+  let $ins_parent2 = &ins_parent2
+  let $logar       = &logar
+
+  print $eidos     (, 1,15)
+  print $logar     (,+1,20)
+  print $ins_per2  (,+1,40)
+
+end-select
+
+ next-listing
+
+! begin-sql
+!  update wh_eidhmore set logar=$logar 
+!  where cid    = '1'
+!  and   eidos  = $eidos
+!  and   energo is not null 
+!  and   logar  is null
+! end-sql
+
+! begin-sql
+! insert into gl_logar 
+!         (cid, logar,perigrafh,serlogar,parent ,     log_level,post_flag)
+! values  ('1',$logar,$ins_per2,$eidos  ,$ins_parent2,5        ,'X' )
+! end-sql
+
+end-procedure
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1= '¡Ì·ÎıÙÈÍﬁ ÀÔ„ÈÛÙÈÍﬁ'
+  let   $msg2= ' ˘‰ÈÍÔÔﬂÁÛÁ ¡ÔËÂÏ‹Ù˘Ì - ≈ÏÔÒÂıÏ‹Ù˘Ì'
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  print ' ˘‰ÈÍ¸Ú'               (5,20, 8) 
+  print '–ÂÒÈ„Ò·ˆﬁ'             (5,30, 8) 
+  print '≈ﬂ‰ÔÚ'                 (5,40, 8) 
+  print ''                      (5,50, 8) 
+End-Heading              

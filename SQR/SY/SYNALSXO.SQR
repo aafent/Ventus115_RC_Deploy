@@ -1,0 +1,146 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      : synalsxolia.sqr                                ****
+! ***** DATE        : 07/06/95                                       ****
+! ***** APPLICATION : сумаккасолемои                                 ****
+! ***** AUTHOR      : Mal Nick                                       ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    132 
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+#DEFINE   MASK1        999,999,999
+#DEFINE   MASK7            999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $iapohm  'apohm'
+ input $ievshm  'evshm'
+ input $iypol  'ypol'
+
+ execute app_datecnv $iapohm, $apohm output, $apohmpr output
+ execute app_datecnv $ievshm, $evshm output, $evshmpr output
+
+ unstring $iypol  by '"' into $filler1 $ypol   $filler1
+
+ move $ypol to #ypol 
+
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+
+begin-select 
+distinct a.synal                   &synal         () NOP
+b.epvnymia                         &epvn          () NOP
+
+ let $synal = &synal
+
+  print &synal          (, 1,10)
+  print &epvn           (,+1,44)
+
+ ! if #ypol = 1
+ !    do getypol  
+ ! end-if
+
+ next-listing
+
+ do print_sx
+ next-listing
+ next-listing
+
+from  sy_synalsxolia  a,
+      sy_kvdinf       c,
+      sy_synal        b
+
+where a.synal  = b.synal
+and   a.kvdinf = c.kvdikos
+and   a.hmeromhnia between $apohm and $evshm
+[$SQLCMD]
+
+end-select
+  
+end-procedure
+
+! ****************************************************************************
+begin-procedure print_sx 
+begin-select
+convert(char(8),a.hmeromhnia,3)    &hmer          () NOP
+c.kvdikos                          &kvd           () NOP
+a.sxolio                           &perigr        () NOP
+
+  print &hmer           (,12,10)
+  print &kvd            (,+1, 5)
+  print &perigr         (,+1,40)
+ next-listing
+
+from  sy_synalsxolia  a,
+      sy_kvdinf       c
+where a.synal  = $synal
+and   a.kvdinf = c.kvdikos
+order by a.synal,a.hmeromhnia,a.kvdinf
+end-select
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure getypol 
+
+
+
+                     display     $synal 
+                     display     $evshm
+                     display     $cid
+                     display     #xrevsh 
+                     display     #pistvsh
+                     display     #ypol
+execute syp_getypol  @synal    = $synal, 
+                     @hmer     = $evshm, 
+                     @cid      = $cid,
+                     @xrevsh   = #xrevsh out,
+                     @pistvsh  = #pistvsh out,
+                     @ypoloipo = #ypol out
+ 
+  print #xrevsh                   ( ,+1,13) edit {MASK1}
+  print #pistvsh                  ( ,+1,13) edit {MASK1}
+    let #ypoloipo = #xrevsh - #pistvsh
+  print #ypoloipo                 ( ,+1,13) edit {MASK1}
+end-procedure
+
+! ****************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ let $msg = 'с в о к и а   с у м а к к а с о л е м ы м'
+ print $msg (2,+1) center
+ let $msg = 'апо '||$apohmpr||' еыс '||$evshmpr
+
+   print $msg                                      (3,+1   ) center
+   print '  с У М А К К А С Э Л Е М О Р '          (5, 1,60) 
+   print 'вяеысг'                                  ( ,+1,12) 
+   print 'пистысг'                                 ( ,+1,12)
+   print 'упокоипо'                                ( ,+1,12)
+   print 'гЛЕЯОЛГМъА'                              (6,12,10)
+   print '    л Щ М Г Л А'                         ( ,+1,46)
+End-Heading

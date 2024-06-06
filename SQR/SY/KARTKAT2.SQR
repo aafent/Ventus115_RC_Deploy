@@ -1,0 +1,606 @@
+! *****************************************************************************
+! **** PROLOGIC S.A.                                                       ****
+! **** REPORT      : kartkat.sqr                                           ****
+! **** DATE-CREATED: 14/03/95                                              ****
+! **** LAST-UPDATE : 02/06/95                                              ****
+! **** APPLICATION : ”’Õ¡ÀÀ¡”œÃ≈Õœ…                                        ****
+! **** AUTHOR      : Ã–œ …¡” Õ… œ”                                         ****
+! **** NOTE        :  ¡—‘≈À¡ ”’Õ¡ÀÀ¡”œÃ≈ÕŸÕ                                ****
+! *****************************************************************************
+
+#DEFINE   PAGE-Y                62
+#DEFINE   PAGE-X               136
+#DEFINE   HEAD-SIZE              7
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   MASK1              99999
+#DEFINE   MASK2         9999999999
+#DEFINE   MASK3    999,999,999,999
+#DEFINE   MASK4          9,999,999
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   DATEMASK1       DD/MM    
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+ 
+ create-array name=tmhmata size=100 field=tmhma:number
+                                    field=perigrafh:char
+                                    field=xrevsh:number
+                                    field=pistvsh:number
+                                    field=ex_xre:number
+                                    field=ex_pis:number
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $hmerapo  '¡¸ «ÏÂÒÔÏÁÌﬂ· : '
+ input $hmerevs  '≈˘Ú «ÏÂÒÔÏÁÌﬂ· : '
+ input $tmhmoul  'Tmhma/*        : '
+ input $ipvlhths '–˘ÎÁÙÁÚ/*      : '
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ unstring $tmhmoul  by '"' into $filler1 $tmhma   $filler1
+ unstring $ipvlhths by '"' into $filler1 $pvlhths $filler1
+
+ if $tmhma='*' 
+  let $SQLTMHMA = '' 
+ else 
+  move $tmhma to #tmhma
+  let $SQLTMHMA = 'and a.tmhma = ' || $tmhma
+ end-if
+
+ if $pvlhths='*' 
+  let $SQLPVLHTHS = '' 
+ else 
+  move $pvlhths to #pvlhths
+  ! let $SQLPVLHTHS = 'and c.pvlhths = ' || $pvlhths
+  let $SQLPVLHTHS = ' and exists (select 1 from sy_synaltopos c ' 
+  let $SQLPVLHTHS=$SQLPVLHTHS||' where a.synal = c.synal and c.pvlhths = '
+  let $SQLPVLHTHS=$SQLPVLHTHS|| $pvlhths
+ end-if
+
+ Do Main($hmer_apo,$hmer_evs,$tmhma,#tmhma,$SQLCMD,$SQLTMHMA,$SQLPVLHTHS)
+
+End-Report
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure Main($hmer_apo,$hmer_evs,$tmhma,#tmhma,$SQLCMD,$SQLTMHMA,$SQLPVLHTHS)
+
+  move 0 to #lastnum
+  move 0 to #xre
+  move 0 to #pis
+  move 0 to #ex_xre
+  move 0 to #ex_pis
+
+if $tmhma = '*'
+ do seltmhma (#lastnum)
+else
+ ! „È· ÂÒÈ„Ò·ˆﬁ ÙÏﬁÏ·ÙÔÚ  -----  do gettmhma (#tmhma)
+ do puttmhma (#tmhma, $perigrafh, #lastnum)
+end-if
+
+begin-select
+dateadd (dd,-1,$hmer_apo) &prevdate
+end-select
+
+begin-select distinct
+a.synal             &kvdikos        (1,1,1) on-break print=change/top-page
+  print '       '                   (1,1,1)
+a.epvnymia          &epvnymia       () NOP
+aa.dieyuynsh        &dieyuynsh      () NOP
+aa.polh             &polh           () NOP
+aa.taxkvd           &taxkvd         () NOP
+aa.thl              &thlefvna       () NOP
+a.afm               &afm            () NOP
+a.omilos            &pel            () NOP
+
+ do findkin (&kvdikos,$F,$SQLTMHMA)
+ if $F = 'T'
+ 
+  let $m = &kvdikos || '      ' || &epvnymia || '          ¡.÷.Ã. ' || &afm
+  print $m (, 1,) center
+  next-listing
+  let $m = &dieyuynsh || ' - ' || &polh || ' ' || &taxkvd || '          ‘«À. ' || &thlefvna
+  print $m (, 1,) center
+
+  next-listing
+  do zeropin(#lastnum)
+  move 0 to #xre
+  move 0 to #pis
+  move 0 to #ex_xre
+  move 0 to #ex_pis
+  do execproc(&kvdikos,&prevdate,#ex_xre,#ex_pis,$tmhma)
+  next-listing
+  let   #ex_ypol=#ex_xre-#ex_pis
+  print '–—œ«√. ’–œÀœ…–œ   : '      (,25,40)
+  print #ex_xre                     (,+1,15) edit {MASK3}
+  print #ex_pis                     (,+1,15) edit {MASK3}
+  print #ex_ypol                    (,+1,15) edit {MASK3}
+  next-listing
+  next-listing
+  if $tmhma='*'
+   do print_kin   (&kvdikos,$hmer_apo,$hmer_evs,#xre,#pis,#lastnum,#ex_xre,#ex_pis)
+  else
+   do print_kins  (&kvdikos,$hmer_apo,$hmer_evs,#xre,#pis,#lastnum,#tmhma,#ex_xre,#ex_pis)
+  end-if
+  next-listing need=3
+  let   #ypol=#xre-#pis
+  print '”’ÕœÀ¡ –≈—…œƒœ’   : '      (,25,40)
+  print #xre                        (,+1,15) edit {MASK3}
+  print #pis                        (,+1,15) edit {MASK3}
+  print #ypol                       (,+1,15) edit {MASK3}
+  next-listing 
+  print '√≈Õ… ¡ ”’ÕœÀ¡     : '      (,25,40)
+  let   #tot_xre=#ex_xre+#xre
+  let   #tot_pis=#ex_pis+#pis
+  let   #tot_ypol=#tot_xre-#tot_pis
+  print #tot_xre                    (,+1,15) edit {MASK3}
+  print #tot_pis                    (,+1,15) edit {MASK3}
+  print #tot_ypol                   (,+1,15) edit {MASK3}
+  do find_ex_ypol(&kvdikos,&prevdate,#lastnum)
+  do print_tot   (#lastnum)
+  new-page  
+ end-if
+
+from  sy_synal a, sy_synaltopos aa, ap_nomos b
+where isnull(aa.nomos,0) = b.kvdikos
+and   a.synal  = aa.synal
+[$SQLCMD]
+[$SQLPVLHTHS]
+order by aa.polh
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure findkin ($synal,:$F,$SQLTMHMA)
+
+  let $F = 'F'
+
+begin-select LOOPS=1
+isnull(synal,'NULL') &synal  () NOP
+ if &synal = 'NULL'
+  let $F = 'F'
+ else
+  let $F = 'T'
+ end-if
+from  sy_kin a
+where a.synal = $synal
+[$SQLTMHMA]
+end-select
+end-procedure
+
+! ----------------------------------------------------------------------------
+
+begin-procedure puttmhma (#t, $p, :#lastnum)
+  move 0 to #eof
+  move 0 to #existtmhma
+  move 1 to #i
+  while #eof = 0
+    get #tmptmhma from tmhmata(#i) tmhma
+    if  #tmptmhma=#t
+      move 1 to #existtmhma
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+  if #existtmhma=0
+    add 1 to #lastnum
+    put #t into tmhmata(#lastnum) tmhma
+    put $p into tmhmata(#lastnum) perigrafh
+    let #a=0             
+    put #a into tmhmata(#lastnum) xrevsh
+    put #a into tmhmata(#lastnum) pistvsh
+  end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure gettmhma(#tmhma)
+
+begin-select 
+kvdikos        &tmhma     () NOP
+perigrafh      &perigrafh () NOP
+
+ do puttmhma (&tmhma, &perigrafh, #lastnum)
+
+from ap_tmhma
+order by kvdikos
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure seltmhma(:#lastnum)
+
+begin-select distinct
+kvdikos        &tmhma     () NOP
+perigrafh      &perigrafh () NOP
+
+ do puttmhma (&tmhma, &perigrafh, #lastnum)
+
+from ap_tmhma
+order by kvdikos
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure execproc($syn,$date_evs,:#ex_xre,:#ex_pis,$tmhma)
+ if $tmhma='*'
+  execute syp_getypol @synal   = $syn,
+                      @hmer    = $date_evs,
+                      @xrevsh  = #ex_xre output, 
+                      @pistvsh = #ex_pis output,
+                      @ypoloipo= #ypooo  output 
+ else
+  move $tmhma to #tmhma
+  execute syp_getypol @synal   = $syn,
+                      @hmer    = $date_evs,
+                      @tmhma   = #tmhma,
+                      @xrevsh  = #ex_xre output, 
+                      @pistvsh = #ex_pis output,
+                      @ypoloipo= #ypooo  output 
+ end-if
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_kin($kat,$hmer_apo,$hmer_evs,:#xre,:#pis,#lastnum,#ex_xre,#ex_pis)
+
+  let #pro_xre = #ex_xre
+  let #pro_pis = #ex_pis
+
+begin-select
+convert(datetime,a.hmeromhnia)    (,01,05) edit {DATEMASK1}
+a.tmhma                           (,+1, 2)
+a.parkvd        &par              (,+1, 2)
+a.seira                           (,+1, 2)
+a.parno                           (,+1, 8)
+a.aitia                           (,+1,39)
+a.aa            &aa               ()       NOP
+a.ajia                            ()       NOP
+b.f_xrevsh                        ()       NOP
+b.f_pistvsh                       ()       NOP
+b.syntel_xp                       ()       NOP
+
+  move &par    to $parastatiko
+
+  if   &b.f_xrevsh  <> '' 
+   let $x_p = 'x'
+  else 
+   if &b.f_pistvsh <> '' 
+    let $x_p = 'p'
+   else
+    let $x_p = 'n'
+   end-if
+  end-if
+
+  do addajia(&a.tmhma,&a.ajia,&b.syntel_xp,$x_p,#lastnum)
+
+  let #ajia_pr = &a.ajia * &b.syntel_xp
+
+  if &b.f_xrevsh <> ''
+    print #ajia_pr                (,+01,15) edit {MASK3}
+    let     #xre =     #xre + (&a.ajia * &b.syntel_xp)
+    let #pro_xre = #pro_xre + (&a.ajia * &b.syntel_xp)
+  else 
+    if &b.f_pistvsh <> ''         
+      print #ajia_pr              (,+17,15) edit {MASK3}
+      let     #pis =     #pis + (&a.ajia * &b.syntel_xp)
+      let #pro_pis = #pro_pis + (&a.ajia * &b.syntel_xp)
+    else 
+      print '.'                   (,+01,15)
+    end-if
+  end-if
+
+  let #pr_ypol=#xre-#pis
+  let #pro_ypol=#pro_xre-#pro_pis
+
+!  print #pr_ypol              (,098,15) edit {MASK3}
+
+  print #pro_ypol             (,098,15) edit {MASK3}
+
+  do findtropos (&aa)
+
+  do findekp    (&aa,#ekp_ajia)
+
+  next-listing
+
+from sy_kin a, ap_par b
+where a.synal    =$kat
+and   a.parkvd   =b.parkvd
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and  (b.f_xrevsh is not null or b.f_pistvsh is not null)
+and   a.logar like '[35]%'
+order by a.hmeromhnia, a.seira, a.parno  
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure findtropos (#aa)
+begin-select
+b.perigrafh           &tropos (,+1, 8)
+  
+  let $tropos = &tropos
+
+from sy_parmas a, sy_troposplhr b
+where aa = #aa
+and   a.tropos_plhr = b.kvdikos
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure findekp (#aa,:#ajia)
+begin-select
+ajia      &ajia      (,+1, 9) edit {MASK4}
+  let #ajia = &ajia
+from sy_partotals
+where kvdikos = 20
+and   aa = #aa
+end-select
+end-procedure
+
+! -----------------------------------------------------------------------
+
+begin-procedure print_kins($kat,$hmer_apo,$hmer_evs,:#xre,:#pis,#lastnum,#tmhma,#ex_xre,#ex_pis)
+ 
+  let #pro_xre = #ex_xre
+  let #pro_pis = #ex_pis
+
+begin-select
+convert(datetime,a.hmeromhnia)    (,01,05) edit {DATEMASK1}
+a.tmhma                           (,+1, 2)
+a.parkvd                          (,+1, 2)
+a.seira                           (,+1, 3)
+a.parno                           (,+1, 8)
+a.aitia                           (,+1,39)
+a.aa                &aa           ()       NOP
+a.ajia                            ()       NOP
+b.f_xrevsh                        ()       NOP
+b.f_pistvsh                       ()       NOP
+b.syntel_xp                       ()       NOP
+
+  if   &b.f_xrevsh  <> '' 
+   let $x_p = 'x'
+  else 
+   if &b.f_pistvsh <> '' 
+    let $x_p = 'p'
+   else  
+    let $x_p = 'n'
+   end-if
+  end-if
+
+  do addajia(&a.tmhma,&a.ajia,&b.syntel_xp,$x_p,#lastnum)
+
+  let #ajia_pr = &a.ajia * &b.syntel_xp
+
+  if &b.f_xrevsh <> ''
+    print #ajia_pr                (,+01,15) edit {MASK3}
+    let       #xre =     #xre + (&a.ajia * &b.syntel_xp)
+    let   #pro_xre = #pro_xre + (&a.ajia * &b.syntel_xp)
+
+    ! print #pr_ypol                (,+17,15) edit {MASK3}
+  else 
+    if &b.f_pistvsh <> ''         
+      print #ajia_pr              (,+17,15) edit {MASK3}
+      let       #pis =     #pis + (&a.ajia * &b.syntel_xp)
+      let   #pro_pis = #pro_pis + (&a.ajia * &b.syntel_xp)
+
+    else 
+      print '.'                   (,+01,15)
+    end-if
+  end-if
+
+  let   #pro_ypol = #pro_xre - #pro_pis
+  let    #pr_ypol =     #xre -     #pis
+
+! print #pr_ypol               (,+01,15) edit {MASK3}
+
+  print #pro_ypol              (,098,15) edit {MASK3}
+
+  do findtropos (&aa)
+
+  do findekp    (&aa, #ekp_ajia)
+
+  next-listing
+
+from sy_kin a, ap_par b
+where a.synal    =$kat
+and   a.parkvd=b.parkvd
+and   a.hmeromhnia between $hmer_apo and $hmer_evs
+and  (b.f_xrevsh is not null or b.f_pistvsh is not null)
+and   a.tmhma=#tmhma
+order by a.hmeromhnia, a.seira, a.parno  
+end-select
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure addajia (#t, #a, #xp, $x_p, #lastnum)
+  move 0 to #eof
+  move 1 to #i
+
+  while #eof = 0
+    get #tmptmhma from tmhmata(#i) tmhma
+    if  #tmptmhma=#t
+      if $x_p = 'x'
+        get #tmpajia from tmhmata(#i) xrevsh
+        let #tmpajia = #tmpajia + (#a * #xp)
+        put #tmpajia into tmhmata(#i) xrevsh
+      else
+        if $x_p = 'p'
+          get #tmpajia from tmhmata(#i) pistvsh
+          let #tmpajia = #tmpajia + (#a * #xp)
+          put #tmpajia into tmhmata(#i) pistvsh
+        end-if
+      end-if
+      move 1 to #eof
+    end-if
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_ex_ypol($syn,$date_evs,#lastnum)
+
+  let  #s_xre = 0
+  let  #s_pis = 0
+  let  #ypooo = 0
+
+  move 0 to #eof
+  move 1 to #i
+  while #eof = 0
+    get #tmhma from tmhmata(#i) tmhma
+    execute syp_getypol @synal   = $syn,
+                        @hmer    = $date_evs,
+                        @xrevsh  = #s_xre output, 
+                        @pistvsh = #s_pis output,
+                        @ypoloipo= #ypooo output,
+                        @tmhma   = #tmhma
+    put #s_xre into tmhmata(#i) ex_xre
+    put #s_pis into tmhmata(#i) ex_pis
+    add 1 to #i
+    if #i > #lastnum
+      move 1 to #eof
+    end-if
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure print_tot(#lastnum)
+  next-listing 
+  next-listing
+! print '--------------- --------------- ---------------' (,57,)
+  print '–—œ«√.”’Õ.‘Ã«Ã¡‘ŸÕ: '                            (,25,40)
+  next-listing
+  move 1 to #i
+  while #i <= #lastnum
+    get #tmptmhma     from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_ex_xre   from tmhmata(#i) ex_xre
+    get #tmp_ex_pis   from tmhmata(#i) ex_pis 
+    let #tmp_ex_ypol = #tmp_ex_xre - #tmp_ex_pis
+   
+   if #tmp_ex_xre <> 0
+   or #tmp_ex_pis <> 0
+    print #tmptmhma                (,25,40) 
+    print $tmpperigrafh            (,25,40) 
+    print #tmp_ex_xre              (,+1,15) edit {MASK3}
+    print #tmp_ex_pis              (,+1,15) edit {MASK3}
+    print #tmp_ex_ypol             (,+1,15) edit {MASK3}
+    next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+  next-listing 
+! print '--------------- --------------- ---------------' (,57,)
+  print '–≈—…œƒ.”’Õ.‘Ã«Ã¡‘ŸÕ '               (,25,40)
+  next-listing
+  move 1 to #i
+  while #i <= #lastnum
+    get #tmptmhma from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_xre  from tmhmata(#i) xrevsh
+    get #tmp_pis  from tmhmata(#i) pistvsh
+    let #tmp_ypol = #tmp_xre - #tmp_pis
+
+   if #tmp_xre <> 0
+   or #tmp_pis <> 0
+    print #tmptmhma             (,25,40) 
+    print $tmpperigrafh         (,25,40) 
+    print #tmp_xre              (,+1,15) edit {MASK3}
+    print #tmp_pis              (,+1,15) edit {MASK3}
+    print #tmp_ypol             (,+1,15) edit {MASK3}
+    next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+  next-listing 
+! print '--------------- --------------- ---------------' (,57,)
+  print '√≈Õ… ¡ ”’Õ.‘Ã«Ã¡‘ŸÕ '               (,25,40)
+  next-listing
+  move 1 to #i
+  while #i <= #lastnum
+    get #tmptmhma   from tmhmata(#i) tmhma
+    get $tmpperigrafh from tmhmata(#i) perigrafh
+    get #tmp_xre    from tmhmata(#i) xrevsh
+    get #tmp_pis    from tmhmata(#i) pistvsh
+    get #tmp_ex_xre from tmhmata(#i) ex_xre
+    get #tmp_ex_pis from tmhmata(#i) ex_pis 
+    let #tmp_tot_xre  = #tmp_xre     + #tmp_ex_xre
+    let #tmp_tot_pis  = #tmp_pis     + #tmp_ex_pis
+    let #tmp_tot_ypol = #tmp_tot_xre - #tmp_tot_pis
+
+   if #tmp_tot_xre <> 0
+   or #tmp_tot_pis <> 0
+    print #tmptmhma             (,25,40) 
+    print $tmpperigrafh         (,25,40) 
+    print #tmp_tot_xre          (,+1,15) edit {MASK3}
+    print #tmp_tot_pis          (,+1,15) edit {MASK3}
+    print #tmp_tot_ypol         (,+1,15) edit {MASK3}
+    next-listing
+   end-if
+
+    add 1 to #i
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure zeropin(#ln)
+  move 1   to #i
+  move 0   to #n
+  while #i <= #ln 
+    put #n into tmhmata(#i) xrevsh
+    put #n into tmhmata(#i) pistvsh
+    put #n into tmhmata(#i) ex_xre
+    put #n into tmhmata(#i) ex_pis
+    add 1 to #i
+  end-while
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print ' ¡—‘≈ÀÀ¡ ”’Õ¡ÀÀ¡”œÃ≈Õœ’' (3,) Center
+  let $hmer_str='–≈—…œƒœ’ ¡–œ : ' || $hmerapopr || '  ≈Ÿ” : ' || $hmerevspr
+  print $hmer_str               (4,) center
+  print '«ÏÂÒ.'                                 (6, 1, 5) 
+  print 'TM'                                     (,+1, 2) 
+  print '–·Ò·ÛÙ·ÙÈÍ¸'                            (,+1,13) 
+! print '¡ÒÈËÏ¸Ú   '                             (,+1,10) 
+  print '¡ È Ù È Ô Î Ô „ ﬂ ·'                    (,+1,39) 
+  print '         ◊Ò›˘ÛÁ'                        (,+1,15)
+  print '        –ﬂÛÙ˘ÛÁ'                        (,+1,15)
+  print '   Õ›Ô-’¸ÎÔÈÔ'                        (,+1,15)
+  print '‘–'                                     (,+1,10)
+  print '≈ÍÙ˛ÛÂÈÚ'                              (,+1, 9)
+End-Heading              

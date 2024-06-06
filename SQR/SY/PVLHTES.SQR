@@ -1,0 +1,329 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : pvlhtes.sqr                                            ****
+! **** DATE        : 14/01/98                                               ****
+! **** APPLICATION : пекатес - пыкгсеис                                     ****
+! **** AUTHOR      : хеотойас иыаммгс                                       ****
+! **** NOTE        : еййахаяисг пяолгхеиым пыкгтым - амтипяосыпым           ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                60
+#DEFINE   PAGE-X               132
+#DEFINE   HEAD-SIZE              8
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              5
+
+#DEFINE   MASK1         9,999,999.9c
+#DEFINE   MASK2      999,999,999.99c
+#DEFINE   MASK3           99,999.99c
+#DEFINE   MASK4                 99
+#DEFINE   DATEMASK        DD/MM/YY
+#DEFINE   DATEMASK2       DD/MM   
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+ LOAD-LOOKUP NAME = idiokthtes  
+             ROWS = 999  
+             TABLE = wh_fkeidhinf 
+             KEY = 'rtrim(inf)'
+             RETURN_VALUE = perigrafh 
+             WHERE = 'kvdinf = 999'
+End-Setup
+
+ 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+ 
+ input $irepeidos  	'пыкгтес - амтипяосыпои'
+ input $ianal   	'амакутийа (N/O)       '
+ input $hmerapo 	'апо гл/миа            '
+ input $hmerevs 	'еыс гл/миа            '
+
+ move $L_CID to $cid
+
+ unstring $irepeidos by '"' into $filler $repeidos $filler  
+ unstring $ianal  by '"' into $filler $anal  $filler 
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ if ($anal = 'N') or ($anal = 'n') or ($anal = 'м') or ($anal = 'М')
+    move 'N' to $anal
+ else
+    move 'O' to $anal
+ end-if
+
+ if $repeidos = '1'
+    move 'пыкгтес'	to $h1
+    move 'пыкгтгс'	to $h2
+ else
+    move 'амтипяысопои'	to $h1
+    move 'амтипяысопос'	to $h2
+ end-if
+
+ move 'T' to $first_page
+
+ Do Main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+  EXECUTE DO = Main-Print whp_pvlhtes @FE  = 'SQR', 
+			@cid    = $cid, 
+			@hm_apo = $hmer_apo, 
+			@hm_evs = $hmer_evs, 
+			@eidos  = $repeidos
+ INTO  	&pvlhths	int,
+	&perigrafh	varchar(30),
+	&idiokthths	char(3),
+	&eidos		varchar(15),
+	&ajia		float,
+	&hmer		datetime,
+	&parkvd		char(3),
+	&seira		char(3),
+	&parno		int,
+	&synal		varchar(10),
+        &omada          varchar(10)
+
+
+ do tot-pvlhths
+ do synola
+	
+End-Procedure
+
+! ==============================================================================
+
+Begin-Procedure Main-Print
+
+  display &pvlhths
+
+  move '' to $hmeromhnia
+  move  30 to #col1
+  move  68 to #col2
+  move 106 to #col3
+  move 128 to #col4
+
+  move  29 to #col01
+  move  41 to #col02
+  move  53 to #col03
+  move  67 to #col04
+  move  79 to #col05
+  move  91 to #col06
+  move 105 to #col07
+  move 118 to #col08
+  move 131 to #col09
+
+  if &pvlhths != #pvlhths
+
+     if $first_page = 'F'
+	do tot-pvlhths
+     end-if
+
+     print &pvlhths			(,01,03)
+     print &perigrafh			(,+1,20)
+     if $anal = 'N'
+        next-listing
+     end-if
+
+     move &pvlhths to #pvlhths
+     move 'F' to $first_page
+
+  end-if
+
+  move 0 to #ajia1
+  move 0 to #ajia2
+  move 0 to #ajia3
+  move 0 to #ajia4
+  move 0 to #ajia5
+  move 0 to #ajia_tri
+
+  move &omada to $om2 XX
+  move &omada to $om3 XXX
+
+  if &idiokthths = '000'
+     if $om2 = '21'					! кади
+	move &ajia to #ajia1
+     else
+       if $om2 = '22'					! екиес
+	 move &ajia to #ajia2
+       else
+         if $om2 = '23'					! сапоуми
+	   move &ajia to #ajia3
+         else
+           if $om3 = '251'				! екбимг
+             move &ajia to #ajia4
+           else
+             if $om3 = '252'				! PRIMA
+	       move &ajia to #ajia5
+             end-if
+           end-if
+         end-if
+       end-if
+     end-if
+  else
+     move &ajia to #ajia_tri
+  end-if
+
+  let #s1_ajia1    = #s1_ajia1    + #ajia1
+  let #s1_ajia2    = #s1_ajia2    + #ajia2
+  let #s1_ajia3    = #s1_ajia3    + #ajia3
+  let #s1_ajia4    = #s1_ajia4    + #ajia4
+  let #s1_ajia5    = #s1_ajia5    + #ajia5
+  let #s1_ajia_tri = #s1_ajia_tri + #ajia_tri
+
+  let #s1_ajia_tot = #ajia1 + #ajia2 + #ajia3 + #ajia4 + #ajia5 + #ajia_tri
+
+  if $anal = 'N'
+
+     !print &hmer			(,05,05)	edit {DATEMASK2}
+     print &hmer			(,01,05)	edit {DATEMASK2}
+     print &parkvd			(,+1,03)
+     print &seira                       (,  ,03)
+     print &parno                       (,  ,05)	edit 99999
+     !print ' '				(,,04)
+     print &synal			(,+1,08)
+
+     print #ajia1			(,+1,14)	edit {MASK2}
+     print #ajia2			(,+1,14)	edit {MASK2}
+     print #ajia3			(,+1,14)	edit {MASK2}
+     print #ajia4			(,+1,14)	edit {MASK2}
+     print #ajia5			(,+1,14)	edit {MASK2}
+     print #ajia_tri			(,+1,14)	edit {MASK2}
+     print #s1_ajia_tot			(,+1,14)	edit {MASK2}
+  
+     next-listing	
+     
+  end-if
+
+
+End-Procedure
+! ******************************************************************************
+
+begin-procedure tot-pvlhths
+
+  if $anal = 'N'
+     print $L_X2			(,01,{PAGE-X}) fill
+     next-listing
+  end-if
+
+  let #s1_ajia_tot = #s1_ajia1 + #s1_ajia2 + #s1_ajia3 + #s1_ajia4 + #s1_ajia5 + #s1_ajia_tri
+
+  print #s1_ajia1			(,27,14)	edit {MASK2}
+  print #s1_ajia2			(,+1,14)	edit {MASK2}
+  print #s1_ajia3			(,+1,14)	edit {MASK2}
+  print #s1_ajia4			(,+1,14)	edit {MASK2}
+  print #s1_ajia5			(,+1,14)	edit {MASK2}
+  print #s1_ajia_tri			(,+1,14)	edit {MASK2}
+  print #s1_ajia_tot			(,+1,14)	edit {MASK2}
+
+  next-listing
+
+  if $anal = 'N'
+     print $L_X1			(,01,{PAGE-X}) fill
+     next-listing
+  end-if
+
+  let #s2_ajia1    = #s2_ajia1    + #s1_ajia1
+  let #s2_ajia2    = #s2_ajia2    + #s1_ajia2
+  let #s2_ajia3    = #s2_ajia3    + #s1_ajia3
+  let #s2_ajia4    = #s2_ajia4    + #s1_ajia4
+  let #s2_ajia5    = #s2_ajia5    + #s1_ajia5
+  let #s2_ajia_tri = #s2_ajia_tri + #s1_ajia_tri
+
+  move 0 to #s1_ajia1
+  move 0 to #s1_ajia2
+  move 0 to #s1_ajia3
+  move 0 to #s1_ajia4
+  move 0 to #s1_ajia5
+  move 0 to #s1_ajia_tri
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure synola
+
+  if $anal = 'O'
+     print $L_X2			(,01,{PAGE-X}) fill
+     next-listing
+  end-if
+
+  print 'сумоко аниым'			(,04,20)
+
+  let #s2_ajia_tot = #s2_ajia1 + #s2_ajia2 + #s2_ajia3 + #s2_ajia4 + #s2_ajia5 + #s2_ajia_tri
+
+  print #s2_ajia1			(,27,14)	edit {MASK2}
+  print #s2_ajia2			(,+1,14)	edit {MASK2}
+  print #s2_ajia3			(,+1,14)	edit {MASK2}
+  print #s2_ajia4			(,+1,14)	edit {MASK2}
+  print #s2_ajia5			(,+1,14)	edit {MASK2}
+  print #s2_ajia_tri			(,+1,14)	edit {MASK2}
+  print #s2_ajia_tot			(,+1,14)	edit {MASK2}
+
+  next-listing
+  print $L_X1			(,01,{PAGE-X}) fill
+  next-listing
+
+end-procedure
+! ******************************************************************************
+
+begin-procedure new-level
+  
+  if $old_level <> '' 
+     if $old_level < $level
+	print '|'				(,#col01)
+	print '|'				(,#col02)
+	print '|'				(,#col03)
+	print '|'				(,#col04)
+	print '|'				(,#col05)
+	print '|'				(,#col06)
+	print '|'				(,#col07)
+	print '|'				(,#col08)
+	print '|'				(,#col09)
+        next-listing
+     end-if
+  end-if
+  move $level to $old_level
+
+end-procedure
+
+! ******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  
+  #INCLUDE "{$L_GDATA}\sqr\FOOT01.inc"
+
+End-Footing
+
+! ******************************************************************************
+
+Begin-Heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}\sqr\HEAD01.inc"
+
+  let $msg = 'еййахаяисг пяолгхеиым (' || $h1 || ')'
+  print  $msg 					(3,) Center
+ 
+  let $msg = '(пеяиодос апо ' || $hmerapopr || ' еыс ' || $hmerevspr || ')'
+  print $msg					(4,) center
+
+  print '| ------------------------- пяоиомта  екаиоуяцийгс --------------------------' (6,27,74)
+  print '| - пяоиомта --'				(,+1,14)
+  print '|    сумоко    '				(,+1,14)
+
+  print 'йыд' 				                (7,01,03) 
+  print $h2						(,+1,21)
+  print '|     кади    '				(,+1,14)
+  print '|    екиес    '				(,+1,14)
+  print '|   сапоуми   '				(,+1,14)
+  print '|   екбимг    '				(,+1,14)
+  print '|    PRIMA    '				(,+1,14)
+  print '|   тяитым    '				(,+1,14)
+  print '|     аниа    '				(,+1,14)
+
+End-Heading              
+

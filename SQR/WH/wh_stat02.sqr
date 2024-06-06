@@ -1,0 +1,462 @@
+! ******************************************************************************
+! **** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                         ****
+! **** REPORT      :                                                        ****
+! **** DATE        :                                                        ****
+! **** APPLICATION : Αποθηκες                                               ****
+! **** AUTHOR      : Mal Nick                                               ****
+! **** NOTE        :                                                        ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X         244
+#DEFINE   HEAD-SIZE        7
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        4
+
+#DEFINE   MASK1          99,999
+#DEFINE   MASK2     999,999,999
+#DEFINE   MASK3   9,999,999,999
+#DEFINE   MASK4            9999.99
+#DEFINE   MASK5     999,999,999
+#DEFINE   MASK6 999,999,999,999
+#DEFINE   MASK7            9999
+#DEFINE   DATEMASK   DD/MM/YY  
+#DEFINE   DATEMASK2     MM    
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $icid     'company        '
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ input $iyears   'years          '
+
+ input $ikvd
+ input $ipvl
+ input $itmhma
+
+ unstring $icid     by  '"' into   $filler1   $cid     $filler8
+ unstring $iyears   by  '"' into   $filler1   $years   $filler8
+  move $years to #years
+ unstring $ikvd     by  '"' into   $filler1   $kvd     $filler8
+ unstring $itmhma   by  '"' into   $filler3   $tmhma   $filler10
+ unstring $ipvl     by  '"' into   $filler3   $pvl     $filler10
+
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+ execute app_geteom     $apohm, $apohm out
+ 
+ if $cid = '='
+    execute app_retdefcid $cid output
+ end-if
+
+
+ if $kvd != '*'
+    let $SQLKVD = 'and b.kvdikos like ' || $kvd
+    let $SQLKVDGRP = 'group by b.kvdikos,a.hmeromhnia'
+ else 
+    let $SQLKVD = ' '                            
+    let $SQLKVDGRP = 'group by b.kvdikos,a.hmeromhnia'
+ end-if
+
+ if $pvl != '*'
+    let $SQLPVL = 'and c.pvlomada like ' || $ipvl
+    let $SQLPVLGRP = 'group by c.pvlomada,c.perigrafh,a.hmeromhnia'
+ else 
+    let $SQLPVL = ' '                             
+    let $SQLPVLGRP = ' group by c.pvlomada,c.perigrafh,a.hmeromhnia '
+ end-if
+
+ if $tmhma != '*'
+ let #tmhma = $tmhma
+    let $SQLTMHMA = 'and c.tmhma ='|| $tmhma
+    let $SQLTMHMAGRP = 'group by c.tmhma,a.hmeromhnia'
+ else 
+    let $SQLTMHMA = ' '                       
+    let $SQLTMHMAGRP = 'group by c.tmhma,a.hmeromhnia'
+ end-if
+! POSITIONS ----------------------
+            let #POS_START           =  7
+            let #POS                 =  6
+            let #AJIA                = 11
+            let #STEP_P_A            =  1
+            let #STEP_BETWEEN_MONTHS =  2
+            let #LENGTH    = #POS + #AJIA + #STEP_P_A + #STEP_BETWEEN_MONTHS
+  let #JAN_POS  = #POS_START
+  let #FEB_POS  = #JAN_POS   + #LENGTH
+  let #MAR_POS  = #FEB_POS   + #LENGTH 
+  let #APR_POS  = #MAR_POS   + #LENGTH
+  let #MAI_POS  = #APR_POS   + #LENGTH
+  let #JUN_POS  = #MAI_POS   + #LENGTH
+  let #JUL_POS  = #JUN_POS   + #LENGTH
+  let #AUG_POS  = #JUL_POS   + #LENGTH
+  let #SEP_POS  = #AUG_POS   + #LENGTH
+  let #OCT_POS  = #SEP_POS   + #LENGTH
+  let #NOV_POS  = #OCT_POS   + #LENGTH
+  let #DEC_POS  = #NOV_POS   + #LENGTH
+
+ do main 
+ do print_pvlomada
+
+End-Report
+
+! ******************************************************************************
+begin-procedure main
+
+begin-sql
+ delete from s_wh_stat01
+end-sql
+
+    let $orio1 = $apohm
+    let $orio2 = $evshm
+
+
+    let #cnt_years = #years + 1
+      while #count_years <= #years
+
+   do main_pvlomada
+
+   do find_year
+
+
+  let #count_years = #count_years + 1
+      end-while
+
+!  do find_months
+
+
+!  do print_sum
+
+end-procedure
+! ******************************************************************************
+begin-procedure find_year
+begin-select
+dateadd(yy,-1,$orio1) &orio1 () NOP
+dateadd(yy,-1,$orio2) &orio2 () NOP
+end-select
+ execute app_geteom     &orio1, $orio1 out
+ execute app_geteom     &orio2, $orio2 out
+end-procedure
+! ******************************************************************************
+begin-procedure main_pvlomada
+
+begin-select
+c.pvlomada                     &kvd         () NOP
+c.perigrafh                    &per         () NOP   
+convert(datetime,a.hmeromhnia) &date        () NOP                       
+sum(a.pvl_p)                   &pvl_p       () NOP                       
+sum(a.pvl_a)                   &pvl_a       () NOP                       
+
+  
+             let $kvd    = &kvd  
+             let $per    = &per 
+             let $date   = &date
+             let #pvl_p  = &pvl_p
+             let #pvl_a  = &pvl_a
+
+  do insert
+
+from  wh_kint1 a, wh_eidh b, wh_pvlomades c           
+where a.eidos    = b.kvdikos
+and   c.pvlomada = b.pvlomada
+and   a.hmeromhnia between $orio1 and $orio2
+and   a.cid      = $cid
+[$SQLPVL]
+[$SQLTMHMA]
+[$SQLPVLGRP]
+end-select
+
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure insert
+
+begin-sql
+insert into s_wh_stat01( kvdikos, hmeromhnia, pvl_a , pvl_p)
+ values                ($kvd    ,$date      ,#pvl_a ,#pvl_p)
+end-sql
+end-procedure
+
+! ******************************************************************************
+begin-procedure print_pvlomada
+
+   let #cnt = 0 
+begin-select distinct
+ next-listing need=5 
+ print ' Είδος :'                                   (, 1,10)
+a.kvdikos                &pvlomada                  (,+1,15)
+b.perigrafh                                         (,+1,40)
+
+     let $pvlomada = &pvlomada
+   next-listing
+   
+    do find_posothta 
+
+
+from s_wh_stat01 a,wh_pvlomades b
+where a.kvdikos = b.pvlomada
+and   a.hmeromhnia between $apohm and $evshm
+order by kvdikos
+end-select
+end-procedure
+
+! ******************************************************************************
+begin-procedure print_sum  
+ 
+   print 'ΣΥΝ:'    (,        1,     4)
+   print #JAN_p    (, #JAN_POS,  #POS)  EDIT {MASK1}
+   print #JAN_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #FEB_p    (, #FEB_POS,  #POS)  EDIT {MASK1}
+   print #FEB_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #MAR_p    (, #MAR_POS,  #POS)  EDIT {MASK1}
+   print #MAR_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #APR_p    (, #APR_POS,  #POS)  EDIT {MASK1}
+   print #APR_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #MAI_p    (, #MAI_POS,  #POS)  EDIT {MASK1}
+   print #MAI_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #JUN_p    (, #JUN_POS,  #POS)  EDIT {MASK1}
+   print #JUN_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #JUL_p    (, #JUL_POS,  #POS)  EDIT {MASK1}
+   print #JUL_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #AUG_p    (, #AUG_POS,  #POS)  EDIT {MASK1}
+   print #AUG_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #SEP_p    (, #SEP_POS,  #POS)  EDIT {MASK1}
+   print #SEP_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #OCT_p    (, #OCT_POS,  #POS)  EDIT {MASK1}
+   print #OCT_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #NOV_p    (, #NOV_POS,  #POS)  EDIT {MASK1}
+   print #NOV_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+   print #DEC_p    (, #DEC_POS,  #POS)  EDIT {MASK1}
+   print #DEC_a    (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+
+   next-listing        
+
+   let   #JAN_p    = 0
+   let   #JAN_a    = 0
+   let   #FEB_p    = 0
+   let   #FEB_a    = 0
+   let   #MAR_p    = 0
+   let   #MAR_a    = 0
+   let   #APR_p    = 0
+   let   #APR_a    = 0
+   let   #MAI_p    = 0
+   let   #MAI_a    = 0
+   let   #JUN_p    = 0
+   let   #JUN_a    = 0
+   let   #JUL_p    = 0
+   let   #JUL_a    = 0
+   let   #AUG_p    = 0
+   let   #AUG_a    = 0
+   let   #SEP_p    = 0
+   let   #SEP_a    = 0
+   let   #OCT_p    = 0
+   let   #OCT_a    = 0
+   let   #NOV_p    = 0
+   let   #NOV_a    = 0
+   let   #DEC_p    = 0
+   let   #DEC_a    = 0
+
+end-procedure
+
+! ******************************************************************************
+begin-procedure find_posothta  
+   let #cnt  = 0
+   let $orio = $apohm
+   while #cnt_years >  #cnt
+
+      do find_etos_per
+      do print_posothta  
+      do find_etos
+      let #cnt = #cnt + 1
+
+   end-while
+
+      do print_sum  
+
+end-procedure
+! ******************************************************************************
+begin-procedure find_etos_per
+begin-select
+datepart(yy,$orio) &orio_year () NOP
+end-select
+   let $orio_year = &orio_year
+end-procedure
+! ******************************************************************************
+begin-procedure find_etos
+begin-select
+dateadd(yy,-1,$orio) &orio () NOP
+end-select
+   let $orio      = &orio
+end-procedure
+! ******************************************************************************
+begin-procedure print_posothta
+
+
+   let #PRE_JAN_p    = 0
+   let #PRE_JAN_a    = 0
+   let #PRE_FEB_p    = 0
+   let #PRE_FEB_a    = 0
+   let #PRE_MAR_p    = 0
+   let #PRE_MAR_a    = 0
+   let #PRE_APR_p    = 0
+   let #PRE_APR_a    = 0
+   let #PRE_MAI_p    = 0
+   let #PRE_MAI_a    = 0
+   let #PRE_JUN_p    = 0
+   let #PRE_JUN_a    = 0
+   let #PRE_JUL_p    = 0
+   let #PRE_JUL_a    = 0
+   let #PRE_AUG_p    = 0
+   let #PRE_AUG_a    = 0
+   let #PRE_SEP_p    = 0
+   let #PRE_SEP_a    = 0
+   let #PRE_OCT_p    = 0
+   let #PRE_OCT_a    = 0
+   let #PRE_NOV_p    = 0
+   let #PRE_NOV_a    = 0
+   let #PRE_DEC_p    = 0
+   let #PRE_DEC_a    = 0
+
+begin-select
+datepart(mm,hmeromhnia) &hmer () NOP
+a.pvl_p                 &pos  () NOP
+a.pvl_a                 &ajia () NOP
+
+  let #month = &hmer
+   print $orio_year (,1, 6) EDIT {MASK7}
+  evaluate #month 
+   when =  1
+   print &pos  (,#JAN_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #JAN_p = #JAN_p + &pos
+     let #JAN_a = #JAN_a + &ajia
+   break
+   when =  2
+   print &pos  (,#FEB_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #FEB_p = #FEB_p + &pos
+     let #FEB_a = #FEB_a + &ajia
+   break
+   when =  3
+   print &pos  (,#MAR_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #MAR_p = #MAR_p + &pos
+     let #MAR_a = #MAR_a + &ajia
+   break
+   when =  4
+   print &pos  (,#APR_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #APR_p = #APR_p + &pos
+     let #APR_a = #APR_a + &ajia
+   break
+   when =  5
+   print &pos  (,#MAI_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #MAI_p = #MAI_p + &pos
+     let #MAI_a = #MAI_a + &ajia
+   break
+   when =  6
+   print &pos  (,#JUN_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #JUN_p = #JUN_p + &pos
+     let #JUN_a = #JUN_a + &ajia
+   break
+   when =  7
+   print &pos  (,#JUL_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #JUL_p = #JUL_p + &pos
+     let #JUL_a = #JUL_a + &ajia
+   break
+   when =  8
+   print &pos  (,#AUG_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #AUG_p = #AUG_p + &pos
+     let #AUG_a = #AUG_a + &ajia
+   break
+   when =  9
+   print &pos  (,#SEP_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #SEP_p = #SEP_p + &pos
+     let #SEP_a = #SEP_a + &ajia
+   break
+   when = 10
+   print &pos  (,#OCT_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #OCT_p = #OCT_p + &pos
+     let #OCT_a = #OCT_a + &ajia
+   break
+   when = 11
+   print &pos  (,#NOV_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #NOV_p = #NOV_p + &pos
+     let #NOV_a = #NOV_a + &ajia
+   break
+   when = 12
+   print &pos  (,#DEC_POS,#POS)  EDIT {MASK1}
+   print &ajia (,+#STEP_P_A,#AJIA)  EDIT {MASK2}
+     let #DEC_p = #DEC_p + &pos
+     let #DEC_a = #DEC_a + &ajia
+   break
+  end-evaluate
+from s_wh_stat01 a
+where kvdikos = $pvlomada
+and   datepart(yy,hmeromhnia) = datepart(yy,$orio)
+end-select
+      next-listing        
+end-procedure
+! ******************************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print 'ΠΩΛΗΣΕΙΣ ΕΜΠΟΡΕΥΜΑΤΩΝ ΑΝΑ ΜΗΝA'      ( 3,                 ) Center
+  print ' Ετος '                           ( 5,        1,      6)
+  print '   Ιανουάριος '                   ( 5, #JAN_POS ,#LENGTH)
+  print '   Φεβρουάριος'                   (  , #FEB_POS ,#LENGTH)
+  print '   Μάρτιος    '                   (  , #MAR_POS ,#LENGTH)
+  print '   Απρίλιος   '                   (  , #APR_POS ,#LENGTH)
+  print '   Μάιος      '                   (  , #MAI_POS ,#LENGTH)
+  print '   Ιούνιος    '                   (  , #JUN_POS ,#LENGTH)
+  print '   Ιούλιος    '                   (  , #JUL_POS ,#LENGTH)
+  print '   Αύγουστος  '                   (  , #AUG_POS ,#LENGTH)
+  print '   Σεπτέμβριος'                   (  , #SEP_POS ,#LENGTH)
+  print '   Οκτώβριος  '                   (  , #OCT_POS ,#LENGTH)
+  print '   Νοέμβριος  '                   (  , #NOV_POS ,#LENGTH)
+  print '   Δεκέμβριος '                   (  , #DEC_POS ,#LENGTH)
+  print 'Ποσοτ'                            ( 6, #JAN_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #FEB_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #MAR_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #APR_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #MAI_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #JUN_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #JUL_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #AUG_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #SEP_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #OCT_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #NOV_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+  print 'Ποσοτ'                            ( 6, #DEC_POS ,#POS   )  
+  print '  Αξία '                          ( 6,+#STEP_P_A,#AJIA  )  
+
+end-heading

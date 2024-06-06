@@ -1,0 +1,294 @@
+Comparing files PAGIADL.SQR and ..\pagiadl.sqr
+****** PAGIADL.SQR
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+****** ..\pagiadl.sqr
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+******
+
+****** PAGIADL.SQR
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999,999,999.99c
+#DEFINE   MASK2     999
+#DEFINE   MASK3     99
+#DEFINE   MASK4     9999
+#DEFINE   MASK5     999.99c
+
+****** ..\pagiadl.sqr
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99,999,999,999
+#DEFINE   MASK2     999
+
+******
+
+****** PAGIADL.SQR
+move $xrhsh to #xrhsh
+let $date1 = '1/1/' || $xrhsh
+let $date2 = '12/31/' || $xrhsh
+ do main
+ do synola
+
+End-Report
+****** ..\pagiadl.sqr
+move $xrhsh to #xrhsh
+ do main
+End-Report
+******
+
+****** PAGIADL.SQR
+begin-procedure main
+
+let $logar_gl = '0'
+begin-select
+kvdikos 
+perigrafh
+pososto 
+hm_enarjhs &hmenarjhs
+logar_gl
+  if $logar_gl = '0'
+     let $logar_gl = &logar_gl
+  end-if
+
+  if &logar_gl > $logar_gl
+     do synola_logar
+     let $logar_gl = &logar_gl
+  end-if
+
+  do find_ajies
+  do ektyp
+
+****** ..\pagiadl.sqr
+begin-procedure main
+begin-select
+kvdikos, perigrafh
+!, ajia_agoras, ajia , fpa_pos, fpa_ajia, note1, note2,
+!  topouethsh, aposbesh, pososto, logar_x, logar_p, logar_fpa,
+!convert(char(10),convert(datetime,hm_agoras),103) &hmagoras,
+!convert(char(10),convert(datetime,hm_enarjhs),103) &hmenarjhs
+
+                !       let $inlogar=&logar_x
+                !       do logis        
+                !       let $peri_x=&logperi
+        !               let $inlogar=&logar_p
+        !               do logis        
+        !               let $peri_p=&logperi
+        !               let $inlogar=&logar_fpa
+        !               do logis        
+        !               let $peri_fpa=&logperi
+
+                        do ektyp
+
+
+******
+
+****** PAGIADL.SQR
+where kvdikos between $kodapo and $kodeos
+order by logar_gl,kvdikos
+end-select
+do synola_logar
+end-procedure
+****** ..\pagiadl.sqr
+where kvdikos between $kodapo and $kodeos
+order by kvdikos
+end-select
+end-procedure
+******
+
+****** PAGIADL.SQR
+
+begin-procedure find_ajies
+let #posothta   = 0
+let #kthsh      = 0
+let #aposbesh   = 0
+let #praposbesh = 0
+let $hmeromhnia = ''
+let #pvlhsh     = 0
+let $hmpvlhshs  = ''
+begin-select
+sum(isnull(pistvsh,0))  &kthsh
+sum(isnull(posothta,0)) &posothta
+  let #kthsh = &kthsh
+  let #posothta = &posothta
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('01','04')
+
+end-select
+let #flag_pvl=0
+begin-select
+count(*) &pvl
+
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('02')
+end-select
+if &pvl>0
+        let #flag_pvl=1
+end-if
+
+****** ..\pagiadl.sqr
+
+begin-procedure logis
+begin-select
+perigrafh &logperi
+
+from gl_logar
+where xrhsh=#xrhsh and cid='1'  and logar=$inlogar
+end-select
+end-procedure
+
+begin-procedure ektyp
+print &kvdikos                  (+1,1,10)
+print &perigrafh                (,+1,20)
+!print &hmagoras                        (,+1,10)
+!print &hmenarjhs               (,+1,10)
+!print &ajia_agoras             (,+1,14)  edit {MASK1}
+!print &fpa_pos                 (,+1,3)
+!print &pososto                 (,+1,6) 
+!print &logar_x                 (,+1,15)
+!print &logar_p                 (,+1,15)
+!print &logar_fpa               (,+1,15)
+!print &note1                   (+1,1,24)
+!print &note2                   (,+1,24)
+!print &topouethsh              (,+1,29)
+!print $peri_x                  (,+1,15)
+!print $peri_p                  (,+1,15)
+!print $peri_fpa                        (,+1,15)
+end-procedure
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'лгтяыо пациым' (2,+1) center
+ print 'йыдийос'                        (5,1,8)
+ print 'пеяицяажг'                      (,+1,22)
+ print 'глея. ац'                       (,+1,10)
+ print 'глея. ем'                       (,+1,10)
+ print '   аниа ацояас'                 (,+1,14) 
+ print 'жпа'                            (,+1,3)
+ print 'апос.%'                         (,+1,6) 
+ print 'коцая. вяеысгс'                 (,+1,15)
+ print 'коцая. пистысгс'                (,+1,15)
+ print 'коцая. ж.п.а'                   (,+1,15)
+ print 'свокио'                         (+1,1,50)
+ print 'топохетгсг'                     (,+1,28)
+ print 'пеяицяажг'                      (,+1,15)
+ print 'пеяицяажг'                      (,+1,15)
+ print 'пеяицяажг'                      (,+1,15)
+
+******
+
+Resync failed.  Files are too different
+****** PAGIADL.SQR
+
+begin-select
+min(hm_parast)  &hmeromhnia
+  let $hmeromhnia = &hmeromhnia
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd in ('01','04')
+  and hm_parast is not null
+end-select
+
+begin-select
+sum(isnull(pistvsh,0))  &aposbesh
+  let #aposbesh = - &aposbesh
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '03'
+  and hmeromhnia between $date1 and $date2
+end-select
+
+begin-select
+sum(isnull(pistvsh,0))  &praposbesh
+  let #praposbesh = - &praposbesh
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '03'
+  and hmeromhnia < $date1
+end-select
+
+begin-select
+isnull(xrevsh,0)        &pvlhsh
+hmeromhnia              &hmpvlhshs
+  let #pvlhsh = &pvlhsh
+  let $hmpvlhshs = &hmpvlhshs
+from pa_kin
+where kvdikos = &kvdikos
+  and paparkvd = '02'
+end-select
+
+
+if $hmeromhnia = ''
+   let $hmeromhnia = &hmenarjhs
+end-if
+let $hmenarjhs = &hmenarjhs
+if $hmenarjhs = ''
+   let $hmenarjhs = $hmeromhnia
+end-if
+end-procedure
+
+begin-procedure ektyp
+let #aa = #aa + 1
+let #synoloap = #aposbesh + #praposbesh
+let #anaposb  = #kthsh - #synoloap
+print #aa                       (+1,1,4)  edit {MASK4}
+print &kvdikos                  (,+1,10)
+print &perigrafh                (,+1,20)
+print #posothta                 (,+1,3)   edit {MASK2}
+print #kthsh                    (,+1,14)  edit {MASK1}
+if $hmenarjhs <> ''
+   print $hmenarjhs             (,+1,10)  edit {DATEMASK}
+end-if
+print &pososto                  (,+1,6)   edit {MASK5}
+print #aposbesh                 (,+1,14)  edit {MASK1}
+print #synoloap                 (,+1,14)  edit {MASK1}
+print #anaposb                  (,+1,14)  edit {MASK1}
+if $hmeromhnia <> ''
+   print &hmeromhnia            (,+1,10)  edit {DATEMASK}
+end-if
+
+if #pvlhsh <> 0
+   let #kerdos = #pvlhsh - #anaposb
+else
+   let #kerdos = 0
+end-if
+
+if $hmpvlhshs <> ''
+   print $hmpvlhshs             (+1,1,10) edit {DATEMASK}
+else
+   print ''                     (+1,1,10)
+end-if
+print #pvlhsh                   (,+1,14)  edit {MASK1}
+print #kerdos                   (,+1,14)  edit {MASK1}
+
+add #posothta   to #s_posothta
+if #flag_pvl=0
+        add #kthsh      to #s_kthsh
+        add #anaposb    to #s_anaposb
+        add #kthsh      to #l_kthsh
+        add #synoloap   to #l_synoloap
+        add #anaposb    to #l_anaposb
+end-if
+add #aposbesh   to #s_aposbesh
+add #synoloap   to #s_synoloap
+add #kerdos     to #s_kerdos
+add #posothta   to #l_posothta
+add #aposbesh   to #l_aposbesh
+
+
+add #kerdos     to #l_kerdos
+end-procedure
+
+****** ..\pagiadl.sqr
+
+End-Heading
+******
+
+

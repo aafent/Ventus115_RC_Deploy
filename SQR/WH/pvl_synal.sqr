@@ -1,0 +1,344 @@
+! ***********************************************************************
+! ***** COMPANIES   : PROLOGIC s.a. - SOFLOLENS s.a.                 ****
+! ***** REPORT      : pvl_synal.sqr                                  ****
+! ***** DATE        :                                                ****
+! ***** APPLICATION : сумаккацес                                     ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    170
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   6
+
+#DEFINE   DATEMASK     DD/MM/YY
+#DEFINE   MASK1             999
+#DEFINE   MASK3  99,999,999,999
+#DEFINE   MASK5          99,999
+#DEFINE   MASK2          999999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##eidh (eidos char(15) null, tmhma int null)
+end-sql
+
+begin-sql -C2
+create table ##eidh (eidos char(15) null, tmhma int null)
+end-sql
+
+begin-sql -C3
+create table ##eidh (eidos char(15) null, tmhma int null)
+end-sql
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ input $itmhma   'tmhma' 
+ input $ipvl     'pvlhths'
+
+! input $i        'pvlhths'
+! input $ienerg   'pvlhths'
+
+ unstring $itmhma  by '"'  into $filler $tmhma  $filler
+ unstring $ipvl    by '"'  into $filler $pvl    $filler
+
+! unstring $ienerg  by '"'  into $filler $energ  $filler
+! move $pvl    to #pvl
+
+ execute app_datecnv   $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+
+! execute app_geteom    $evshm,   $evshm output
+ 
+
+ if $pvl = '*'
+    let $SQLCMDPVL = 'and a.pvlhths  < 10' 
+ else 
+    let #pvl = $pvl
+    let $SQLCMDPVL = 'and a.pvlhths =' || $pvl
+    do find_pvl
+ end-if
+
+    let $SQLCMDTMHMA = ''
+ if $tmhma != '*'
+    let #tmhma = $tmhma
+    let $SQLCMDTMHMA = 'and d.tmhma = ' || $tmhma
+    do find_tmhma
+ end-if
+
+ let $pvlomada = '%'
+
+ let $cid = '1'   
+
+ do main 
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+    display $cid 
+begin-sql -C1
+insert into ##eidh (eidos)
+select distinct   b.eidos
+from  sy_synalprog a,
+      wh_kin       b,
+      wh_eidh      c,
+      wh_pvlomades d
+where c.pvlomada = d.pvlomada
+and   c.pvlomada like $pvlomada 
+[$SQLCMDTMHMA]
+[$SQLCMDPVL]
+  and c.kvdikos  = b.eidos
+  and b.hmeromhnia between $apohm and $evshm
+  and a.synal    = b.synal
+  and b.cid      = $cid
+[$SQLCMD]
+end-sql
+begin-sql -C2
+insert into ##eidh (eidos)
+select distinct   b.eidos
+from  sy_synalprog a,
+      wh_kin       b,
+      wh_eidh      c,
+      wh_pvlomades d
+where c.pvlomada = d.pvlomada
+and   c.pvlomada like $pvlomada
+[$SQLCMDTMHMA]
+[$SQLCMDPVL]
+  and c.kvdikos  = b.eidos
+  and b.hmeromhnia between $apohm and $evshm
+  and a.synal    = b.synal
+  and b.cid      = $cid
+[$SQLCMD]
+end-sql
+begin-sql -C3
+insert into ##eidh (eidos)
+select distinct   b.eidos
+from  sy_synalprog a,
+      wh_kin       b,
+      wh_eidh      c,
+      wh_pvlomades d
+where c.pvlomada = d.pvlomada
+and   c.pvlomada like $pvlomada 
+[$SQLCMDTMHMA]
+[$SQLCMDPVL]
+  and c.kvdikos  = b.eidos
+  and b.hmeromhnia between $apohm and $evshm
+  and a.synal    = b.synal
+  and b.cid=$cid
+[$SQLCMD]
+end-sql
+
+
+
+begin-select distinct -C1
+b.synal         &synal       () NOP
+    display $synal 
+ let $synal = &synal
+
+    do getypol
+
+from  sy_synalprog a,
+      wh_kin       b,
+      ##eidh       aa
+where aa.eidos   = b.eidos
+[$SQLCMDPVL]
+  and b.hmeromhnia between $apohm and $evshm
+  and b.cid=$cid
+  and a.synal    = b.synal
+[$SQLCMD]
+end-select
+ 
+  next-listing
+ 
+ do printtop
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+begin-procedure printtop
+
+  print ' с у м о к а : '  (, 30,20) 
+  print #s_ypol_p          (,101,30) edit {MASK3}
+  print #s_ypol_a          (, +1,30) edit {MASK3}
+
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure getypol
+  display $synal
+  if $tmhma = '*'  
+                  do geteja_1
+  else
+                  do geteja_2
+  end-if 
+
+  if $tmhma = '*'  
+                  do geteis_1
+  else
+                  do geteis_2
+  end-if 
+
+  let #ypol_p = #eja_p - #eis_p   
+  let #ypol_a = #eja_a - #eis_a   
+
+  if #ypol_p <> 0 and #ypol_a <> 0                 
+  do find_synal 
+  print #ypol_p  (,+1,30) edit {MASK3}
+  print #ypol_a  (,+1,30) edit {MASK3}
+  next-listing
+  end-if 
+
+  let #s_ypol_p  = #s_ypol_p + #ypol_p
+  let #s_ypol_a  = #s_ypol_a + #ypol_a
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure geteis_1
+
+begin-select
+convert(int,sum(isnull(a.posothta,0)*b.syntel_p))  &eis_1_p  () NOP
+convert(int,sum(isnull(a.ajia    ,0)*b.syntel_a))  &eis_1_a  () NOP
+
+  let #eis_p = &eis_1_p
+  let #eis_a = &eis_1_a
+
+from wh_kin a, ap_par b
+where a.cid=$cid
+  and b.f_eis is not null
+  and a.hmeromhnia between $apohm and $evshm
+  and a.parkvd = b.parkvd
+  and a.synal  = $synal
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure geteis_2
+begin-select -C2
+convert(int,sum(isnull(a.posothta,0)*b.syntel_p))  &eis_2_p  () NOP
+convert(int,sum(isnull(a.ajia    ,0)*b.syntel_a))  &eis_2_a  () NOP
+
+  let #eis_p = &eis_2_p
+  let #eis_a = &eis_2_a
+
+from wh_kin a, ap_par b, ##eidh c
+where a.eidos        = c.eidos     
+  and a.hmeromhnia   between $apohm and $evshm
+  and a.cid          = $cid
+  and a.synal        = $synal 
+  and a.parkvd       = b.parkvd
+  and b.f_eis        is not null
+end-select
+  display #eis
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure geteja_1
+begin-select
+convert(int,sum(isnull(a.posothta,0)*b.syntel_p))  &eja_1_p  () NOP
+convert(int,sum(isnull(a.ajia    ,0)*b.syntel_a))  &eja_1_a  () NOP
+
+  let #eja_p = &eja_1_p
+  let #eja_a = &eja_1_a
+
+from wh_kin a, ap_par b
+where a.cid=$cid
+  and b.f_eja is not null
+  and a.hmeromhnia between $apohm and $evshm
+  and a.parkvd = b.parkvd
+  and a.synal = $synal
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure geteja_2
+begin-select -C3
+convert(int,sum(isnull(a.posothta,0)*b.syntel_p))  &eja_2_p  () NOP
+convert(int,sum(isnull(a.ajia    ,0)*b.syntel_a))  &eja_2_a  () NOP
+
+  let #eja_p = &eja_2_p
+  let #eja_a = &eja_2_a
+
+from wh_kin a, ap_par b, ##eidh c0
+where a.eidos        = c0.eidos     
+  and a.hmeromhnia   between $apohm and $evshm
+  and a.cid          = $cid
+  and a.synal        = $synal 
+  and a.parkvd       = b.parkvd
+  and b.f_eja        is not null
+end-select
+  display #eja
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_synal
+begin-select
+  print $synal   (, 1,10)
+a.epvnymia     &epvnymia  (,+1,25)
+b.dieyuynsh    &die       (,+1,30)
+b.polh         &polh      (,+1,15)
+b.thl          &thl       (,+1,15)
+
+from sy_synal a ,sy_synaltopos b
+where a.synal = $synal
+and   a.synal = b.synal
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_tmhma
+begin-select
+a.perigrafh     &tmhma_p  () NOP
+
+  let $pr = $pr || ' - тлгла : ' || &tmhma_p
+
+from ap_tmhma a
+where a.kvdikos = #tmhma
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+begin-procedure find_pvl
+begin-select
+a.perigrafh     &pvlhths_p  () NOP
+
+  let $pr = 'пыкгтгс : ' || &pvlhths_p
+
+from sy_pvlhtes a
+ where a.kvdikos = #pvl
+end-select
+end-procedure
+! ------------------------------------------------------------------------------
+! ==============================================================================
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  move $evshm to $evshmpr {DATEMASK}
+!  let $msg1= ' пыкгсеис пекатым  глеяолгмиа апо : '|| $apohmpr || ' -  еыс : '||$evshmpr
+  let $msg1= ' пыкгсеис пекатым  '
+  let $msg2= ' глеяолгмиа апо : '|| $apohmpr || ' -  еыс : '||$evshmpr
+ 
+  print $msg1 (3,) center
+  print $msg2 (4,) center
+  print $pr   (5,) center
+  
+  print 'A/A'                               (7, 1,10)
+  print '    с У М А К К А С Э Л Е М О Р'   ( ,+1,40)
+  print '       TEMAXIA '    ( ,101,25)
+  print '               аниа'    ( ,+1,30)
+
+end-heading

@@ -1,0 +1,24 @@
+[SY]
+tab1=kat,Σύνδεση με POS CASIO
+
+
+[SY kat]
+0=POS CASIO
+1=6,sheet,w_cuglo007,Εισαγωγή αρχείου κινήσεων (rkin)
+2=5,exit,sy000.men->sy000[kat],Επιστροφή
+
+
+
+;---------------------------------------------------------------------
+; Icons :
+; Icon #        Description
+; --------      -----------------------------------
+;   1           Procedure forms
+;   2           Data Entry forms
+;   3           Coding forms
+;   4           Option forms
+;   5           Menu items
+;   6           Report form or chart etc
+;   7           Reports on printer or spool file
+;   8           Customer Defined Item
+;4=5,cb{1,menu},gl000.ini->gl000,lala

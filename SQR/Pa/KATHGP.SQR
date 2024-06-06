@@ -1,0 +1,75 @@
+!***********************************************************************
+!***** REPORT      : kathgp.sqr                                     ****
+!***** DATE        : 01/04/1998                                     ****
+!***** APPLICATION : ΠΑΓΙΑ ΣΤΟΙΧΕΙΑ                                 ****
+!***** AUTHOR      : ΤΡΙΠΕΡΙΝΑ ΓΕΩΡΓΙΑ                              ****
+!***** NOTE        : --- Ευρετήριο Κατηγοριών Παγίων  ----          ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     90
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+ 
+ move $TAX to $tax
+ input $tax    'taxinomhsh'
+ unstring $tax by '"' into $filler $tax $filler1
+ if $tax='1'
+    let $SQLORD='order by kathgoria'
+ else
+   let $SQLORD='order by perigrafh'
+ end-if
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+begin-select
+a.kathgoria                  (,5,9)    
+a.perigrafh 		     (,+2,50)	
+a.pososto                    (,+2)
+
+  next-listing
+  
+
+from pa_kathgories a
+where 1=1 
+[$SQLCMD]
+[$SQLORD]
+end-select
+end-procedure
+
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'Ευρετήριο Κατηγοριών Παγίων' (3,+1) center
+ print 'Κατηγορία'     (6,5,9)
+ print 'Περιγραφή'     ( ,+2,50)
+ print 'Ποσοστό'       ( ,+2)
+
+End-Heading

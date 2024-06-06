@@ -1,0 +1,394 @@
+! **************************************************************************
+! ***** PROLOGIC S.A.                                                   ****
+! ***** REPORT      : ypol4.sqr                + -- -- -- -- -- -- -- + ****
+! ***** DATE        : 23/01/96                 | LAST UPDATE 23/01/96 | ****
+! ***** APPLICATION : synalages                |                      | ****
+! ***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ        | ΜΠΟΚΙΑΣ ΝΙΚΟΣ        | ****
+! ***** NOTE        : Ισοζύγιο Συναλλασομένων  + -- -- -- -- -- -- -- + ****
+! **************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+ 
+ input $ihm_apo 'apo hmeromhnia '
+ input $ihm_evs 'evs hmeromhnia '
+ input $ilogar  'eidos eggrafvn logariasmos '
+ input $ypo_apo 'apo ypoloipo'
+ input $ypo_evs 'evs ypoloipo'
+! input $itmhma  'tmhma       '
+ input $print_style  '1=Ισοζύγιο, 2=Υπόλοιπα'
+
+ execute app_datecnv   $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv   $ihm_evs, $evshm output, $evshmpr output
+
+ unstring $ilogar by '"' into $filler $logar $filler
+! unstring $itmhma by '"' into $filler $tmhma $filler
+ move '*' to $tmhma
+ unstring $iet    by '"' into $filler $et    $filler
+ unstring $ypo_apo by '"' into $filler $apoposo $filler
+ unstring $ypo_evs by '"' into $filler $evsposo $filler
+ unstring $print_style by '"' into $filler $print_style $filler
+
+
+ display 'apo : ' noline
+ display  $apoposo
+ display 'evs : ' noline
+ display  $evsposo
+
+ if $apoposo='-'
+   let $apoposo='-9999999999'
+ end-if
+ if $evsposo='+'
+    let $evsposo='+9999999999'
+ end-if
+ if $apoposo='+'
+   let $apoposo='+1'
+ end-if
+ if $evsposo='-'
+   let $evsposo='-1'
+ end-if
+  move $apoposo to #apoposo
+  move $evsposo to #evsposo
+
+  do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move $evshm to $evs_hmer2
+   let #page = 1
+begin-select
+dateadd(dd, -1 ,$apohm) &hm1    () NOP
+  move &hm1 to $evs_hmer1
+ 
+end-select
+
+begin-select distinct
+b.synal                         () NOP
+b.epvnymia                      () NOP
+
+ move &b.synal to $synal
+ move ''       to $evs_hmer3
+ do getypol1($logar,$cid,&b.synal,$apohm,$evs_hmer2,#pr_xrevsh,#pr_pistvsh,#pr_ypoloipo,$tmhma)
+ do getypol1($logar,$cid,&b.synal,$evs_hmer3,$evs_hmer2,#al_xrevsh,#al_pistvsh,#al_ypoloipo,$tmhma)
+
+ 
+ if (#al_ypoloipo >= #apoposo and #al_ypoloipo<=#evsposo)
+
+!  let   #xrevsh         = #al_xrevsh   - #pr_xrevsh
+!  let   #pistvsh        = #al_pistvsh  - #pr_pistvsh
+!  let   #ypoloipo       = #al_ypoloipo - #pr_ypoloipo
+  let   #xrevsh         = #pr_xrevsh
+  let   #pistvsh        = #pr_pistvsh
+  let   #ypoloipo       = #pr_ypoloipo 
+  let   #ypol_for_check = #al_ypoloipo
+
+  let #tmp = #pr_xrevsh + #pr_pistvsh + #al_xrevsh + #al_pistvsh
+
+ if ( ($print_style='1') and (#tmp <> 0) ) or
+    ( ($print_style='2') and (#al_ypoloipo <> 0 ) )
+
+   let #page = #page + 1
+
+!    do closed(&b.synal,&b.epvnymia,$closed)
+
+     print &b.synal                       (,01,08)
+
+     if $print_style = '2'
+   	print &b.epvnymia                 (,+1,50)
+     else
+        print &b.epvnymia                 (,+1,15)
+     end-if
+
+     do aj($synal,#al_ypoloipo,#tot,#pposo)
+     if $print_style='1'
+        print #xrevsh                        (,+1,14) edit {MASK1}
+        print #pistvsh                       (,+1,14) edit {MASK1}
+      	print #ypoloipo                      (,+1,14) edit {MASK1}
+      	print $L_X3                          (,+1,01)
+      	print #al_xrevsh                     (,+1,14) edit {MASK1}
+        print #al_pistvsh                    (,+1,14) edit {MASK1}
+      	print #al_ypoloipo                   (,+1,14) edit {MASK1}
+        print #pposo                         (,+1,14) edit {MASK1}
+
+     end-if 
+     if $print_style='2'
+        print #al_ypoloipo                   (,+1,14) edit {MASK1}
+     end-if 
+
+      
+     ! Εαν ειναι ενεργό τότε εκτυπώνεται ένα C που σημαίνει 
+     ! οτι ο πελάτης ειναι κλειστός      
+     !     print $closed                        (,+1,02)
+
+      next-listing
+
+      let   #tot_xrevsh    = #tot_xrevsh    + #xrevsh
+      let   #tot_pistvsh   = #tot_pistvsh   + #pistvsh
+      let   #tot_prxrevsh  = #tot_prxrevsh  + #al_xrevsh
+      let   #tot_prpistvsh = #tot_prpistvsh + #al_pistvsh
+
+       
+ ! new page
+    if #page >= 50
+      next-listing
+
+      if $print_style='1'
+         print 'Σ Ε   Μ Ε Τ Α Φ Ο Ρ Α  :'     (,01,25)
+
+         let   #ypoloipo = #tot_xrevsh - #tot_pistvsh
+      	 print #tot_xrevsh                    (,+1,14) edit {MASK1}
+         print #tot_pistvsh                   (,+1,14) edit {MASK1}
+         print #ypoloipo                      (,+1,14) edit {MASK1}
+         !print #tot                          (,+1,14) edit {MASK1}
+         print $L_X3                          (,+1,01)
+         print #tot_prxrevsh                  (,+1,14) edit {MASK1}
+         print #tot_prpistvsh                 (,+1,14) edit {MASK1}
+
+         let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+         print #ypoloipo                      (,+1,14) edit {MASK1}
+         print #tot                           (,+1,14) edit {MASK1} 
+      end-if
+      if $print_style='2'
+         print 'Σ Ε   Μ Ε Τ Α Φ Ο Ρ Α  :'     (,01,59)
+         let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+         print #ypoloipo                      (,+1,14) edit {MASK1}
+      end-if
+
+      new-page
+
+      if $print_style='1'      
+         print 'Α Π Ο   Μ Ε Τ Α Φ Ο Ρ Α  :'   (,01,25)
+      	 print #tot_xrevsh                    (,+1,14) edit {MASK1}
+         print #tot_pistvsh                   (,+1,14) edit {MASK1}
+
+         let   #ypoloipo = #tot_xrevsh - #tot_pistvsh
+         print #ypoloipo                      (,+1,14) edit {MASK1}
+         !print #tot                          (,+1,14) edit {MASK1}
+         print $L_X3                          (,+1,01)
+         print #tot_prxrevsh                  (,+1,14) edit {MASK1}
+         print #tot_prpistvsh                 (,+1,14) edit {MASK1}
+
+         let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+         print #ypoloipo                      (,+1,14) edit {MASK1}
+         print #tot                           (,+1,14) edit {MASK1} 
+      end-if
+      if $print_style='2'      
+         print 'Α Π Ο   Μ Ε Τ Α Φ Ο Ρ Α  :'   (,01,59)
+         let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+      	 print #ypoloipo                      (,+1,14) edit {MASK1}
+      end-if
+
+      next-listing
+      next-listing
+      let #page = 1
+    end-if
+ ! new page
+
+  end-if
+ end-if
+
+
+from   sy_synal      b
+where  exists ( select a.synal
+                from   sy_kin a
+                where  a.synal =    b.synal
+!                and synal not like '51%'  !spyros
+                and    a.cid   =    $cid
+                and    a.logar like $logar)
+[$SQLCMD]
+order by isnull(ord,epvnymia),epvnymia
+end-select
+!order by ![$SQLORD]
+
+      next-listing
+
+      if $print_style='1'
+         print 'Γ Ε Ν Ι Κ Α   Σ Υ Ν Ο Λ Α'    (,01,24)
+
+      	 print #tot_xrevsh                    (,+1,14) edit {MASK1}
+      	 print #tot_pistvsh                   (,+1,14) edit {MASK1}
+      	 let   #ypoloipo = #tot_xrevsh - #tot_pistvsh
+      	 print #ypoloipo                      (,+1,14) edit {MASK1}
+
+      	 print $L_X3                          (,+1,01)
+      	 print #tot_prxrevsh                  (,+1,14) edit {MASK1}
+      	 print #tot_prpistvsh                 (,+1,14) edit {MASK1}
+      
+      	 let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+      	 print #ypoloipo                      (,+1,14) edit {MASK1}
+      	 print #tot                           (,+1,14) edit {MASK1} 
+      end-if
+      if $print_style='2'
+         print 'Γ Ε Ν Ι Κ Α   Σ Υ Ν Ο Λ Α'    (,01,59)
+      	 let   #ypoloipo = #tot_prxrevsh - #tot_prpistvsh
+      	 print #ypoloipo                      (,+1,14) edit {MASK1}
+      end-if
+
+
+
+end-procedure
+
+!*******************************************************************************
+
+begin-procedure aj($synal,#al_ypoloipo,:#total_ep,#pposo)
+ move 0 to #poso
+ move 0 to #pposo
+!begin-select
+!isnull(ajia,0) &poso
+!  add &poso to #poso
+!from aj_mas
+!where synal=$synal
+!and logar='3390001001'
+!end-select
+  let #pposo = #poso + #al_ypoloipo
+  let #total_ep= #total_ep +#pposo 
+    
+end-procedure
+! ******************************************************************************
+
+begin-procedure getypol($logar,$cid,$synal,$evs_hmer,:#xrevsh,:#pistvsh,:#ypoloipo,$tmhma)
+  if $tmhma = '*'
+    execute syp_getypol @synal    = $synal, 
+                        @hmer     = $evs_hmer,
+                        @cid      = $cid, 
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar
+  else
+    move $tmhma to #tmhma
+    execute syp_getypol @synal    = $synal, 
+                        @hmer     = $evs_hmer,
+                        @cid      = $cid, 
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar,
+                        @tmhma    = #tmhma
+  end-if
+end-procedure
+
+! ------------------------------------------------------------------------------
+! ******************************************************************************
+begin-procedure getypol1($logar,$cid,$synal,$apohm,$evs_hmer,:#xrevsh,:#pistvsh,:#ypoloipo,$tmhma)
+  if $tmhma = '*'
+    execute syp_getypol1 @synal    = $synal, 
+			@hmer1	  = $apohm,
+                        @hmer     = $evs_hmer,
+                        @cid      = $cid, 
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar
+  else
+    move $tmhma to #tmhma
+    execute syp_getypol1 @synal    = $synal, 
+			@hmer1    = $apohm,
+                        @hmer     = $evs_hmer,
+                        @cid      = $cid, 
+                        @xrevsh   = #xrevsh out,
+                        @pistvsh  = #pistvsh out,
+                        @ypoloipo = #ypoloipo out,
+                        @logar    = $logar,
+                        @tmhma    = #tmhma
+  end-if
+end-procedure
+
+begin-procedure closed($synal,$epvnymia,:$closed)
+ move '' to $closed
+begin-select
+a.kvdinf               () NOP
+a.sxolio               () NOP
+b.perigrafh            () NOP
+ let $closed = 'C'
+from    sy_synalsxolia a,sy_kvdinf b
+where   a.synal  = $synal
+and     a.kvdinf = b.kvdikos
+and     a.kvdinf > 89
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ ! let $head1 = $p_et1
+ ! let $head2 = $p_et2
+ ! print $head1                                         (1,1,50)
+ ! print $head2                                         (2,1,50)
+
+  if $print_style='1'
+  	let $msg='ΙΣΟΖΥΓΙΟ ΣΥΝΑΛΛΑΣΟΜΕΝΩΝ ('||$logar||') ΠΕΡΙΟΔΟΥ : '||$apohmpr||' - '||$evshmpr
+	  print $msg                                           (3,)      center
+	  print $L_X3                                          (6,01,01)
+	  print ' '                                            (6,1,05)
+	  print ' '                                            (,+1,21)
+	  print '------ Κ ί ν η σ η    Π ε ρ ι ό δ ο υ ------' (,+1,40)
+	  print $L_X3                                          (,+1,01)
+	  print '---- Κ ί ν η σ η    Π ρ ο δ ε υ τ ι κ ή ----' (,+1,44)
+	  print ' '                                            (7,1,08)
+	  print 'Συναλλασόμενος'                               (,+1,15)
+	  print '        Χρέωση'                               (,+1,14)
+	  print '       Πίστωση'                               (,+1,14)
+	  print '      Υπόλοιπο'                               (,+1,14)
+	  print $L_X3                                          (,+1,01)
+	  print '        Χρέωση'                               (,+1,14)
+	  print '       Πίστωση'                               (,+1,14)
+	  print '      Υπόλοιπο'                               (,+1,14)
+	  print '      ΥΠ+ΕΠ   '                               (,+1,14)
+	! Εαν ειναι ενεργό τότε εκτυπώνεται ένα C που σημαίνει 
+	! οτι ο πελάτης ειναι κλειστός      
+	! print 'ΚΛ'                                           (,+1,02)
+  end-if
+
+  if $print_style='2'
+  	let $msg='ΚΑΤΑΣΤΑΣΗ ΥΠΟΛΟΙΠΩΝ ('||$logar||') ΠΕΡΙΟΔΟΥ ΕΩΣ ΚΑΙ '||$evshmpr
+	print $msg                                           (3,)      center
+	print $L_X3                                          (6,01,01)
+	print ' '                                            (7,1,08)
+	print 'Συναλλασόμενος'                               (,+1,50)
+	print '      Υπόλοιπο'                               (,+1,14)
+
+  end-if
+
+
+end-heading
+
+
+
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{SY	12	11	5066	ypol4	rs_xp	X	01},TITLE{Ισοζύγιο Συναλλασσομένων}
+!	PARCOUNT{6}
+!	PAR1{Ημερ/κή Περίοδος	DUMP1	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{Λογαριασμός	DUMP2	1	LIKE	varchar(25)		X}
+!	PAR3{Υπόλοιπο Από/Έως	DUMP4	2	ΑΠΟ-ΕΩΣ	float		X}
+!	PAR4{Τμήμα	DUMP3	1	*/ΕΠΙΛΟΓΗ	varchar(2)		X}
+!	PAR5{Συναλλασόμενος	b.synal	1	LIKE	varchar(10)	X	}
+!	PAR6{1=Ισοζύγιο,2=Υπόλοιπ	DUMP23	1	ΕΠΙΛΟΓΗ	int		X}
+!REPORTHELP{F}
+!</pcalib>

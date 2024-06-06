@@ -1,0 +1,538 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC S.A. SOFLOLENS S.A.                           ****
+! **** REPORT      : wh_apogr.sqr                                           ****
+! **** DATE        :                                                        ****
+! **** APPLICATION : Αποθηκες                                               ****
+! **** AUTHOR      :                                                        ****
+! **** NOTE        : --- ΕΥΡΕΤΗΡΙΟ ΟΜΑΔΩΝ ΠΩΛΗΣΗΣ ΜΕ ΤΑ ΕΙΔΗ ΤΟΥΣ  ---      ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y          62
+#DEFINE   PAGE-X         128
+#DEFINE   HEAD-SIZE        8
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        5
+
+#DEFINE   MASK1   99,999,999
+#DEFINE   MASK2  999,999,999
+#DEFINE   MASK3    9,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $iet       'Εταιρεία              : '
+ input $ihmerevs  'Εως Ημερομηνία        : '
+ input $itimokat  'Timokat/*             : '
+ input $iapouhkh  'Αποθηκη/*             : '
+ input $ishow     'Λέξη Κλειδί           : '
+ input $ippop     'Ομάδα / Σελίδα (*)    : '
+
+ execute app_datecnv $ihmerevs, $hmer_evs output, $hmerevspr output
+
+ unstring $iet          by '"' into $filler1 $et          $filler2
+ unstring $itimokat     by '"' into $filler3 $timokat     $filler4
+ unstring $ishow        by '"' into $filler5 $show        $filler6
+ unstring $iapouhkh     by '"' into $filler7 $apouhkh     $filler8
+ unstring $ippop        by '"' into $filler9 $ppop        $filler10
+
+ move $et to $cid
+ 
+ if $cid = '='
+ execute app_retdefcid $cid output
+ end-if
+
+ execute app_getxrhsh   @cid        = $cid,
+                        @hmeromhnia = $hmer_evs,
+                        @xrhsh_arxh = $xrhsh_arxh out
+
+ if $apouhkh != '*'
+    do find_apouhkh
+    let $SQLAPOUHKH = 'and a.apouhkh = ' || $iapouhkh
+ else
+    let $apou_per  = ' ΟΛΕΣ '
+    let $SQLAPOUHKH = ' ' 
+ end-if
+
+ if $timokat = '='
+    do find_timokat
+ end-if
+ move $timokat to #timokat
+
+   let #WHO = $show
+
+!  vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+   let #ST_P_PVLOM =  1          ! START POSITION    Κωδικού Ομ.Πώλησης
+   let #ST_P_KVDIK =  9          ! START POSITION    Κωδικού Είδους
+   let #ST_P_YPOLO =  3          ! STEP  BETWEEN     ΜΣΚ AND Υπόλοιπο 
+   let #STEP_OFALL =  1          ! STEP  BETWEEN     OTHER FIELDS
+   let #STEP_P_MSK = #STEP_OFALL +
+                     #ST_P_KVDIK 
+                     -1          ! STEP   BETWEEN    Κωδικού Ομ.Πώλησης AND ΜΣΚ
+   let #LENGTH_KVD = 15          ! LENGTH OF FIELD   Κωδικός    
+   let #LENGTH_PER = 40          ! LENGTH OF FIELD   Περιγραφή  
+   let #LENGTH_MSK = 10          ! LENGTH OF FIELDS  Μ.Σ.Κ. , Τιμή Πώλησης
+   let #LENGTH_YPO =  9          ! LENGTH OF FIELDS  Λογ.& Φυσ.Υπόλοιπο, Διαφορά
+   let #LENGTH_KYP = 11          ! LENGTH OF FIELD   Κόστος Υπολοίπου
+
+!  #LENGTH_KVD     #LENGTH_PER
+!  Κωδικος         Περιγραφη
+!  #LENGTH_MSK    < ------ #LENGTH_YPO ------->  #LENGTH_KYP #LENGTH_MSK
+!                 Λογιστικό    Φυσικό              Κόστος       Τιμή  
+!  Μ.Σ.Κ.          Υπόλοιπο  Υπόλοιπο   Διαφορά   Υπολοίπου    Πώλησης
+
+!  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+ do main
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main
+ 
+begin-select  
+a.pvlomada          &pvl            () NOP
+a.perigrafh         &perig          () NOP 
+
+  if #WHO = 6 or #WHO = 90 or #WHO != 99
+     print         &pvl                     (,#ST_P_PVLOM,#LENGTH_KVD)
+     print         &perig                  (,+#STEP_OFALL,#LENGTH_PER)
+  end-if
+
+  let $pvl = &pvl
+
+  if #WHO = 6 or #WHO = 90
+     do find_msk5 
+     print #rnd_mes_tim_pvl            (,+#STEP_P_MSK,#LENGTH_MSK) edit {MASK1}
+  end-if
+
+  if #WHO = 6 or #WHO = 90 or #WHO != 99
+     next-listing
+  end-if
+   
+  do print_kvdikos
+ 
+  if $ppop ='*' 
+     new-page
+  end-if
+
+from  wh_pvlomades a,wh_eidh d, wh_eidhmore c
+where d.pvlomada =      a.pvlomada
+and   d.kvdikos  =      c.eidos
+and   c.energo   is not null
+and   c.cid      =      $cid
+and   exists   ( select e.eidos
+                 from wh_kint1 e
+                 where d.kvdikos    = e.eidos
+                 and   e.hmeromhnia >= $xrhsh_arxh
+                 and   e.cid        = $cid         )
+
+[$SQLCMD]
+group by a.pvlomada,a.perigrafh
+order by a.pvlomada,a.perigrafh
+end-select
+
+ if #WHO = 90
+        print ' '                 (, #ST_P_KVDIK,#LENGTH_KVD)
+        print ' '                 (,+#STEP_OFALL,#LENGTH_PER)
+        print ' '                 (,+#STEP_OFALL,#LENGTH_MSK) 
+        print '='                 (,+#ST_P_YPOLO,#LENGTH_YPO) fill
+        print '='                 (,+#STEP_OFALL,#LENGTH_YPO) fill
+        print '='                 (,+#STEP_OFALL,#LENGTH_YPO) fill
+  next-listing
+        print ' '                 (, #ST_P_KVDIK,#LENGTH_KVD)
+        print ' '                 (,+#STEP_OFALL,#LENGTH_PER)
+        print ' '                 (,+#STEP_OFALL,#LENGTH_MSK) 
+        print #total_ypoloipo     (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}
+        print #total_f_ypol       (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+        print #total_diafora      (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+  end-if
+
+ if #WHO = 99
+        print ' '                 (, #ST_P_KVDIK,#LENGTH_KVD)
+        print ' '                 (,+#STEP_OFALL,#LENGTH_PER)
+        print '='                 (,+#ST_P_YPOLO,#LENGTH_YPO) fill
+        print '='                 (,+#STEP_OFALL,#LENGTH_YPO) fill
+        print '='                 (,+#STEP_OFALL,#LENGTH_YPO) fill
+  next-listing
+        print ' '                 (, #ST_P_KVDIK,#LENGTH_KVD)    
+        print ' '                 (,+#STEP_OFALL,#LENGTH_PER)
+        print #total_ypoloipo     (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}
+        print #total_f_ypol       (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+        print #total_diafora      (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+  end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure print_kvdikos
+
+begin-select 
+a.kvdikos    &kvd   () NOP 
+a.perigrafh  &per   () NOP 
+
+ let $eidos = &kvd
+
+  if #WHO = 6 or #WHO = 90 or #WHO != 99
+   print    &kvd   (, #ST_P_KVDIK,#LENGTH_KVD)    
+   print    &per   (,+#STEP_OFALL,#LENGTH_PER)
+  end-if
+
+  if #WHO = 32
+    print '.'  (,+#STEP_OFALL,#LENGTH_KVD) fill
+  end-if
+
+  if #WHO = 6 or #WHO = 90 or #WHO = 99
+     do find_msk 
+     do find_timh_pvl
+  end-if
+
+  if #WHO = 90 or #WHO = 99
+    do find_fysikh 
+  end-if
+
+  if #WHO = 99 !---------------------------------------------------------------
+                                                                             !-
+     let #tot_f_ypol = #tot_f_ypol + #f_ypol                                 !-
+     let #diafora    = #ypoloipo   - #f_ypol                                 !-
+                                                                             !-
+     if #diafora != 0                                                        !-
+                                                                             !-
+        print &kvd                (, #ST_P_KVDIK,#LENGTH_KVD)                !-
+        print &per                (,+#STEP_OFALL,#LENGTH_PER)                !-
+        print #ypoloipo           (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}   !-
+        print #f_ypol             (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}   !-
+        print #diafora            (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}   !-
+                                                                             !-
+        let #total_ypoloipo = #total_ypoloipo + #ypoloipo                    !-
+        let #total_f_ypol   = #total_f_ypol   + #f_ypol                      !-
+        let #total_diafora  = #total_diafora  + #diafora                     !-
+                                                                             !-
+        next-listing                                                         !-
+                                                                             !-
+     end-if                                                                  !-
+                                                                             !-
+     let #tot_d_ypol = #tot_d_ypol + #diafora                                !-
+                                                                             !-
+  end-if     !-----------------------------------------------------------------
+
+  if #WHO = 6 or #WHO = 90
+
+       print #rnd_mes_tim            (,+#STEP_OFALL,#LENGTH_MSK) edit {MASK1}
+       print #ypoloipo               (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}
+
+         if #WHO = 90
+
+           let #tot_f_ypol     = #tot_f_ypol     + #f_ypol
+           let #diafora        = #ypoloipo       - #f_ypol
+           let #tot_d_ypol     = #tot_d_ypol     + #diafora
+           let #total_f_ypol   = #total_f_ypol   + #f_ypol
+           let #total_diafora  = #total_diafora  + #diafora
+
+           print #f_ypol             (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+           print #diafora            (,+#STEP_OFALL,#LENGTH_YPO) edit {MASK3}
+
+         end-if
+
+       let #kos_ypol = #ypoloipo * #rnd_mes_tim 
+       print #kos_ypol               (,+#STEP_OFALL,#LENGTH_KYP) edit {MASK2}
+
+       if #timh = -999
+       print $timh                   (,+#STEP_OFALL,#LENGTH_MSK)
+       else  
+       print #timh                   (,+#STEP_OFALL,#LENGTH_MSK) edit {MASK1}
+       let #timh = -999
+       end-if         
+
+       let #totpvl_kos_ypol = #totpvl_kos_ypol + #kos_ypol
+       let #total_kos_ypol  = #total_kos_ypol  + #kos_ypol
+       let #s_ypoloipo      = #s_ypoloipo      + #ypoloipo
+
+       next-listing
+
+  else
+
+     if #WHO != 99 
+       print ' '                     (,+#STEP_OFALL,#LENGTH_MSK) edit {MASK1}
+       print ' '                     (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}
+       print ' '                     (,+#STEP_OFALL,#LENGTH_KYP) edit {MASK2}
+       print ' '                     (,+#STEP_OFALL,#LENGTH_MSK) edit {MASK1}
+       next-listing
+     end-if
+
+  end-if
+
+ 
+from wh_eidh a
+where a.pvlomada = $pvl
+order by a.ord,a.kvdikos
+
+end-select
+
+ if #WHO = 6 or #WHO = 90
+   print       ' '               (, #ST_P_KVDIK,#LENGTH_KVD)    
+   print       ' '               (,+#STEP_OFALL,#LENGTH_PER)
+   print       ' '               (,+3,#LENGTH_MSK) 
+
+   if #WHO = 6 or #WHO = 90
+     print    '======='          (,+#ST_P_YPOLO,#LENGTH_YPO) 
+
+     if #WHO = 90
+        print '======='          (,+#STEP_OFALL ,#LENGTH_YPO) 
+        print '======='          (,+#STEP_OFALL ,#LENGTH_YPO) 
+     end-if 
+
+     print    '==========='      (,+#STEP_OFALL,#LENGTH_KYP) 
+
+     next-listing
+
+     print    ' '                (, #ST_P_KVDIK,#LENGTH_KVD)    
+     print    ' '                (,+#STEP_OFALL,#LENGTH_PER)
+     print    ' '                (,+#STEP_OFALL,#LENGTH_MSK) 
+     print    #s_ypoloipo        (,+#ST_P_YPOLO,#LENGTH_YPO) edit {MASK3}
+
+     let #total_ypoloipo = #total_ypoloipo + #s_ypoloipo
+
+     if #WHO = 90
+ 
+        print #tot_f_ypol        (,+#STEP_OFALL ,#LENGTH_YPO) edit {MASK3}
+        print #tot_d_ypol        (,+#STEP_OFALL ,#LENGTH_YPO) edit {MASK3}
+
+        let   #tot_f_ypol     = 0                       
+        let   #tot_d_ypol     = 0                       
+
+     end-if 
+
+     print    #totpvl_kos_ypol   (,+#STEP_OFALL,#LENGTH_KYP) edit {MASK2}
+
+     let #s_ypoloipo      = 0                       
+     let #totpvl_kos_ypol = 0                            
+
+    end-if
+
+    next-listing
+    next-listing
+
+ end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_timokat
+
+begin-select
+a.tim          &tim  () NOP
+
+    let $timokat = &tim
+
+from  wh_timokatalogoi a
+where a.def_tim is not null
+end-select
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_timh_pvl
+
+  let #timh = -999
+  let $timh = '  ΔΕΝ ΕΧΕΙ'
+
+begin-select 
+a.timh    &timh   () NOP
+
+  let #timh = &timh
+
+! if #WHO = 6 or #WHO = 90
+! end-if
+
+from wh_timokat a
+where a.eidos = $eidos
+and   a.tim   = #timokat
+end-select
+
+! if #WHO != 6 or #WHO != 90
+!   print ' '     (,+#STEP_OFALL,#LENGTH_KVD) 
+!   print ' '     (,+#STEP_OFALL,#LENGTH_KVD) 
+! end-if
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_fysikh
+
+   let #f_ypol = 0
+
+begin-select
+a.eidos               () NOP
+sum(posothta) &f_ypol () NOP
+
+   let #f_ypol = &f_ypol
+
+from wh_apogr a
+where eidos = $eidos
+and  cid    = $cid
+and  hmer   = $hmer_evs
+group by a.eidos
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_apouhkh
+
+begin-select
+a.perigrafh   &apou_per () NOP
+
+   let $apou_per = &apou_per
+
+from wh_apouhk a
+where kvdikos = $apouhkh
+and  cid      = $cid
+end-select
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_msk
+
+  let #ypoloipo = 0 
+  let #eis      = 0       
+  let #eja      = 0       
+  
+  execute whp_getmsk2    @eidos       = $eidos,
+                         @cid         = $cid,
+                         @hmer        = $hmer_evs,
+                         @msk         = #mes_tim   out 
+
+begin-select
+a.eidos                 &1e      () NOP
+sum(posothta*syntel_p)  &p_f_eis () NOP
+
+  let #eis = &p_f_eis
+
+from wh_kin a,ap_par b
+where a.parkvd     = b.parkvd
+and   a.cid        = $cid
+and   a.eidos      = $eidos
+and   f_eis        is not null
+[$SQLAPOUHKH]
+and   a.hmeromhnia between $xrhsh_arxh and $hmer_evs
+!     and   a.aa not in ( 134226, 134220)
+group by a.eidos
+end-select
+
+begin-select
+a.eidos                 &2e      () NOP
+sum(posothta*syntel_p)  &p_f_eja () NOP
+
+  let #eja = &p_f_eja
+
+from wh_kin a,ap_par b
+where a.parkvd     = b.parkvd
+and   a.cid        = $cid
+and   a.eidos      = $eidos
+and   f_eja        is not null
+[$SQLAPOUHKH]
+and   a.hmeromhnia between $xrhsh_arxh and $hmer_evs
+group by a.eidos
+end-select
+
+     let   #ypoloipo    = #eis - #eja
+     let   #rnd_mes_tim = round(#mes_tim,0)
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_msk5
+
+  let #ypoloipo_pvl =  0 
+  ! let $apou         = '1'
+
+  execute whp_getmsk5    @eidos       = $pvl,
+                         @cid         = $cid,
+                         @hmer        = $hmer_evs,
+   !                      @apouhkh     = $apou,
+                         @msk         = #msk           out,
+                         @ypoloipo    = #ypoloipo_pvl  out 
+
+  let   #rnd_mes_tim_pvl = round(#msk,0)
+
+end-procedure
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  print ' ΦΥΛΛΑ ΑΠΟΓΡΑΦΗΣ '  (3,) Center
+  
+  let $msg = 'Με Ημερομηνία : ' || $hmerevspr  || ' - Αποθήκη : ' || $apou_per
+
+  print $msg  (4,) Center
+
+ if #WHO = 90 or #WHO = 6 
+
+    print ' '                   (6, #ST_P_KVDIK,#LENGTH_KVD)
+    print ' '                   ( ,+#STEP_OFALL,#LENGTH_PER)
+    print ' '                   ( ,+#STEP_OFALL,#LENGTH_MSK)
+    print 'Λογιστικό'           ( ,+#ST_P_YPOLO,#LENGTH_YPO)
+
+        if #WHO = 90
+           print '   Φυσικό'    ( ,+#STEP_OFALL,#LENGTH_YPO)
+           print ' '            ( ,+#STEP_OFALL,#LENGTH_YPO)
+        end-if
+
+    print '   Κόστος  '         ( ,+#STEP_OFALL,#LENGTH_KYP)
+    print '    Τιμή  '          ( ,+#STEP_OFALL,#LENGTH_MSK)
+    print 'Κωδικος'             (7, #ST_P_KVDIK,#LENGTH_KVD)
+    print 'Περιγραφη'           ( ,+#STEP_OFALL,#LENGTH_PER)
+    print '    Μ.Σ.Κ.'          ( ,+#STEP_OFALL,#LENGTH_MSK)
+    print ' Υπόλοιπο'           ( ,+#ST_P_YPOLO,#LENGTH_YPO)
+
+        if #WHO = 90
+           print ' Υπόλοιπο'    ( ,+#STEP_OFALL,#LENGTH_YPO)
+           print '  Διαφορά'    ( ,+#STEP_OFALL,#LENGTH_YPO)
+        end-if
+
+    print '  Υπολοίπου'         ( ,+#STEP_OFALL,#LENGTH_KYP)
+    print '   Πώλησης'          ( ,+#STEP_OFALL,#LENGTH_MSK)
+
+ else
+
+    print 'κωδικος'             (7, #ST_P_KVDIK,#LENGTH_KVD)
+    print 'περιγραφη'           ( ,+#STEP_OFALL,#LENGTH_PER)
+
+        if #WHO = 99
+           print ' '            (6, #ST_P_KVDIK,#LENGTH_KVD)
+           print ' '            ( ,+#STEP_OFALL,#LENGTH_PER)
+           print 'Λογιστικό'    ( ,+#ST_P_YPOLO,#LENGTH_YPO)
+           print '   Φυσικό'    ( ,+#STEP_OFALL,#LENGTH_YPO)
+           print ''             (7, #ST_P_KVDIK,#LENGTH_KVD)
+           print ''             ( ,+#STEP_OFALL,#LENGTH_PER)
+           print ' Υπόλοιπο'    ( ,+#ST_P_YPOLO,#LENGTH_YPO)
+           print ' Υπόλοιπο'    ( ,+#STEP_OFALL,#LENGTH_YPO)
+           print '  Διαφορά'    ( ,+#STEP_OFALL,#LENGTH_KVD)
+        else
+           print 'Υπόλοιπο'     ( ,+#STEP_OFALL,#LENGTH_KVD)
+        end-if
+
+ end-if
+
+end-heading

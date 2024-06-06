@@ -1,0 +1,217 @@
+! ***********************************************************************
+! ***** REPORT      : eyrethr.sqr                                    ****
+! ***** DATE        : 26/05/94                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** NOTE        : Ευρετήριο Συναλλασομένων                       ****
+! ***** AUTHOR 	    : Uknown - mod by adr
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1             99999
+#DEFINE   MASK3                99
+#DEFINE   MASK2     9,999,999,999
+
+! #DEFINE   MASK2     9,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+  
+ LOAD-LOOKUP 	NAME 		= nomoi
+          	ROWS 		= 100
+		TABLE 		= ap_nomos
+		KEY		= kvdikos	
+		RETURN_VALUE 	= perigrafh
+
+ LOAD-LOOKUP 	NAME 		= xwres
+          	ROWS 		= 200
+		TABLE 		= ap_xvra
+		KEY		= kvdikos	
+		RETURN_VALUE 	= perigrafh
+
+ LOAD-LOOKUP 	NAME 		= doy
+          	ROWS 		= 500
+		TABLE 		= ap_doy
+		KEY		= kvdikos	
+		RETURN_VALUE 	= perigrafh
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ input $synal_eidos
+ unstring $synal_eidos by '"' into $filler $synal_eidos $filler
+
+ move $L_CID to $cid
+ do geteidostitle($synal_eidos, $synal_eidos_title)
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select
+isnull(b.nomos, 0)                     &nomos  () NOP
+b.polh                                         ()             on-break
+                                                              print=never
+                                                              after=lala
+
+a.synal                                        (  ,  1, 8) on-break 
+                                                           print=change
+					                   level=1
+b.topos 				       () NOP                                       
+	if &b.topos = 0 
+		print 'ΕΔ'                     (  , +1, 2)
+	else
+		print &b.topos                 (  , +1, 2)
+	end-if
+
+a.epvnymia                                     (  , +2,40)
+  LOOKUP nomoi &nomos $nomos_per
+  print $nomos_per                             (  , +1,15)
+b.thl                                          (  , +1,25)
+a.epagg_perig                                  ()        NOP
+a.afm                                          () nop
+isnull(a.epaggelma,'')          &epaggelma     ()        NOP
+  if &b.topos = 0 
+	  do getepagg(&epaggelma,&a.epagg_perig,$epagg_per,$dras_per)
+	  print $epagg_per                     (  , +1,20) 
+	  print &a.afm                         (  , +1,10)
+  else
+	  print ' '                            (  , +1,20) 
+	  print ' '                            (  , +1,10)
+  end-if
+  
+  do synallogar(&a.synal,$cid,$logar)
+  show $logar
+ ! print $logar                     (  , +1,20) 
+
+
+b.dieyuynsh                             &dieyu        
+b.polh+" "+b.taxkvd                     &dieyu2        
+  print ' '                                    (+1,  1, 8)
+  print ' '                                    (  , +1, 2)
+  print &dieyu                                 (  , +2,40)
+  print &dieyu2                                (  , +1,41)
+  print $logar 		                       (  , +1,20) 
+  !print ' '                                    (  , +1,20)
+isnull(a.doy_perig,'NULL')        &doy_per     ()          NOP
+isnull(a.doy,'')                  &doy         ()          NOP
+  
+  if &b.topos = 0 
+	  if  &doy_per = 'NULL'
+  	      LOOKUP doy &doy $doy_per
+	  else
+	      move &doy_per to $doy_per
+	  end-if
+  else  
+          move ' ' to $doy_per
+  end-if
+  print $doy_per                               (  , +1,15)
+
+  next-listing need = 2
+
+from  sy_synal a,
+      sy_synaltopos b
+where a.synal            = b.synal 
+  and exists (select 1 from sy_synaleidos e where a.synal = e.synal and e.eidos=$synal_eidos and e.cid=$cid)
+[$SQLCMD]
+order by a.epvnymia		! , b.topos
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure lala
+ next-listing
+end-procedure
+
+begin-procedure getepagg($epagg,$epagg_lek,:$epagg_per,:$dras_per)
+  move '' to $epagg_per
+  move '' to $dras_per
+begin-select
+isnull(a.perigrafh,'') &aper    () NOP
+isnull(b.perigrafh,'') &bper    () NOP
+  move &aper to $epagg_per
+  move &bper to $dras_per
+from ap_epaggelma a, ap_drast b
+where a.kvdikos = $epagg and a.drast = b.kvdikos
+end-select
+ if $epagg_pre = ''
+    move $epagg_lek to $epagg_per
+ end-if
+end-procedure
+
+! ******************************************************************
+begin-procedure synallogar($synal,$cid,:$logar)
+  move '' to $logar
+begin-select loops=2
+a.logar     () NOP
+
+  if $logar > '' 
+     let $logar = $logar || ','
+  end-if
+
+  let $logar = $logar || &a.logar
+
+from sy_synaleidos a
+where a.synal = $synal and a.cid = $cid and a.logar is not null
+end-select
+end-procedure
+
+
+! ******************************************************************
+begin-procedure geteidostitle($synal_eidos, :$synal_eidos_title)
+  move '' to $synal_eidos_title
+begin-select loops=2
+a.perigrafh
+   move &a.perigrafh to  $synal_eidos_title
+from sy_fksynaleidos a
+where a.kvdikos = $synal_eidos
+end-select
+end-procedure
+
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΕΥΡΕΤΗΡΙΟ ΣΥΝΑΛΛΑΣΣΟΜΕΝΩΝ ΓΙΑ : ' || $synal_eidos_title
+  print $msg (3,) center
+  print 'Κωδικός'                  (5, 1, 8)
+  print ' '                        ( ,+1, 2)
+  print 'Συναλλασόμενος'           ( ,+2,40)
+  print 'Νομός'                    ( ,+1,15)
+  print 'Τηλέφωνο'                 ( ,+1,25)
+  print 'Επάγγελμα'                ( ,+1,20)
+  print 'Α.Φ.Μ.'                   ( ,+1,10)
+  print ' '                        (6, 1, 8)
+  print ' '                        ( ,+1, 2)
+  print 'Διεύθυνση - Πόλη - Τ.Κ'   ( ,+2,40)
+  print ' '                        ( ,+1,15)
+  print ' '                        ( ,+1,25)
+  print 'Λογαριασμοί'              ( ,+1,20)
+  print 'Δ.Ο.Υ.'                   ( ,+1,20)
+
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	4	4	490	eyrethr	rs	X	01},TITLE{Ευρετήριο Συναλλασομένων}
+!	PARCOUNT{1}
+!	PAR1{Μητρώο	a.synal	2	BETWEEN	char	X	}
+!REPORTHELP{F}
+!</pcalib>

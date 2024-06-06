@@ -1,0 +1,474 @@
+! ******************************************************************************
+! **** COPANIES    : PROLOGIC SA _ SOFLOLENS SA                             ****
+! **** REPORT      : stat10.sqr                                             ****
+! **** DATE        : 11/ 1/96                                               ****
+! **** APPLICATION : ¡–œ»« ≈”                                               ****
+! **** AUTHOR      : Ã–œ …¡” Õ… œ”                                          ****
+! **** NOTE        :  …Õ«”≈…”  ¡‘¡ –œÀ«                                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    155 
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   MASK1    999,999,999,999
+#DEFINE   MASK2                999
+#DEFINE   MASK4               9999
+#DEFINE   MASK5          999999999.99
+#DEFINE   MASK7        999,999,999
+#DEFINE   DATEMASK        DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+  
+  move $L_CID to $cid
+
+  input $apohmnia   '¡¸ «ÏÂÒÔÏÁÌﬂ·                      : '
+  input $evshmnia   'E˘Ú «ÏÂÒÔÏÁÌﬂ·                      : '
+ 
+ input $iet     '≈‘¡…—≈…¡       '
+ unstring $iet    by '"' into $filler $et    $filler
+ 
+ move $et to $cid
+ if $cid = '='
+ execute app_retdefcid $cid output
+ end-if
+
+ execute app_datecnv   $apohmnia, $apo_hmnia output, $apo_hmniapr output
+ execute app_datecnv   $evshmnia, $evs_hmnia output, $evs_hmniapr output
+
+ execute app_geteom    $evs_hmnia, $evs_hmnia out
+ let $evs = $evs_hmnia 
+ move $evs to $evs_hmniapr {DATEMASK}
+
+ let #POS_CHAR    = 15
+ let #POS_PERC    = 13
+ let #AJI_CHAR    = 15
+
+ do main
+
+End-Report
+
+! ==============================================================================
+
+Begin-Procedure main
+
+ let  #cnt          = 1
+ let  #cnt_synal    = 1
+ let  #cnt_tmhma    = 1
+ let  #cnt_pvlomada = 1                
+ let  #count        = 1
+ let  #synal_ajia   = 0
+ let  #synal_pos    = 0  
+ let  #tmhma_ajia   = 0
+ let  #tmhma_pos    = 0  
+
+ let $GR1='group by e.perigrafh,c.polh,c.synal,d.epvnymia,b.tmhma,b.pvlomada,b.perigrafh,datepart(yy,a.hmeromhnia)'
+
+ let $OR1='order by e.perigrafh,c.polh,c.synal,b.tmhma,b.pvlomada,b.perigrafh,datepart(yy,a.hmeromhnia)'
+
+Begin-Select 
+
+isnull(e.perigrafh,'¡√ÕŸ”‘œ” ÕœÃœ”') + ' ' + c.polh (,1,60)   on-break 
+                                                          after=do_polh
+                                                          level=1
+
+c.synal                    &synal      ()        on-break after=do_synal     
+                                                          print=never 
+                                                          level=2
+
+d.epvnymia                 &epvnymia   () NOP
+
+                 if #cnt_synal = 1
+                    next-listing need=3
+                    print  &synal      (,10,10)
+                    print  &epvnymia   (,+1,30)
+                    next-listing
+                    print  '-'         (,10,10) fill
+                    print  '-'         (,+1,30) fill
+                    next-listing
+                 end-if
+                 let #cnt_synal = #cnt_synal + 1
+
+b.tmhma                     &tmhma     ()        on-break after=do_tmhma 
+                                                          print=never 
+                                                          level=3
+
+                 if #cnt_tmhma = 1
+                    next-listing 
+                    let #tmhma = &tmhma
+                    do find_tmhma
+                    print $tmhma_per    (,15,20) 
+                    next-listing
+                    print  '-'          (,15,20) fill
+                    next-listing
+                 end-if
+                 let #cnt_tmhma = #cnt_tmhma + 1
+
+b.pvlomada                  &pvlomada  ()        on-break after=do_pvlomada 
+                                                          print=never 
+                                                          level=4
+
+b.perigrafh                 &perigrafh ()       NOP
+
+                 if #cnt_pvlomada = 1
+                    next-listing   need=6
+                    print &pvlomada     (,25,20) 
+                    print &perigrafh    (,+1,40)
+                    next-listing
+                    print  '-'          (,20,20) fill
+                    print '-'           (,+1,40) fill
+                    next-listing
+!                    let #pre_pos  = 0
+!                    let #pre_ajia = 0  
+                    let #cnt      = 1
+                    let #cnt_year = 1
+                 end-if
+
+datepart(yy,a.hmeromhnia)   &year      ()       NOP
+   
+sum(isnull(a.pvl_p,0))      &pos       ()        on-break print=never 
+                                                          after=do_pvl 
+                                                          level=5
+    !                                                          save  = $pre_pos
+     let #pos      = 0   
+     let #pos      = &pos
+     
+
+sum(isnull(a.pvl_a,0))      &ajia      ()        on-break print=never 
+                                                          level=6
+    !                                                          save  = $pre_ajia
+     let #ajia  = 0
+     let #ajia  = &ajia
+      
+!                 if #cnt_pvlomada > 1  and  #pre_pos = 0
+!                    let #pre_pos   = &pos
+!                    let #pre_ajia  = &ajia
+!                 end-if
+
+                 let #cnt_pvlomada = #cnt_pvlomada + 1
+    
+
+     !    print #count       (,41, 3) EDIT {MASK2}
+          print '  '         (,41, 3)
+
+     let $year  = &year
+          print $year        (,+1,15) EDIT {MASK4}
+          print #pos         (,+1,#POS_CHAR) EDIT {MASK7}
+
+     if #cnt >  1
+           
+           let #diaf_p      = 0
+           let #pos_p       = 0
+           let #diaf_a      = 0
+           let #pos_a       = 0
+           
+           let #diaf_p = #pos  - #pre_pos   
+           let #diaf_a = #ajia - #pre_ajia   
+
+           display '***************'
+           display #pos
+           display #pre_pos
+           display #diaf_p
+
+        if #pre_pos  <>  0
+           let #pos_p  = #diaf_p * (100 / #pre_pos)
+        else
+           let #pos_p = -100
+        end-if
+        if #pre_ajia <>  0
+           let #pos_a  = #diaf_a * (100 / #pre_ajia)
+        else
+           let #pos_a = -100
+        end-if
+     end-if
+           
+
+      if #cnt != 1
+          print #diaf_p      (,+1,#POS_CHAR) EDIT {MASK7}
+          print #pos_p       (,+1,#POS_PERC) EDIT {MASK5}
+          print #ajia        (,+1,#AJI_CHAR) EDIT {MASK7}
+          print #diaf_a      (,+1,#AJI_CHAR) EDIT {MASK7}
+          print #pos_a       (,+1,#POS_PERC) EDIT {MASK5}
+      else  
+           print ' '          (,+1,#POS_CHAR) 
+           print ' '          (,+1,#POS_PERC) 
+           print #ajia        (,+1,#AJI_CHAR) EDIT {MASK7}
+           print ' '          (,+1,#AJI_CHAR) 
+           print ' '          (,+1,#POS_PERC) 
+      end-if 
+
+     let   #tmhma_pos      = #tmhma_pos     + #pos  
+     let   #synal_pos      = #synal_pos     + #pos  
+     let   #pvlomada_pos   = #pvlomada_pos  + #pos
+     let   #s_pos          = #s_pos         + #pos  
+     let   #tmhma_ajia     = #tmhma_ajia    + #ajia
+     let   #synal_ajia     = #synal_ajia    + #ajia
+     let   #pvlomada_ajia  = #pvlomada_ajia + #ajia
+     let   #s_ajia         = #s_ajia        + #ajia
+
+     let   #diaf_p  = 0 
+     let   #pos_p   = 0 
+     let   #diaf_a  = 0 
+     let   #pos_a   = 0 
+
+     let   #cnt   = #cnt   + 1
+     let   #count = #count + 1
+
+         let   #pre_pos   = &pos
+       display #pre_pos
+         let   #pre_ajia  = &ajia
+
+     let #cnt_year = #cnt_year + 1
+     next-listing need=2
+
+from   sy_synal     d , sy_synaltopos c,
+       wh_pvlomades b , st_whkint01g  a,
+       ap_nomos     e , ap_epaggelma  f
+
+where  c.synal      =       a.synal
+and    d.epaggelma  =       f.kvdikos
+and    d.synal      =       c.synal
+and    d.synal      =       a.synal
+and    b.pvlomada   =       a.pvlomada
+and    a.cid        =       $cid
+and    a.hmeromhnia between $apo_hmnia and $evs_hmnia 
+and    isnull(c.nomos,0) =  e.kvdikos
+and    exists ( select x.synal 
+                 from  sy_synalprog x
+                 where d.synal = x.synal 
+                 and   x.pvlhths = 1)
+! and    (polh like '«À…œ’–œÀ%'     or polh like '%¡—√’—œ’–œÀ%'
+!      or polh like '%‘≈—ÿ…»≈¡%'    or polh like '%ƒ¡÷Õ«%'
+!      or polh like '%¡√%ƒ«Ã«‘—%'   or polh like '% ¡ÀÀ…»≈¡%'
+!      or polh like '% œ’ ¡ …%'     or polh like '%Õ% œ”Ãœ”%'
+!      or polh like '%¡…√¡À≈Ÿ%'     or polh like '%Õ… ¡…¡%'
+!      or polh like '%◊¡…ƒ¡—…%'     or polh like '%¡√%¬¡—¬¡—¡%'
+!      or polh like '% œ—’ƒ¡À%'     or polh like '%–≈‘—¡ÀŸÕ¡%'
+!      or polh like '%‘¡’—œ”%'       )
+! and    (polh like '¡√%–¡—¡” ≈’%'     or polh like '%◊œÀ¡—√œ”%'
+!      or polh like '%¬’—ŸÕ¡%'         or polh like '% ¡…”¡—…¡Õ%'
+!      or polh like '%–¡√ —¡‘%'      )
+[$SQLCMD]
+[$GR1]
+[$OR1]
+End-Select
+
+End-Procedure
+
+! ==============================================================================
+
+Begin-Procedure do_polh
+
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print ' '                 (,+1,       17) 
+          print '-'                 (,+1,#POS_CHAR) fill 
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print '-'                 (,+1,#AJI_CHAR) fill 
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+
+  next-listing
+
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print '”’ÕœÀ¡ –œÀ«”  :'   (,+1,       17) 
+          print #s_pos              (,+1,#POS_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print #s_ajia             (,+1,#AJI_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+  
+ next-listing 
+
+ new-page
+
+ let #s_pos     = 0
+ let #s_ajia    = 0
+ let #cnt       = 1
+ let #count     = 1
+
+End-Procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure do_synal
+
+  let #cnt_synal = 1
+!   next-listing need=2
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print ' '                 (,+1,       17) 
+          print '-'                 (,+1,#POS_CHAR) fill 
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print '-'                 (,+1,#AJI_CHAR) fill 
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+  next-listing
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print '”’ÕœÀ¡ ”’Õ/Õœ’:'   (,+1,       17) 
+          print #synal_pos          (,+1,#POS_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print #synal_ajia         (,+1,#AJI_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+  next-listing
+
+     let   #synal_ajia   = 0
+     let   #synal_pos    = 0  
+
+End-Procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure do_tmhma
+
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print ' '                 (,+1,       17) 
+          print '-'                 (,+1,#POS_CHAR) fill 
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print '-'                 (,+1,#AJI_CHAR) fill 
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+  next-listing
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print '”’ÕœÀ¡ ‘Ã«Ã¡‘œ”:'  (,+1,       17) 
+          print #tmhma_pos          (,+1,#POS_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print #tmhma_ajia         (,+1,#AJI_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+
+  next-listing
+  next-listing
+
+  let   #cnt          = 1
+  let   #tmhma_ajia   = 0
+  let   #tmhma_pos    = 0  
+  let   #cnt_tmhma    = 1
+
+End-Procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure do_pvlomada
+
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print ' '                 (,+1,       17) 
+          print '-'                 (,+1,#POS_CHAR) fill 
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print '-'                 (,+1,#AJI_CHAR) fill 
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+  next-listing
+          print ' '                 (, 1,       20) 
+          print ' '                 (,+1,       20) 
+          print '”’ÕœÀ¡ œÃ.–ŸÀ. :'  (,+1,       17) 
+          print #pvlomada_pos       (,+1,#POS_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#POS_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+          print #pvlomada_ajia      (,+1,#AJI_CHAR)  EDIT {MASK7}
+          print ' '                 (,+1,#AJI_CHAR) 
+          print ' '                 (,+1,#POS_PERC) 
+
+  next-listing need=3
+
+  let   #cnt_pvlomada    = 1
+  let   #pvlomada_ajia   = 0
+  let   #pvlomada_pos    = 0  
+
+End-Procedure
+
+! ------------------------------------------------------------------------------
+
+Begin-Procedure do_pvl
+
+!        move $pre_pos  to #pre_pos
+!        move $pre_ajia to #pre_ajia
+
+End-Procedure
+
+! ==============================================================================
+
+Begin-Procedure find_tmhma
+
+begin-select
+a.perigrafh  &tmhma_per  () NOP
+  let $tmhma_per = &tmhma_per
+from  ap_tmhma a
+where a.kvdikos = #tmhma
+end-select
+
+End-Procedure
+
+! ==============================================================================
+
+Begin-Procedure find_synal
+
+  next-listing
+
+begin-select
+a.epvnymia      &epvn      () NOP
+  
+  let $epvnymia  = &epvn     
+
+from  sy_synal a
+where a.synal = $synal
+end-select
+
+  print $synal       (,20,10) 
+  print $epvnymia    (,31,30)
+  next-listing
+!  do   do_synal 
+
+End-Procedure
+
+! ==============================================================================
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print '”‘¡‘…”‘… ¡  …Õ«”≈ŸÕ –≈À¡‘ŸÕ' (3,+1) center
+
+ let $msg='¡–œ : ' || $apo_hmniapr || ' ≈Ÿ” : ' || $evs_hmniapr
+
+ print $msg (4,+1) center
+
+ print '–¸ÎÁ'                            (6, 1,20)
+ print '‘ÏﬁÏ·'                           ( ,+1,20)
+ print '¡/¡'                             ( ,+1, 3)
+ print '–ÂÒﬂÔ‰ÔÚ'                        ( ,+1,20)
+ print '–ÔÛ¸ÙÁÙ·'                        ( ,+1,#POS_CHAR)
+ print 'ƒÈ·ˆÔÒ‹'                         ( ,+1,#POS_CHAR)
+ print '–ÔÛÔÛÙ¸'                         ( ,+1,#POS_PERC)
+
+ print '¡Óﬂ·'                            ( ,+1,#AJI_CHAR)
+ print 'ƒÈ·ˆÔÒ‹'                         ( ,+1,#AJI_CHAR)
+ print '–ÔÛÔÛÙ¸'                         ( ,+1,#POS_PERC)
+
+
+end-Heading

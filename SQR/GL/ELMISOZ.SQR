@@ -1,0 +1,215 @@
+!***********************************************************************
+!***** REPORT      : elmhnisoz.sqr                                  ****
+!***** DATE        : 14/12/98                                       ****
+!***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+!***** NOTE        : --- ΜΗΝΙΑΙΟ ΙΣΟΖΥΓΙΟ                           ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    60
+#DEFINE   PAGE-X    96
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  MM/YY
+#DEFINE   MASK1     99,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID to $cid
+ move $L_XRHSH to $xrhsh
+ !input $xrhsh   'Χρηση : '
+ input $logar   'Λογαριασμός : '
+ input $style   'Λογαριασμός : '
+ !unstring $xrhsh by '"' into $filler $xrhsh $filler
+ unstring $logar by '"' into $filler $logar $filler
+ unstring $style by '"' into $filler $style $filler
+ move $xrhsh to #xrhsh
+
+ display #xrhsh
+ display $logar
+ display $style
+
+ if $style = '1'
+    do main1
+ end-if
+ if $style = '2'
+    do getxrhshinfo
+    do main2
+ end-if
+
+End-Report
+
+! *****************************************************************
+
+begin-procedure main2
+
+let $logar_like = $logar||'%'
+move 'F' to $s2newpage
+
+begin-select 
+s2.logar  () nop
+
+   
+   move &s2.logar to $logar
+
+   if $s2newpage = 'T'
+      new-page
+   end-if
+
+   do main1
+   move 'T' to $s2newpage
+   
+
+from gl_logar s2
+where s2.xrhsh = #xrhsh
+  and s2.cid   = $cid
+  and s2.logar like $logar_like
+  and exists (select 1 from gl_ypol s2b where s2.cid = s2b.cid and s2.logar = s2b.logar 
+                           and s2b.hmeromhnia between &xrhsh_arxh and &xrhsh_telos )
+[$SQLCMD]
+order by s2.logar
+end-select
+
+end-procedure
+
+! *****************************************************************
+
+begin-procedure main1
+
+ move 0 to #pxrevsh
+ move 0 to #ppistvsh
+
+ next-listing
+
+ do printlogar
+ next-listing
+
+ execute do=printlns
+	 glp_scr_isoz @cid=$cid, @xrhsh = #xrhsh, @logar = $logar
+               into &hmer        datetime,
+                    &xrevsh      int,
+                    &pistvsh     int,
+                    &p_xrevsh    int,
+                    &p_pistvsh   int
+ next-listing
+ 
+end-procedure
+
+
+! *****************************************************************
+
+begin-procedure getxrhshinfo
+
+begin-select
+xrhsh_arxh    () nop
+xrhsh_telos   () nop
+from ap_xrhsh
+where cid=$cid
+  and xrhsh=#xrhsh
+end-select
+
+
+end-procedure
+
+! *****************************************************************
+
+begin-procedure printlogar
+
+print 'Λογαριασμός : ' (,6)
+print $logar           (,+1)
+
+begin-select
+perigrafh  (,+2)
+
+   next-listing
+
+from gl_logar
+where logar = $logar
+  and xrhsh = #xrhsh
+  and cid   = $cid
+end-select
+
+end-procedure
+
+
+! ***************************************************************** [printlns]
+
+begin-procedure printlns
+
+ print  &hmer       (,1,05)  edit {DATEMASK}
+ print  &xrevsh     (,+1,13) edit {MASK1}
+ print  &pistvsh    (,+1,13) edit {MASK1}
+
+ let #ypol = &xrevsh - &pistvsh
+ print  #ypol       (,+1,13) edit {MASK1}
+
+ print  #pxrevsh    (,+1,13) edit {MASK1}
+ print  #ppistvsh   (,+1,13) edit {MASK1}
+
+ add &xrevsh  to #pxrevsh
+ add &pistvsh to #ppistvsh
+
+
+ let #ypol = #pxrevsh - #ppistvsh
+ print  #ypol       (,+1,13) edit {MASK1}
+
+
+
+ next-listing
+
+end-procedure
+
+! ****************************************************************************
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print 'ΜΗΝΙΑΙΟ ΙΣΟΖΥΓΙΟ ΛΟΓΑΡΙΑΣΜΟΥ' (3) center
+
+
+  print ' '                 			(5,1,05)
+  print  '          Π Ε Ρ Ι Ο Δ Ο Υ          '  (,+1,41)
+  print  '       Π Ρ Ο Ο Δ Ε Υ Τ Ι Κ Α       '  (,+1,41)
+
+
+
+  print 'Μήνας'           (6,1,05)
+
+ 
+  print  '       Χρέωση'  (,+1,13)
+  print  '      Πίστωση'  (,+1,13)
+
+  ! (v) Some times if follwing lines are uncomment the SQR GPF
+  !     I dont know wy 
+
+
+  print  '     Υπόλοιπο'  (,+1,13)
+
+  print  '       Χρέωση'  (,+1,13)
+  print  '      Πίστωση'  (,+1,13)
+  print  '     Υπόλοιπο'  (,+1,13)
+
+
+End-Heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	2	99	5143	elmisoz	rs	X	01},TITLE{Μηνιαίο Ισοζύγιο}
+!	PARCOUNT{5}
+!	PAR1{Ενας Μονο Λογαρ/σμός	LOGAR	1	ΕΠΙΛΟΓΗ	varchar(25)		X}
+!	PAR2{1=Συγκεντρ/2=Αναλ.	STYLE	1	ΕΠΙΛΟΓΗ	char(1)		X}
+!	PAR3{Λογαριασμός	s2.logar	2	BETWEEN	varchar(25)	Χ	}
+!	PAR4{Βαθμός	s2.baumos	1	=	int	Χ	}
+!	PAR5{Τμήμα Λογαριασμού	s2.logar	1	LIKE	varchar(25)	Χ	}
+!REPORTHELP{F}
+!</pcalib>

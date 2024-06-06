@@ -1,0 +1,4 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2005-04-05 **/
+select *,ajia/posothta from wh_kostos
+where eidos='24200001'

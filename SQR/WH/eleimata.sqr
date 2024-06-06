@@ -1,0 +1,189 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : eleimata.sqr                                   ****
+!***** DATE        : 17/01/95                                       ****
+!***** APPLICATION : warehouse                                      ****
+!***** AUTHOR      : ΘΕΟΤΟΚΑΣ ΙΩΑΝΝΗΣ                               ****
+!***** NOTE        : Κατάσταση Ελειμάτων - Πλεονασμάτων             ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    64
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   EIDOS     9999
+#DEFINE   MASK1     b99,999,999.99c
+#DEFINE   MASK2     b999,999.999c
+#DEFINE   MASK3     b99,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ixrhsh  'Xrhsh :'     
+ execute app_floatcnv $ixrhsh, #xrhsh out
+ 
+ move #xrhsh to $xrhsh  9999
+
+ move 'T' to $flag
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select     
+a.apouhkh            ()               on-break print = never
+                                               level = 1
+                                               after = totapoth
+  do getapou($cid, &a.apouhkh, $apouhkh)
+  if $flag = 'T'
+     do newapoth
+  end-if
+a.eidos              (,01,10)  
+b.perigrafh          (,+1,36)        
+round(a.log_ypol, 2) &a.log_ypol       (,+3,14)  edit {MASK1}
+round(a.posothta, 2) &a.posothta       (,+3,14)  edit {MASK1}
+  let #diff = &a.posothta - &a.log_ypol 
+  print #diff        (,+3,14)  edit {MASK1}
+a.y_msk     &a.msk   (,+3,14)  edit {MASK2}
+
+  let #kostos = #diff * &a.msk
+
+  move #kostos to $kostos           999999999
+  move $kostos to #kostos
+
+  print #kostos      (,+3,14)  edit {MASK3}
+  let #ap_logis  = #ap_logis  + &a.log_ypol
+  let #ap_posot  = #ap_posot  + &a.posothta
+  let #ap_diff   = #ap_diff   + #diff        
+  let #ap_kostos = #ap_kostos + #kostos
+
+  next-listing
+
+from wh_apografh a, wh_eidh b
+where a.cid = $cid 
+  and a.xrhsh = #xrhsh
+  and a.eidos = b.kvdikos
+  and round(a.log_ypol, 2) != round(a.posothta, 2)
+[$SQLCMD]
+order by a.apouhkh, b.perigrafh
+end-select
+
+  print $L_X1           (,1,{PAGE-X}) fill
+  next-listing
+  print 'Γενικά Σύνολα Απογραφής'           (,06,40)
+  print #tot_logis                          (,+3,14) edit {MASK1}
+  print #tot_posot                          (,+3,14) edit {MASK1}
+  print #tot_diff                           (,+3,14) edit {MASK1}
+  print ''                                  (,+3,14)
+  print #tot_kostos                         (,+3,14) edit {MASK3}
+  next-listing   
+  print $L_X1                               (,1,{PAGE-X}) fill
+  next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure totapoth
+
+  print $L_X2           (,1,{PAGE-X}) fill
+  next-listing
+  print 'Σύνολα Αποθήκης'                  (,06,15)
+  print $apouhkh                           (,+1,24)
+  print #ap_logis                          (,+3,14) edit {MASK1}
+  print #ap_posot                          (,+3,14) edit {MASK1}
+  print #ap_diff                           (,+3,14) edit {MASK1}
+  print ''                                 (,+3,14)
+  print #ap_kostos                         (,+3,14) edit {MASK3}
+  next-listing   
+  print $L_X1                              (,1,{PAGE-X}) fill
+  next-listing
+
+  let #tot_logis  = #tot_logis  + #ap_logis  
+  let #tot_posot  = #tot_posot  + #ap_posot  
+  let #tot_diff   = #tot_diff   + #ap_diff   
+  let #tot_kostos = #tot_kostos + #ap_kostos 
+
+  move 0 to #ap_logis
+  move 0 to #ap_posot
+  move 0 to #ap_diff
+  move 0 to #ap_kostos
+
+  move 'T' to $flag
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure newapoth
+
+  ! print $L_X1           (,1,{PAGE-X}) fill
+  ! next-listing
+  print 'ΑΠΟΘΗΚΗ :'                  (,01,09)
+  print $apouhkh                     (,+1,35)
+  next-listing   
+  print $L_X1           (,1,{PAGE-X}) fill
+  next-listing
+  move 'F' to $flag
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getapou($cid, $apou, :$apouhkh)
+begin-select
+c.perigrafh
+  let $apouhkh = '['||$apou||'] '||&c.perigrafh
+from wh_apouhk c
+where c.cid = $cid
+  and c.kvdikos = $apou
+end-select
+end-procedure
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg = 'ΚΑΤΑΣΤΑΣΗ ΕΛΛΕΙΜΑΤΩΝ - ΠΛΕΟΝΑΣΜΑΤΩΝ ΧΡΗΣΗΣ '||$xrhsh
+  print $msg (3,) center
+  print ' '                                        (5,01,05)
+  print 'Ε  ί  δ  ο  ς'                            ( ,+1,40)
+  print '  Λογιστικό'                              ( ,+3,14)
+  print '   Φυσίκή'                                ( ,+3,14)
+  print '  Ελλείματα'                              ( ,+3,14)
+  print '     M.Σ.Κ.'                              ( ,+3,14)
+  print '    Κόστος'                               ( ,+3,14)
+
+  print ' '                                        (6,01,05)
+  print ''                                         ( ,+1,40)
+  print '  Υπόλοιπο'                               ( ,+3,14)
+  print '  Απογραφή'                               ( ,+3,14)
+  print ' Πλεονάσματα'                             ( ,+3,14)
+  print ''                                         ( ,+3,14)
+  print 'Ελλειμ.-Πλεον.'                           ( ,+3,14)
+
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{WH	1	1	334	eleimata	rs	X	01},TITLE{Ελλείματα και Πλεονάσματα}
+!	PARCOUNT{1}
+!	PAR1{Χρήση	DUMP	1	ΕΠΙΛΟΓΗ	int		X}
+!REPORTHELP{F}
+!</pcalib>

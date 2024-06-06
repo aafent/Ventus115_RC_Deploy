@@ -1,0 +1,163 @@
+!***********************************************************************
+!***** REPORT      : dltimol.sqr                                    ****
+!***** DATE        : 28/04/93                                       ****
+!***** APPLICATION : цемийг коцистийг                               ****
+!***** NOTE        : --- хеыяглемо амакутийо йахокийо   ---         ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     999,999,999.99c
+#DEFINE   MASK2     9999.99c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $apohmnia  'аПЭ гЛЕЯОЛГМъА  : '
+ input $evshmnia  'EЫР гЛЕЯОЛГМъА  : '
+
+ execute app_datecnv   $apohmnia, $apohm output, $apohmpr output
+ execute app_datecnv   $evshmnia, $evshm output, $evshmpr output
+
+
+ do main
+
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+let #memariumos=0
+let $memkk='0'
+begin-select
+convert(char(10),convert(datetime,hmeromhnia),103) &hmera,
+a.ariumos,a.kk,a.synal,b.epvnymia,a.ajia,a.xart,a.perigrafh
+
+        if $memkk='0' and #memariumos=0
+           move &a.kk to $memkk
+           move &a.ariumos to #memariumos 
+        end-if
+
+        if $memkk!=&a.kk 
+           let $msg='сумоко паяастатийым'
+           move #telikisuma_ajia to #suma_ajia
+           move #telikisuma_xart to #suma_xart
+           do synola
+           add #suma_ajia to #stelikisuma_ajia
+           add #suma_xart to #stelikisuma_xart
+           move 0 to #telikisuma_ajia
+           move 0 to #telikisuma_xart
+           move 0 to #poso_ajia
+           move 0 to #poso_xart
+           move &a.kk to $memkk
+           move &a.ariumos to #memariumos 
+        end-if
+
+        if #memariumos!=&a.ariumos
+           let $msg='сумоко тилокоциоу'
+           move #poso_ajia to #suma_ajia
+           move #poso_xart to #suma_xart
+           do synola
+           move 0 to #poso_ajia
+           move 0 to #poso_xart
+           add #suma_ajia to #telikisuma_ajia
+           add #suma_xart to #telikisuma_xart
+           move &a.kk to $memkk
+           move &a.ariumos to #memariumos 
+        end-if
+		do ektyp		
+
+from dl_timol a, sy_synal b
+where hmeromhnia between $apohm and $evshm
+and a.synal=b.synal
+order by hmeromhnia,a.kk,a.ariumos
+end-select
+
+           let $msg='сумоко тилокоциоу'
+           move #poso_xart to #suma_xart
+           move #poso_ajia to #suma_ajia
+           do synola
+           add #suma_ajia to #telikisuma_ajia
+           add #suma_xart to #telikisuma_xart
+
+           let $msg='сумоко паяастатийым'
+           move #telikisuma_ajia to #suma_ajia
+           move #telikisuma_xart to #suma_xart
+           do synola
+           add #suma_ajia to #stelikisuma_ajia
+           add #suma_xart to #stelikisuma_xart
+
+move #stelikisuma_ajia to #suma_ajia
+move #stelikisuma_xart to #suma_xart
+let $msg='цемийа сумока'
+do synola
+
+end-procedure
+
+begin-procedure ektyp
+print &hmera             (+1,1,10)
+if &a.kk='1'
+ print 'тИЛОКoЦ.пЫКГСГР' (,+1,15)
+else 
+ print 'TИЛ.пАЯОВ.уПГЯ.' (,+1,15)
+end-if
+print &a.ariumos         (,+1,7)     edit {MASK2}
+print &a.synal           (,+1,14)    edit {MASK2}
+print &b.epvnymia        (,+1,30)
+print &a.perigrafh       (,+1,20)     wrap 20 2
+print &a.ajia            (,+1,14)     edit {MASK1}
+print &a.xart            (,+1,14)     edit {MASK1}
+add &a.ajia to #poso_ajia
+add &a.xart to #poso_xart 
+end-procedure
+
+begin-procedure synola
+print     $msg           (+1,82,20)
+print #suma_ajia         (,+1,14)    edit {MASK1}
+print #suma_xart         (,+1,14)     edit {MASK1}
+next-listing
+end-procedure
+
+! ****************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ейтупысг тилокоциым' (2,+1) center
+
+ let $msg='пеяиодоу '||$apohmpr||' - '||$evshmpr
+
+ print $msg (3,+1) center
+
+      print 'глеяолгмиа'     (06,1,10) 
+      print '  паяастатийо  '(,+1,15)
+      print 'аяихлос'        (,+1,7) 
+      print 'сумаккасолемос' (,+1,14) 
+      print '        епымулиа              '     (,+1,30)
+      print '     пеяицяажг     '      (,+1,20)
+      print '          аниа'       (,+1,14)
+      print '     XAятосгло'      (,+1,14)   
+
+End-Heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{DL	1	4	489	dltimol	rs	X	01},TITLE{тИЛОКЭЦИА}
+!	PARCOUNT{1}
+!	PAR1{гЛЕЯОЛГМъА	dump	2	апо-еыс	datetime		X}
+!REPORTHELP{F}
+!</pcalib>

@@ -1,0 +1,179 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : ananti.sqr                                     ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Κατασταση ανεξόφλητων αντικαταβολών            ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    59
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99999
+#DEFINE   MASK2     9,999,999,999c
+#DEFINE   MASK3     99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+ move 0 to #total
+ move 0 to #subtotal
+ move 0 to #lns
+begin-select 
+a.aa                                  () NOP
+   
+  move 'T' to $print_flag
+  do find_cid(&a.aa, $parmas_cid)
+  if $parmas_cid != '' and $parmas_cid != $cid
+     move 'F' to $print_flag
+  end-if
+
+a.parkvd                                () NOP
+a.ajia_timol                          () NOP
+a.ajia_eispra                         () NOP
+
+  if &a.parkvd = '99'
+     let #ajia_timol = &a.ajia_timol * -1
+  else
+     let #ajia_timol = &a.ajia_timol
+  end-if
+  let #diff = #ajia_timol - &a.ajia_eispra
+  if #diff <= 0 and &a.parkvd != '99'
+     move 'F' to $print_flag
+  end-if
+
+a.prakt                               ()       on-break print=never
+					                level=1
+                                                        after=subtotals
+convert(datetime,a.hmeromhnia) &a.hmer  () NOP
+a.synal                                 () NOP
+a.seira                                 () NOP
+a.parno                                 () NOP
+
+  if $print_flag = 'T'
+     print &a.hmer                    (,01,08) edit {DATEMASK}
+     print &a.synal                   (,+1,05)
+     do getsynal (&a.synal,$epvnymia)
+     print $epvnymia                  (,+1,25)
+
+     print &a.prakt                   (,+4,05) on-break print=change/top-page
+					                level=1
+     do getsynal (&a.prakt,$epvnymia)
+     let #prakt_col = 56
+     print $epvnymia                  (,+1,20) on-break print=change/top-page
+					                level=1
+     print &a.parkvd                  (,+1,02)
+     print &a.seira                   (,+1,03)
+     print &a.parno                   (,+1,05) edit {MASK1}
+     print   #ajia_timol              (,+1,13) edit {MASK2}
+     print &a.ajia_eispra             (,+1,13) edit {MASK2}
+ 
+     let #ypol_col = 113
+     let #total = #total + #diff
+     let #subtotal = #subtotal + #diff
+     let #lns = #lns + 1
+     print #diff                      (,+1,13) edit {MASK2}
+
+     next-listing
+  end-if
+
+from sy_ypolanti a
+where a.ajia_timol != a.ajia_eispra
+ ! a.cid = $cid
+[$SQLCMD]
+order by a.prakt,a.hmeromhnia,a.synal
+end-select
+
+ next-listing need = 3 
+
+ print $L_X2                      (,113,13) fill
+ next-listing
+ print 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ : '         (,56)
+ print #total                     (,113,13) edit {MASK2}
+ 
+
+end-procedure
+
+! ******************************************************************
+begin-procedure find_cid(#aa,:$parmas_cid)
+  move '' to $parmas_cid
+begin-select
+cid                 () NOP
+  move &cid to $parmas_cid
+from sy_parmas
+where aa = #aa
+end-select
+end-procedure
+! ******************************************************************
+
+begin-procedure subtotals
+ next-listing need = 3 no-advance
+
+ if #lns > 1
+    print $L_X2                      (,113,13) fill
+    next-listing
+    print 'ΣΥΝΟΛΟ ΠΡΑΚΤΟΡΕΙΟΥ :'     (,56)
+    print #subtotal                  (,113,13) edit {MASK2}
+ end-if
+
+    move 0 to #subtotal
+    move 0 to #lns
+    next-listing
+    next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal,:$epvnymia)
+  move '' to $epvnymia
+begin-select
+epvnymia     () NOP
+  move &epvnymia to $epvnymia
+from sy_synal
+where synal=$synal
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΥΠΟΛΟΙΠΑ ΑΝΤΙΚΑΤΑΒΟΛΩΝ'
+  print $msg (3,) center
+  print 'Ημ/νία'               (5,01,08)
+  print 'Κωδ. '                ( ,+1,05)
+  print 'Συναλλασόμενος'       ( ,+1,25)
+  print 'Κωδ. '                ( ,+4,05)
+  print 'Πρακτορείο'           ( ,+1,20)
+  print 'ΠΑ'                   ( ,+1,02)
+  print 'ΣΕΙ'                  ( ,+1,03)
+  print 'Αριθμ'                ( ,+1,05)
+  print 'Αξ.Τιμολογίου'        ( ,+1,13)
+  print 'Αξ.Εισπράξεων'        ( ,+1,13)
+  print '     Υπόλοιπο'        ( ,+1,13)
+
+end-heading

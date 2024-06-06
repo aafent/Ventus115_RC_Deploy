@@ -1,0 +1,109 @@
+
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : ypol_pvl.sqr                                   ****
+!***** DATE        : 01/11/95                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΘΕΟΤΟΚΑΣ ΙΩΑΝΝΗΣ                               ****
+!***** NOTE        : Υπόλοιπα Πελατών κατά Πωλητή                   ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X     80
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     9999,999,999c
+#DEFINE   MASK3     99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ input $ipvlhths 'PVLHTHS :'
+ execute app_floatcnv $ipvlhths, #pvlhths output
+
+ do init
+ do main
+print	'ΣΥΝΟΛΟ'	(+1,52)
+     print #sypoloipo            (,+2,12) edit {MASK1}
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select
+a.synal                         () NOP
+b.epvnymia                      () NOP
+
+  do getypol($cid, &a.synal, $logar, #ypoloipo)
+  if #ypoloipo != 0
+     print &a.synal             (,01,10)
+     print &b.epvnymia          (,+2,45)
+     print #ypoloipo            (,+2,12) edit {MASK1}
+	add #ypoloipo to #sypoloipo
+     next-listing       
+  end-if
+
+from sy_synalprog a, sy_synal b
+where a.cid = $cid
+  and a.pvlhths = #pvlhths
+  and a.synal = b.synal
+[$SQLCMD]
+order by
+[$SQLORD]
+end-select
+
+End-procedure
+
+! ******************************************************************
+begin-procedure init
+move '' to $pvl_epvn
+begin-select
+d.perigrafh          () NOP
+  move &d.perigrafh to $pvl_epvn
+from sy_pvlhtes d
+where d.kvdikos = #pvlhths
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure getypol($cid, $synal, $logar, :#ypoloipo)
+
+  move 0 to #ypoloipo
+   
+  execute syp_getypol @synal = $synal,
+                      @cid   = $cid,
+                      @ypoloipo = #ypoloipo out,
+                      @logar    = $logar
+
+end-procedure
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! ******************************************************************
+
+begin-heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΥΠΟΛΟΙΠΑ ΠΕΛΑΤΩΝ ['||$pvl_epvn||']'
+  print $msg (3,) center
+
+  print 'Κωδικός'              (5,01,10)
+  print 'Συναλλασόμενος'       ( ,+2,45)
+  print 'Υπόλοιπο'             ( ,+4,12)
+
+end-heading

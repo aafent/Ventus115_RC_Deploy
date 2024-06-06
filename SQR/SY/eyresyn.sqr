@@ -1,0 +1,243 @@
+! ***********************************************************************
+! ***** REPORT      : eyresyn.sqr                                    ****
+! ***** DATE        : 26/05/94                                       ****
+! ***** APPLICATION : synalages                                      ****
+! ***** NOTE        : Ευρετήριο Συναλλασομένων                       ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    256
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1             99999
+#DEFINE   MASK3                99
+#DEFINE   MASK2     9,999,999,999
+
+! #DEFINE   MASK2     9,999,999,999c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+ input $ixarsyn
+ input $isort
+ unstring $ixarsyn by '"' into $filler $xarsyn $filler
+ unstring $isort  by '"' into $filler $sort  $filler
+
+
+ move $sort to #sort
+ if #sort=1
+    let $SQLORD='a.synal,'
+ end-if
+ if #sort=2	
+    let $SQLORD='g.epvnymia,'
+ end-if
+ if #sort=3	
+    let $SQLORD='k.taxkvd,'
+ end-if
+ if #sort=4	
+    let $SQLORD='k.timol,'
+ end-if
+
+ do geteidostitle($xarsyn,$synal_eidos_title)
+ do main1
+
+End-Report
+
+! *************************************************************************
+begin-procedure main1
+begin-select
+a.synal                &synal   () NOP
+  move &synal to $synal
+k.topos                &topos   () NOP
+
+  let #topos=&topos
+  if #topos=0
+  do main
+  do main3
+  end-if
+  if #topos!=0
+     do main3
+  end-if
+
+ from sy_synaleidos a,sy_synal g,sy_synaltopos k
+where a.synal=g.synal and g.synal=k.synal
+  and a.eidos = $xarsyn
+[$SQLCMD]
+order by [$SQLORD] k.topos
+end-select
+end-procedure
+! *************************************************************************
+begin-procedure main
+begin-select  
+d.synal                                        (  ,  1, 8)
+c.epvnymia                                     (  , +2,40)
+c.afm                                          (  , +1,10)
+d.thl                                          (  , +1,32)
+d.polh                                         (  , +1,20)
+! next-listing
+from  sy_synal c,
+      sy_synaltopos d
+where c.synal            = d.synal 
+and   d.topos            = #topos
+and   d.synal		 = $synal
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure main3
+begin-select  
+f.taxkvd			               (+1, 1,5)	
+isnull(f.nomos, 0)                     &nomos  () NOP
+  do getnomos(&nomos,$nomos_per)
+  print $nomos_per                             (  , +1,15)
+f.dieyuynsh                             &dieyu        
+  print &dieyu                                 (  , +2,40)
+f.fax    			               (  , +1,20)
+f.timol					&timok ()          NOP
+  do gettimokat(&timok,$timok_per)
+  print $timok_per                             (  , +1,20)
+f.troposplhr				&tropos ()         NOP
+  do gettropos(&tropos,$tropos_per)
+  print $tropos_per			       (  , +1,20)
+f.praktorio				&praktorio
+  do getpraktorio(&praktorio,$prakt_per)
+  print $prakt_per			       (  , +1,40)
+isnull(e.epagg_perig,'')                       (  , +1,50)
+isnull(e.doy_perig,'NULL')        &doy_per     ()          NOP
+isnull(e.doy,'')                  &doy         ()          NOP
+  
+  if  &doy_per = 'NULL'
+      do getdoy (&doy,$doy_per)
+  else
+      move &doy_per to $doy_per
+  end-if
+  print $doy_per                               (  , +1,15)
+ next-listing
+from  sy_synal e,
+      sy_synaltopos f
+where e.synal = f.synal 
+and   f.topos = #topos
+and   f.synal = $synal
+end-select
+end-procedure
+! ******************************************************************
+
+begin-procedure getnomos(#nomos,:$nomos_per)
+  move '' to $nomos_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $nomos_per
+from ap_nomos
+where kvdikos = #nomos
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getxvra(#xvra,:$xvra_per)
+  move '' to $xvra_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $xvra_per
+from ap_xvra
+where kvdikos = #xvra
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure gettimokat(#timok,:$timok_per)
+  move '' to $timok_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $timok_per
+from  wh_timokatalogoi
+where tim = #timok
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure getdoy($doy,:$doy_per)
+  move '' to $doy_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $doy_per
+from  ap_doy
+where kvdikos = $doy
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure gettropos(#tropos,:$tropos_per)
+  move '' to $tropos_per
+begin-select
+isnull(perigrafh,'') &per    () NOP
+  move &per to $tropos_per
+from  sy_troposplhr
+where kvdikos = #tropos
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure getpraktorio($praktorio,:$prakt_per)
+  move '' to $prakt_per
+begin-select
+isnull(epvnymia,'') &per    () NOP
+  move &per to $prakt_per
+from  sy_synal
+where synal = $praktorio
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure geteidostitle($synal_eidos, :$synal_eidos_title)
+  move '' to $synal_eidos_title
+begin-select loops=2
+a.perigrafh
+   move &a.perigrafh to  $synal_eidos_title
+from sy_fksynaleidos a
+where a.kvdikos = $synal_eidos
+end-select
+end-procedure
+
+
+! ******************************************************************
+
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $msg='ΕΥΡΕΤΗΡΙΟ ΣΥΝΑΛΛΑΣΟΜΕΝΩΝ ΓΙΑ : ' || $synal_eidos_title
+  print $msg (3,) center
+  print 'Κωδικός'                  (5, 1, 8)
+  print 'Συναλλασόμενος'           ( ,+2,40)
+  print 'Α.Φ.Μ.'                   ( ,+1,10)
+  print 'Τηλέφωνο'                 ( ,+1,32)
+  print 'Πόλη'                     ( ,+1,20)
+  print 'Τ.Κ.'                     (6, 1, 5)
+  print 'Νομός'                    ( ,+1,15)
+  print 'Διεύθυνση'                ( ,+2,40)
+  print 'FAX'                      ( ,+1,20)
+  print 'Τιμοκατάλογος'            ( ,+1,20)
+  print 'Τρόπος Πληρωμής'          ( ,+1,20)
+  print 'Πρακτορίο'                ( ,+1,40)
+  print 'Επάγγελμα'                ( ,+1,50)
+  print 'Δ.Ο.Υ.'                   ( ,+1,15)
+  print 'Τζίρος'                   ( ,+1,20)
+  
+end-heading
+

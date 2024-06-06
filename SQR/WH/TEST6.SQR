@@ -1,0 +1,374 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 7/1/97                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y   4000
+#DEFINE   PAGE-X    400
+#DEFINE   HEAD-SIZE   1
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   1
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2   9,999.9999
+#DEFINE   MASK3          999
+#DEFINE   MASK4         9999
+#DEFINE   MASK7      9999999
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql
+end-sql
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+  do main01
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main01
+begin-select distinct
+a.pvlomada   &pvlomada  (, 1,11) 
+  print '~' (,13,1)
+a.eidos      &eidos     (,+1,15) 
+
+   let $eidos = &eidos 
+   do main02
+   next-listing
+   let #cnt = #cnt + 1
+
+from wh_eidh01   a,wh_kint1 b
+where a.eidos = b.eidos
+and   b.cid = '3'
+and   a.tmhma = 1
+ ! and   a.eidos like 'D2LT83%'
+order by pvlomada,a.eidos
+end-select
+
+   display #cnt
+   display #s_pos
+   display #ss_pos
+   display #s_ajia
+
+end-procedure
+
+! *************************************************************************
+begin-procedure main02
+
+  let $sep   = 'Y'
+
+
+  let #STEP  = 15
+  let #1_95  = 31
+  let #2_95  = #1_95  + #STEP
+  let #3_95  = #2_95  + #STEP
+  let #4_95  = #3_95  + #STEP
+  let #5_95  = #4_95  + #STEP
+  let #6_95  = #5_95  + #STEP
+  let #7_95  = #6_95  + #STEP
+  let #8_95  = #7_95  + #STEP
+  let #9_95  = #8_95  + #STEP
+  let #10_95 = #9_95  + #STEP
+  let #11_95 = #10_95 + #STEP
+  let #12_95 = #11_95 + #STEP
+
+  let #1_96  = #12_95 + #STEP
+  let #2_96  = #1_96  + #STEP
+  let #3_96  = #2_96  + #STEP
+  let #4_96  = #3_96  + #STEP
+  let #5_96  = #4_96  + #STEP
+  let #6_96  = #5_96  + #STEP
+  let #7_96  = #6_96  + #STEP
+  let #8_96  = #7_96  + #STEP
+  let #9_96  = #8_96  + #STEP
+  let #10_96 = #9_96  + #STEP
+  let #11_96 = #10_96 + #STEP
+  let #12_96 = #11_96 + #STEP
+
+begin-select distinct
+convert(varchar,convert(smalldatetime,hmeromhnia)) &hmer () NOP
+  !  isnull(pvl_a,0)      &ajia () NOP
+  !  isnull(pvl_p,0)      &pos  () NOP
+
+  let $hmer = &hmer
+  do getypol
+  let #pos =#ypol
+
+  !  let #pos    = &pos
+  !  let #s_pos  = #s_pos  + &pos
+  !  let #s_ajia = #s_ajia + #ajia
+
+ if $sep = 'Y'
+     let #POS1 = #1_95 -2
+     let #POS2 = #1_95 +7 
+   print '~' (, #POS1,1)  ! 1
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+     let #POS1 = #POS1 + #STEP
+     let #POS2 = #POS2 + #STEP
+   print '~' (, #POS1,1)  ! 2
+   print '~' (, #POS2,1)
+ end-if
+
+   if $hmer = 'Jan 31 1995 12:00AM'
+            print ' ' (,#1_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Feb 28 1995 12:00AM'
+            print ' ' (,#2_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Mar 31 1995 12:00AM'
+            print ' ' (,#3_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Apr 30 1995 12:00AM'
+            print ' ' (,#4_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'May 31 1995 12:00AM'
+            print ' ' (,#5_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Jun 30 1995 12:00AM'
+            print ' ' (,#6_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Jul 31 1995 12:00AM'
+            print ' ' (,#7_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Aug 31 1995 12:00AM'
+            print ' ' (,#8_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Sep 30 1995 12:00AM'
+            print ' ' (,#9_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Oct 31 1995 12:00AM'
+            print ' ' (,#10_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Nov 30 1995 12:00AM'
+            print ' ' (,#11_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Dec 31 1995 12:00AM'
+            print ' ' (,#12_95,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Jan 31 1996 12:00AM'
+            print ' ' (,#1_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Feb 29 1996 12:00AM'
+            print ' ' (,#2_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Mar 31 1996 12:00AM'
+            print ' ' (,#3_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Apr 30 1996 12:00AM'
+            print ' ' (,#4_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'May 31 1996 12:00AM'
+            print ' ' (,#5_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Jun 30 1996 12:00AM'
+            print ' ' (,#6_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Jul 31 1996 12:00AM'
+            print ' ' (,#7_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Aug 31 1996 12:00AM'
+            print ' ' (,#8_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Sep 30 1996 12:00AM'
+            print ' ' (,#9_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Oct 31 1996 12:00AM'
+            print ' ' (,#10_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Nov 30 1996 12:00AM'
+            print ' ' (,#11_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+   if $hmer = 'Dec 31 1996 12:00AM'
+            print ' ' (,#12_96,7) EDIT {MASK7}
+            print #pos  (,+2,3) EDIT {MASK3}
+            let #ss_pos = #ss_pos + #pos
+   end-if
+
+from s_hmeromhnies
+where hmeromhnia between '1 Jan 1995' and '31 Dec 1996'
+ ! from wh_kint1
+ ! and   cid = '3'
+ ! and   eidos = $eidos
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure getypol
+  let $cid = '3' 
+  execute whp_getmsk2    @eidos       = $eidos ,
+                         @cid         = $cid,
+                         @hmer        = $hmer,
+                         @ypoloipo    = #ypol out
+
+end-procedure
+
+! *************************************************************************
+Begin-Footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = ' '
+  let   $msg2 = ' '
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  ! print 'Είδος'      (5, 1,15) 
+  ! print 'Περιγραφή'  ( ,17,40) 
+  ! print 'Λογαριασμος'( ,60,20) 
+  ! print 'Περιγραφή'  ( ,81,40) 
+
+
+End-Heading              

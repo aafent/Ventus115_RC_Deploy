@@ -1,0 +1,153 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : lhjh.sqr                                       ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ                              ****
+!***** NOTE        : Ληξιαριo Αξιογραφων Κατα Ημερα                 ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    80
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    9999,999,999 
+#DEFINE   MASK2    9999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ do main
+ do totals
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select distinct
+a.cid                                            () NOP
+convert(datetime, a.hm_lhjhs)  &a.hm_lhjh         () NOP
+
+  do getmore($cid,&a.hm_lhjh,#cnt_e,#cnt_s,#ajia_e,#ajia_s)
+
+  print &a.hm_lhjh                    ( , 01,08) edit {DATEMASK}
+  print $L_X3                         ( ,+02,01)     
+  print #cnt_e                        ( ,+01,04) edit {MASK2}
+  print #ajia_e                       ( ,+01,12) edit {MASK1}
+    add #ajia_e to #total_pr
+    add #ajia_e to #total_e 
+    move #ajia_e to #total_d
+  print $L_X3                         ( ,+01,01)     
+  print #cnt_s                        ( ,+01,04) edit {MASK2}
+  print #ajia_s                       ( ,+01,12) edit {MASK1}
+    add #ajia_s to #total_pr
+    add #ajia_s to #total_s 
+    add #ajia_s to #total_d 
+  print $L_X3                         ( ,+01,01)     
+  print #total_d                      ( ,+01,12) edit {MASK1}
+  print $L_X3                         ( ,+01,01)     
+  print #total_pr                     ( ,+01,12) edit {MASK1}
+  next-listing
+
+from aj_mas a
+where a.cid = $cid
+  and a.hm_lhjhs between $apohm and $evshm
+  and a.eidos_ajiogr = '01'
+[$SQLCMD]
+order by a.hm_lhjhs
+[$SQLORD]
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure totals
+
+  next-listing
+  print '='                           ( , 01,80) fill
+  next-listing
+  print 'Σ Υ Ν Ο Λ Α ===>'            ( , 01,16)
+  print #total_e                      ( ,+01,12) edit {MASK1}
+  print $L_X3                         ( ,+01,01)     
+  print #total_s                      ( ,+06,12) edit {MASK1}
+        add #total_e to #total_s
+  print $L_X3                         ( ,+01,01)     
+  print #total_s                      ( ,+01,12) edit {MASK1}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getmore($cid,$hm_lhjh,:#cnt_e,:#cnt_s,:#ajia_e,:#ajia_s)
+
+move 0 to #cnt_e
+move 0 to #ajia_e
+begin-select
+sum(a1.ajia)    &ajia_e () NOP
+count(a1.ajia)  &cnt_e  () NOP
+
+   move &ajia_e to #ajia_e
+   move &cnt_e  to #cnt_e
+
+from aj_mas a1, aj_kin a2
+where a1.cid=$cid
+  and a1.hm_lhjhs = $hm_lhjh
+  and a1.eidos_ajiogr='01'
+end-select
+
+
+move 0 to #cnt_s
+move 0 to #ajia_s
+begin-select
+sum(a2.ajia)    &ajia_s () NOP
+count(a2.ajia)  &cnt_s  () NOP
+
+   move &ajia_s to #ajia_s
+   move &cnt_s  to #cnt_s
+
+from aj_mas a2
+where a2.cid=$cid
+  and a2.hm_lhjhs = $hm_lhjh
+  and a2.eidos_ajiogr='1'
+end-select
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print  'ΗΜΕΡΗΣΙΟ ΛΗΞΙΑΡΙΟ' (3,)Center
+  print '  Λήξη'               (5,01,08)
+  print $L_X3                  ( ,+2,01)
+  print 'Τεμ '                 ( ,+1,03)
+  print 'Αξία Επιταγών'	       ( ,+1,13)
+  print $L_X3                  ( ,+1,01)
+  print 'Τεμ '                 ( ,+1,03)
+  print 'Αξία Συν/κών '	       ( ,+1,13)
+  print $L_X3                  ( ,+1,01)
+  print ' Σ ύ ν ο λ ο '	       ( ,+1,12)
+  print $L_X3                  ( ,+1,01)
+  print 'Προοδ.Σύνολο '	       ( ,+1,12)
+end-heading

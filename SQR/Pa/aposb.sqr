@@ -1,0 +1,328 @@
+!***********************************************************************
+!***** REPORT      : aposb.sqr                                      ****
+!***** DATE        : 06/05/1998                                     ****
+!***** APPLICATION : пациа стоивеиа                                 ****
+!***** AUTHOR      : тяипеяима цеыяциа                              ****
+!***** NOTE        : --- йАТэСТАСГ пАПОУСъАСГР аПОСБщСЕЫМ ----      ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    134
+#DEFINE   HEAD-SIZE  9
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ do pca_printcover
+
+
+ input $epil	' EПИКОЦч аМАКУТИЙчР / сУЦЙЕМТЯЫТИЙчР йАТэСТАСГР '
+ unstring $epil by '"' into $filler $epil  $filler
+
+ move $XRHSH to $xrhsh
+ input $ixrhsh    'xrhsh'
+ execute app_floatcnv $ixrhsh, #xrhsh out
+ 
+ !input $sum_yp	' сЩМОКА АМэ уПОЙАТэСТГЛА '
+ !unstring $sum_yp by '"' into $filler $sum_yp  $filler
+
+
+ do main
+
+End-Report
+! ****************************************************************************
+begin-procedure main
+ move 0 to #lines
+begin-select
+a.cid
+a.kvdikos      (,1,25)  on-break print=CHANGE level=1 after=change_kvdikos_pagioy 
+b.perigrafh    (,+1,40) on-break print=CHANGE level=2 
+a.paparkvd     ()    nop 
+a.aitia        ()    nop
+a.pososto      ()    nop
+a.aa_kthshs    ()    nop
+a.posothta     ()    nop
+a.ajia         ()    nop
+convert(char(10),convert(datetime,hmeromhnia),103) &hmeromhnia
+convert(char(10),convert(datetime,hm_enarjhs),103) &hm_enarjhs 
+a.kat_apo      ()    nop
+a.kat_se       ()    nop
+a.aa_pa        ()    nop 
+a.aa_ref       ()    nop
+     
+      move &a.kvdikos   to $prev_kvdikos
+      move &b.perigrafh to $prev_perigrafh
+      move &a.aitia to $aitia 
+      let #length_aitia1=length($aitia)
+     
+      let #length_aitia2=#length_aitia1 / 25
+      if $epil='2'
+        let  #length_aitia2=0
+      end-if
+      if $epil='1'
+       let #length_aitia2=#length_aitia2 + 4
+      end-if
+      
+      let $aitia1=substr($aitia,1,25)
+      let $aitia2=substr($aitia,26,51)
+      let $aitia3=substr($aitia,52,77)
+      let $aitia4=substr($aitia,78,103)  
+      let $aitia5=substr($aitia,104,129)  
+      let $aitia6=substr($aitia,130,155)
+      let $aitia7=substr($aitia,156,181)
+      let $aitia8=substr($aitia,182,207)
+      let $aitia9=substr($aitia,208,233)
+      let $aitia10=substr($aitia,233,255)  
+     
+     add #length_aitia2 to #lines
+     
+      if #lines > 20
+          do totse
+         move 0 to #lines
+       end-if   
+      do get_cur_aposbesh
+      do get_sum_aposbesh 
+    let   #ypoloipo= &a.ajia - (&ajia) 
+    !сумока ама пацио 
+    add &a.posothta to #s_posothta
+    !dd #posothta to #s_posothta
+    add &a.ajia     to #s_ajia 
+    add &ajia  to #s_ajia_aposb
+    add #ypoloipo   to #s_ypoloipo 
+
+   ! сумока се летажояа
+     
+     add &a.posothta to #pos_se_metaf
+    ! add #posothta to #pos_se_metaf
+     add &a.ajia     to #ajia_se_metaf
+     add &ajia  to #ajia_aposb_se_metaf
+     add #ypoloipo   to #s_ypoloipo_se_metaf
+   
+      if $epil='1'
+         do ektyp
+      end-if 
+       if #lines > 20
+          do totse
+         move 0 to #lines
+       end-if   
+        
+from pa_kin a,pa_mhtrvo b,pa_par c
+where a.kvdikos=b.kvdikos and a.cid=b.cid 
+ and  a.paparkvd=c.paparkvd
+ and  c.f_aposb is  null 
+and  datepart(yy,hmeromhnia)<= #xrhsh
+[$SQLCMD]
+order by a.kvdikos,a.hmeromhnia,a.kat_apo
+end-select
+ do printgentotals
+end-procedure
+! ****************************************************************************
+begin-procedure get_cur_aposbesh
+begin-select  
+abs(f.ajia) &f.ajia
+    
+    let #f_ajia=&f.ajia
+    add #f_ajia to #s_f_ajia
+    add #f_ajia to #f_ajia_se_metaf
+from pa_kin f,pa_par g
+where f.paparkvd=g.paparkvd
+ and  g.f_aposb is  not null 
+ and datepart(yy,f.hmeromhnia)=#xrhsh
+ and f.kvdikos=&a.kvdikos and f.cid=&a.cid
+ and f.aa_ref=&a.aa_pa and f.kat_apo=&a.kat_apo
+end-select
+end-procedure
+! ****************************************************************************
+begin-procedure get_sum_aposbesh
+begin-select  
+max(convert(char(10),convert(datetime,hmeromhnia),103))  &max_hm
+abs(sum(d.ajia))     &ajia
+
+   let #sum_ajia=#sum_ajia + &ajia
+
+from pa_kin d,pa_par e
+where d.paparkvd=e.paparkvd
+ and  e.f_aposb is  not null 
+ and  d.aa_ref=&a.aa_pa
+ and datepart(yy,d.hmeromhnia)<#xrhsh
+ and d.kvdikos=&a.kvdikos and d.cid=&a.cid and d.kat_apo=&a.kat_apo
+end-select
+end-procedure
+! ***************************************************************************
+begin-procedure change_kvdikos_pagioy
+ !do sum_per_paparkvd
+if $epil='1'
+ next-listing 
+ add 1 to #lines
+  if #lines > 20
+          do totse
+         move 0 to #lines
+       end-if   
+  print 'сумока пациоу'    (,5)
+ end-if
+ print #s_posothta        (,72,7)     edit 999999
+ print #s_ajia            (,+1,9)     edit 999999.99
+ print #s_f_ajia          (,102,9)      edit 99999.99
+ print #s_ajia_aposb      (,+1,9)    edit 999999.99
+ print #s_ypoloipo        (,+1,9)    edit 999999.99       
+ if $epil='2'
+   print &max_hm          (,+1,12)
+ end-if        
+ move 0 to #s_posothta
+ move 0 to #s_ajia 
+ move 0 to #s_ajia_aposb
+ move 0 to #s_ypoloipo
+ move 0 to #s_f_ajia
+ next-listing
+ if $Epil='1'
+ add 1 to #lines
+  if #lines > 20
+          do totse
+         move 0 to #lines
+       end-if   
+end-if
+end-procedure
+! ******************************************************************************
+begin-procedure ektyp
+ next-listing need=#length_aitia2
+ print &a.paparkvd   (,1,3)
+ if $aitia1<>''
+    print $aitia1              (,20,26)
+ end-if 
+  if $aitia2<>''
+   print $aitia2                (+1,20,26)
+ end-if
+ if $aitia3<>''
+   add 1 to #lines
+   print $aitia3               (+1,20,26)
+ end-if
+ if $aitia4<>''
+   add 1 to #lines
+   print $aitia4               (+1,20,26)
+ end-if
+ if $aitia5<>''
+   add 1 to #lines
+   print $aitia5               (+1,20,26)
+ end-if
+ if $aitia6<>''
+   add 1 to #lines
+   print $aitia6               (+1,20,26)
+ end-if
+ if $aitia7<>''
+   add 1 to #lines
+   print $aitia7               (+1,20,26)
+ end-if
+ if $aitia8<>''
+   add 1 to #lines
+   print $aitia8               (+1,20,26)
+ end-if 
+ if $aitia9<>''
+   add 1 to #lines
+   print $aitia9               (+1,20,26)
+ end-if
+ if $aitia10<>''
+   add 1 to #lines
+   print $aitia10               (+1,20,26)
+ end-if           
+ print &a.pososto               (,47,6)
+ print &hmeromhnia              (,+1,12) 
+ print &a.aa_kthshs             (,+1,4) edit 9999
+ print &a.posothta         	(,+1,6) edit 999999 
+ !print #posothta         	(,+1,6) edit 999999
+ print &a.ajia                  (,+1,9) edit 999999.99
+ print &hmeromhnia              (,+1,12) 
+if isnull(&f.ajia)  or isnull(&ajia)
+   move 0 to #f_ajia
+   move 0 to #sum_ajia
+end-if
+ print #f_ajia                  (,+1) edit 99999.99
+ print &ajia                    (,+1,9) edit 999999.99       
+ print #ypoloipo                (,+1,9) edit 999999.99
+ print &max_hm                  (,+1,12)
+
+end-procedure
+
+! ***************************************************************************
+begin-procedure totse
+	    next-listing
+	    print 'сумоко се летажояа' (,5)
+            do printtotse
+            next-listing
+	    new-page
+            print $prev_kvdikos      (,1,25)  
+            print $prev_perigrafh    (,+1,40) 
+	    next-listing
+	    print 'сумоко апо летажояа' (,5)
+            do printtotse
+            next-listing
+         
+end-procedure 
+
+! ******************************************************************************
+begin-procedure printtotse
+	    print  #pos_se_metaf         (,72,6)     edit 999999
+            print  #ajia_se_metaf        (,79,9)     edit 999999.99
+            print #f_ajia_se_metaf         (,102,9)       edit 99999.99
+            print  #ajia_aposb_se_metaf  (,+1,9)    edit 999999.99
+            print  #s_ypoloipo_se_metaf  (,+1,9)    edit 999999.99
+       
+end-procedure
+! *******************************************************************************
+begin-procedure printgentotals
+	next-listing
+        print 'цемийо сумоко'  (,5)
+	do printtotse
+end-procedure
+! *******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  if $epil='1'
+   print 'Aмакутийг йатастасг Aпосбесеым' (3,+1) center
+ else
+    print 'суцйемтяытийг йатастасг апосбесеым' (3,+1) center
+ end-if
+ print '[---------------пацио стоивеио---------------]' (6,1)
+ print '[--------еисацыцг/енацыцг--------]' (,+7)
+ print '[---------------апосбесг----------------]'(,+1)
+ print 'йыдийос пациоу'     (7,1,25)  
+ print 'пеяицяажг'          (,+1,40) 
+ print 'сумтек'             (,47,6)
+ print 'гл/миа'             (,+1,12)
+ print 'а/а'                (,+1,4) 
+ print 'посотгта'           (,+1) 
+ print 'аниа'               (,+3,5) 
+ print 'аявг'               (,+1,11)
+ print 'вягсг'              (,+1,5) 
+ print 'пяоодеу-'           (,+1,8)    
+ print 'упокоипо'           (,+1,8) 
+ print 'текос'              (,+1)
+
+ print 'йыдийос йимгсгс'    (+1,1)
+ print '/аитиокоциа'         (,25,11)
+ print 'апосб'              (,47,6)
+ print #xrhsh               (,101,4) edit 9999
+ print 'тийо'               (,107)
+
+End-Heading
+
+
+

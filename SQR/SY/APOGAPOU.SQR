@@ -1,0 +1,361 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : apogapou.sqr                                           ****
+! **** DATE        : 19/07/97                                               ****
+! **** APPLICATION : ¡–œ»« «                                                ****
+! **** AUTHOR      : ”Ù·ıÒÔ˝Î·                                              ****
+! **** NOTE        : ¬…¬À…œ ¡–œ√—¡÷«” ¡–œ»« «”                              ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y                61
+#DEFINE   PAGE-X               135
+#DEFINE   HEAD-SIZE              9
+#DEFINE   FOOT-SIZE              1
+#DEFINE   HEAD-LINE              6
+
+#DEFINE   MASK1P        b99999999.9c
+#DEFINE   MASK2A        b9999.999c
+#DEFINE   MASK3A        b9999999999.99c
+#DEFINE   MASK4                09999
+#DEFINE   SHORTDATE       DD/MM 
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}\sqr\SETUP01.inc"
+
+End-Setup
+
+
+! #INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc" 
+Begin-Report
+ #INCLUDE "{$L_GDATA}\sqr\REPORT01.inc"
+
+ ! position 2 --> …‰ÈÔÍÙﬁÙÁÚ
+ ! position 1 -->  ·ÙÁ„ÔÒﬂ· Âﬂ‰ÔıÚ
+ ! position 0 --> ¡ÔËﬁÍÁ
+
+ create-array name=synola size=6 field=ajia:number
+
+ ! **********************  cid : 1 always ******************************
+
+ move '1' to $L_CID
+
+
+ input $apo_eidos 'Apo eidos :'
+ input $evs_eidos 'Evs eidos :'
+
+ input $hmerapo '¡–œ «Ã/Õ…¡        '
+ input $hmerevs '≈Ÿ” «Ã/Õ…¡        '
+
+ input $flag_ueor   '»Â˘ÒÁÏ›ÌÔ n/o : '
+
+ execute app_datecnv $hmerapo, $hmer_apo output, $hmerapopr output
+ execute app_datecnv $hmerevs, $hmer_evs output, $hmerevspr output
+
+ unstring $apo_eidos by '"' into $filler $apo_eidos $filler
+ unstring $evs_eidos by '"' into $filler $evs_eidos $filler
+
+ unstring $flag_ueor by '"' into $filler $flag_ueor $filler
+
+ if $flag_ueor = 'n' or $flag_ueor='N' or $flag_ueor='Ì' or $flag_ueor='Õ'
+    move 'Y' to $flag_ueor
+ else
+    move 'N' to $flag_ueor
+ end-if
+
+ move 0 to #hdlr
+
+ move $L_CID to $cid
+
+ do get-company
+ do Init
+ do Main
+
+End-Report
+
+! ==============================================================================
+Begin-Procedure Init
+Begin-Select -C1
+x.xrhsh				() NOP
+x.xrhsh_arxh			() NOP
+   	move &x.xrhsh      to #xrhsh
+	move &x.xrhsh_arxh to $xrhsh_arxh
+from ap_xrhsh x
+where cid = $cid
+and $hmer_apo between xrhsh_arxh and xrhsh_telos
+End-Select
+
+move 0 to #hdlr
+!move 218149 to #hdlr
+
+execute -C1 whp_tmpapog 'SQR', #hdlr output,$cid, $hmer_apo, $hmer_evs, $apo_eidos, $evs_eidos
+
+display 'HDLR ' noline
+display #hdlr
+
+End-Procedure
+
+! ****************************************************************************
+begin-procedure get-company
+begin-select -C1
+title 				() NOP
+	move &title 	    to $compname
+from ap_comp
+where cid = $cid
+end-select
+end-procedure
+
+! ==============================================================================
+
+Begin-Procedure Main
+
+   move 30 to #col1
+   move 55 to #col2	
+   move 80 to #col3
+
+begin-select 
+
+a.aux_code				()		on-break print = never
+							save   = $idiokthths
+							level  = 1
+							after  = tot-idiokthths
+
+a.aux_txt				() 		on-break print = never
+                                                        level  = 1
+            						save   = $idiok_txt
+
+a.kathg					()		on-break print = never
+							save   = $kathg
+							level  = 2
+							before = new-kathg
+							after  = tot-kathg
+
+a.kathg_txt				() 		on-break print = never
+                                                        level  = 2
+            						save   = $kathg_txt
+
+a.apouhkh				()		on-break print = never
+  							save   = $apoth
+							level  = 3
+							before = new-apoth
+                                                        after  = tot-apoth
+
+a.apouhkh_txt				() 		on-break print = never
+                                                        level  = 3
+            						save   = $apoth_txt
+
+a.eidos                                 ()              on-break print = never
+                                                        level  = 4
+            						save   = $eidos
+                                                        after  = pr-eidos
+
+a.eidos_txt                             ()              on-break print = never
+                                                        level  = 4
+            						save   = $eidos_txt
+
+
+! a.eidos  				(+1, 1)
+! a.eidos_txt				(,+1)
+a.parkvd                        	() NOP
+convert(datetime,a.hmeromhnia)  &hmer  	() NOP
+a.seira                 	        () NOP
+a.parno                 	        () NOP    
+a.posothta 	                	() NOP
+a.ajia                                  () NOP
+ 
+   move &hmer       to #save_hmer
+   move &a.parkvd   to #parkvd
+   move &a.seira    to #seira
+   move &a.parno    to #parno
+   add  &a.posothta to #posothta
+   add  &a.ajia     to #ajia
+   move &a.ajia     to #aj
+  
+!  if #posothta <> 0
+!     let #timh = abs(#ajia) / abs(#posothta)
+!  else
+!     let #timh = 0
+!  end-if
+
+!     print &hmer			(,#col2,05)	edit {SHORTDATE}
+!     print &a.parkvd			(,+1,05) 	
+!     print &a.seira			(,+1,03)
+!     print '/'				()
+
+ !    if &a.parno = 0
+ !    	print ' '			(,  ,05)
+ !    else
+!	print &a.parno			(,  ,05)	edit {MASK4}
+!     end-if
+
+ !    print #posothta                    (,#col3,11)	edit {MASK1P}	
+ !    print #timh                   	(,92,09)	edit {MASK2A}
+ !    print #ajia			(,101,14)	edit {MASK3A}
+
+     do add-totals(0,#aj)
+
+
+from wh_tmpapogapou a
+where a.hdlr  = #hdlr
+[$SQLCMD]
+order by a.aux_code, a.kathg, a.apouhkh, a.eidos
+![$SQLORD]
+End-Select
+
+End-Procedure
+! ******************************************************************************
+begin-procedure pr-eidos
+  
+  if #posothta <> 0
+     let #timh = abs(#ajia) / abs(#posothta)
+  else
+     let #timh = 0
+  end-if
+     print $eidos                       (+1,1)
+     print $eidos_txt                   (,+1)
+     print &hmer			(,#col2,05)	edit {SHORTDATE}
+     print &a.parkvd			(,+1,05) 	
+     print &a.seira			(,+1,03)
+     print '/'				()
+
+     if &a.parno = 0
+     	print ' '			(,  ,05)
+     else
+	print &a.parno			(,  ,05)	edit {MASK4}
+     end-if
+
+     print #posothta                    (,#col3,11)	edit {MASK1P}	
+     print #timh                   	(,92,09)	edit {MASK2A}
+     print #ajia			(,101,14)	edit {MASK3A}
+     let   #posothta = 0
+     let   #ajia     = 0
+
+end-procedure
+
+begin-procedure tot-idiokthths
+
+  next-listing
+  do print-totals (2, '”’ÕœÀ¡ …ƒ…œ ‘«‘«...:', #col1)
+
+  new-page
+
+end-procedure
+! ******************************************************************************
+
+begin-procedure new-kathg
+
+  print &a.kathg				(,01,03)
+  print &a.kathg_txt				(,+1,30)
+
+  next-listing
+  next-listing
+
+end-procedure
+! ******************************************************************************
+
+begin-procedure tot-kathg
+
+ let $print_kat = '”’ÕœÀ¡ ' || $kathg_txt || '..:'
+ do print-totals (1, $print_kat, #col1)
+
+ next-listing
+
+end-procedure
+! ******************************************************************************
+
+begin-procedure new-apoth
+
+  print &a.apouhkh				(,01,03)
+  print &a.apouhkh_txt				(,+1,30)
+
+  next-listing
+  next-listing
+
+end-procedure
+! ******************************************************************************
+begin-procedure tot-apoth
+
+  next-listing
+  next-listing
+  do print-totals (0, '”’ÕœÀ¡ ¡–œ»« «”...:', #col1)
+
+  next-listing
+
+end-procedure
+! ******************************************************************************
+
+begin-procedure print-totals (#inx, $perigrafh, #col1)
+
+  get #ajia  from synola(#inx) ajia
+  print $perigrafh			(,70)
+  print	#ajia				(,101)	edit {MASK3A}
+  next-listing
+
+  do reset-totals (#inx)
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure reset-totals (#inx)
+
+ while #inx >= 0
+     put 0 into synola(#inx) ajia
+     let #inx = #inx - 1
+ end-while
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+begin-procedure add-totals (#inx, #ajia)
+
+ while #inx <= 2
+     array-add #ajia  to synola(#inx) ajia
+     let #inx = #inx + 1
+ end-while
+
+end-procedure
+! ------------------------------------------------------------------------------
+
+Begin-Footing {FOOT-SIZE}
+  
+  if $theor = 'F'
+     #INCLUDE "{$L_GDATA}\sqr\FOOT01.inc"
+  end-if
+
+End-Footing
+! ------------------------------------------------------------------------------
+
+Begin-Heading {HEAD-SIZE}
+
+  #INCLUDE "{$L_GDATA}\sqr\HEAD03.inc"
+
+ if $flag_ueor = 'N'
+  print  $compname          (2,1)
+  print  'BIBÀ…œ ¡–œ√—¡÷«”' (2,) center
+  let $msg = '( ' || $hmerapopr || ' ≈Ÿ” ' || $hmerevspr || ' )'
+  print $msg					(4,) Center
+ else
+  let $msg = $hmerevspr
+  print $msg					(4,) Center 
+ end-if
+
+  let $msg = '¬…¬À…œ ¡–œ√—¡÷«” ¡–œ»« ŸÕ'
+  print $msg 					(3,) Center
+
+  print '…ƒ…œ ‘«‘«” :'				(5,1,12)
+  print $idiokthths				(,+1,03)
+  print $idiok_txt				(,+1,20)
+
+  print '[------------------ ≈…ƒœ” ------------------]'  	(7,1,55) 
+
+  print '[-- –¡—¡”‘¡‘… œ --]'  					(7,55,20) 
+  print '[--------- ¡–œ√—¡÷« À«Œ«” ---------------]'           	(,80,50) 
+
+  print '«Ã/Õ…¡'                               	(8,55,06) 
+  print '–¡—/”≈…—/¡—…»'                        	(,+1,14) 
+  print ' –œ”œ‘«‘¡'           			(,80,11)
+  print '‘…Ã« ÃœÕ.'           			(,+1,09) 
+  print '    ¡Œ…¡'           			(,+3,14) 
+
+End-Heading
+

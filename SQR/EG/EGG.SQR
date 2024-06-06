@@ -1,0 +1,328 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : L_115102.sqr                                   ****
+!***** DATE        : 15/03/99                                       ****
+!***** APPLICATION :                                                ****
+!***** AUTHOR      : Μάντη                                          ****
+!***** NOTE        : Εγγυητικές Επιστολές                           ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     66
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK       DD/MM/YY
+#DEFINE   MASK1     9999999
+#DEFINE   MASK2     9999,999,999.99
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ 
+
+ input $ihm_lhjhs_apo  'Απο Ημερμηνία Λήξης'
+ input $ihm_lhjhs_evs  'Εως Ημερμηνία Λήξης'
+ input $ekxvr          'Ενδ. Εκχωρητέας'
+ input $energes        'Ενεργές (Ν/Ο)'
+ input $xeiras         'Εις Χείρας / Εκχωρηθείσες / Ολες'
+ input $ianal          'ΑΝΑΛΥΤΙΚΑ (Ν/Ο) ? '
+ 
+ execute app_datecnv    $ihm_lhjhs_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_lhjhs_evs, $evshm output, $evshmpr output
+
+ unstring $ianal by '"' into $filler $anal $filler
+ unstring $ekxvr by '"' into $filler $ekxvr $filler
+ unstring $xeiras by '"' into $filler $xeira $filler
+ unstring $energes by '"' into $filler $energh $filler
+
+ move ' ' to $SQLCMD1
+ move ' ' to $SQLORDER
+ 
+ if ($anal = 'N') or ($anal = 'n') or ($anal = 'Ν') or ($anal = 'ν')
+    move 'T' to $anal
+ else
+    move 'F' to $anal
+ end-if
+
+ if ($ekxvr = 'N') or ($ekxvr = 'n') or ($ekxvr = 'Ν') or ($ekxvr = 'ν')
+    let $SQLCMD1 = $SQLCMD1 || ' and a.flag_ekxvrhshs is not null '
+ end-if
+
+ if ($ekxvr = 'O') or ($ekxvr = 'o') or ($ekxvr = 'Ο') or ($ekxvr = 'ο')
+    let $SQLCMD1 = $SQLCMD1 || ' and a.flag_ekxvrhshs is null '
+ end-if
+
+ if ($energh = 'N') or ($energh = 'n') or ($energh = 'Ν') or ($energh = 'ν')
+    let $SQLCMD1 = $SQLCMD1 || ' and a.flag_energh is not null '
+ end-if
+
+  if ($energh = 'O') or ($energh = 'o') or ($energh = 'Ο') or ($energh = 'ο')
+    let $SQLCMD1 = $SQLCMD1 || ' and a.flag_energh is null '
+ end-if
+
+ if ($xeira='X') or ($xeira='x') or ($xeira='Χ') or ($xeira='χ') 
+   let $SQLCMD1 = $SQLCMD1 || ' and ((b.kk=a.status and b.flag_trapeza is null) or a.status is null) and a.flag_energh is not null '
+ end-if
+
+  if ($xeira='E') or ($xeira='e') or ($xeira='Ε') or ($xeira='ε')
+     let $SQLCMD1 = $SQLCMD1 || ' and b.kk=a.status and b.flag_trapeza is not null'
+  end-if
+
+ do main
+
+End-Report
+
+! ************************************************************************************************
+
+begin-procedure main
+
+ move 0 to #tot_poso 
+ move 0 to #aa
+ do print_egg_t
+ do find_egg
+ next-listing
+ next-listing
+ print '*** ΣΥΝΟΛΟ ΠΟΣΟΥ : ' (,63)
+ print #tot_poso             (,+1,15) edit {MASK2}
+ 
+end-procedure 
+
+! ************************************************************************************************
+ 
+begin-procedure find_egg
+ move 'F' to $head
+ show $SQLCMD
+begin-select
+a.aa                     () NOP
+a.hm_lhjhs               () NOP
+a.synal                  () NOP
+                          
+    move &a.aa to #aa
+   do find_synal(&a.synal,$perigrafh)
+       move $perigrafh to $epvnymia                  
+
+a.trapeza                () NOP
+                         
+     do find_synal(&a.trapeza,$perigrafh)
+          move $perigrafh to $t_epvnymia
+                         
+a.logariasmos             () NOP 
+a.poso			  () nop	
+
+
+   do findkatastash(&a.aa,$katastash)
+
+   do print_egg(&a.aa,&a.hm_lhjhs,$epvnymia,$t_epvnymia,&a.logariasmos,&a.poso,$katastash,#tot_poso)
+
+   if $anal='T'
+      do analytika(&a.aa, $head)
+      next-listing
+   end-if
+
+from eg_mas a, eg_katkin b
+where  a.hm_lhjhs between $apohm and $evshm 
+[$SQLCMD]
+[$SQLCMD1]
+ !group by a.aa !(<) manti kopse tis malakies adr
+order by a.aa
+end-select
+end-procedure
+
+! ************************************************************************************************
+
+begin-procedure findkatastash(#aa,:$katastash)
+
+move ' ' to $katastash
+
+begin-select 
+max(l.aa_kin) &max_aa_kin
+   
+from eg_kin l
+where l.aa=#aa
+end-select
+
+move &max_aa_kin to #max_aa_kin
+
+begin-select
+kin.trapeza
+katkin.flag_trapeza () NOP
+
+    do find_synal(&kin.trapeza,$perigrafh)
+          move $perigrafh to $trapeza
+
+       let #trapeza=isnull(&katkin.flag_trapeza)
+
+from eg_mas mas1, eg_katkin katkin,eg_kin kin    
+where mas1.aa=#aa  and katkin.kk=mas1.status and kin.aa_kin = #max_aa_kin and kin.aa=mas1.aa
+end-select
+
+begin-select 
+mas.flag_energh     () NOP
+mas.flag_ekxvrhshs  () NOP
+mas.status          () NOP
+
+     let #status=isnull(&mas.status)
+     
+     let #energh=isnull(&mas.flag_energh)
+     let #ekxvrhsh=isnull(&mas.flag_ekxvrhshs)
+      let #sw=0
+  if #status=0 and #trapeza=0 
+      let $katastash = $katastash || 'Εκχωρηθείσα ' || &kin.trapeza || ' ' || $trapeza || '-'
+	let #sw=1
+  end-if  
+
+ if #sw=0
+  if #energh=0 
+     let $katastash = $katastash || 'Ενεργη' 
+  else
+   let $katastash = $katastash  || 'Μη Ενεργη' 
+  end-if
+
+  if #ekxvrhsh=0 
+   let $katastash = $katastash || '-' || 'Εκχωρήσιμη' 
+  else
+   let $katastash = $katastash || '-' || 'Μη Εκχωρήσιμη' 
+  end-if
+ end-if
+from eg_mas mas
+where mas.aa=#aa  
+                  
+
+end-select
+  
+end-procedure
+
+! ************************************************************************************************
+
+begin-procedure find_synal($synal,:$perigrafh)                
+
+begin-select
+syn.epvnymia        () NOP
+ move &syn.epvnymia to $perigrafh
+
+from sy_synal syn
+where syn.synal=$synal 
+end-select
+end-procedure
+
+! ************************************************************************************************
+
+begin-procedure print_egg(#aa,$hm_lhjhs,$epvnymia,$t_epvnymia,$logariasmos,#poso,$katastash,:#tot_poso)
+
+
+ print #aa                  (+1,1,7)  edit {MASK1}
+ print $hm_lhjhs            (,9,8)    edit {DATEMASK} 
+ print $epvnymia            (,18,20)  wrap 19 2
+ print $t_epvnymia          (,39,20)  wrap 20 2
+ print $logariasmos         (,61,20)
+ print  #poso               (,83,15)   edit {MASK2}
+ add #poso to #tot_poso
+ let $katastash = 'Κατάσταση :' || ' ' || $katastash
+ print $katastash  (+1,10,) center
+ next-listing
+end-procedure
+
+
+!*************************************************************************
+
+begin-procedure analytika (#aa, $head)
+ 
+begin-select 
+katkin.perigrafh      () NOP
+kin.aa_kin            () NOP
+kin.hm_kinhshs        () NOP
+kin.aitia             () NOP
+
+	if $head='F'
+        do printanalytika
+	move 'T' to $head 
+	end-if
+        do printanal(&kin.aa_kin,&katkin.perigrafh,&kin.hm_kinhshs,&kin.aitia)
+
+from eg_kin kin, eg_katkin katkin
+where kin.aa=#aa 
+  and katkin.kk=kin.kk
+end-select
+end-procedure
+
+!*************************************************************************
+
+begin-procedure printanalytika
+
+
+ print 'ΑΑ '         	    (+2,9,3)
+ print 'Κίνηση'             (,14,30)
+ print 'Ημ. Κίνησης'        (,46,11)
+ print 'Αιτία Κίνησης'      (,59,40)
+
+end-procedure
+!*************************************************************************
+begin-procedure printanal(#kinaa,$kinperigrafh,$hm_kinhshs,$kinaitia)
+
+ print #kinaa               (+1,5,3) edit 9999999
+ print $kinperigrafh        (,14,30)
+ print $hm_kinhshs          (,46,10)   edit {DATEMASK}
+ print $kinaitia            (,59,40)  
+
+ end-procedure
+
+!*************************************************************************
+
+begin-procedure print_egg_t 
+
+! print 'AA'                        (1,1,3)
+ print 'ΑΑ'                        (1,3,6)
+ print 'ΗΜΕΡ.'	                   (,10,5)
+ print 'ΠΕΛΑΤΗΣ' 	           (,17,20)
+ print 'ΤΡΑΠΕΖΑ'                   (,39,20)
+ print 'ΤΡΑΠΕΖΙΚΟΣ ΑΡΙΘΜΟΣ'   	   (,61,20)
+! print 'ΚΑΤΑΣΤΑΣΗ'                 (,81,20)
+ print 'ΠΟΣΟ '                     (,95,12) 
+
+!----------------------------------------------------------
+ 
+ print 'ΜΗΤΡΩΟΥ'             (+1,1,7)
+ print 'ΛΗΞΗΣ'               (,10,9)
+ print 'ΕΚΔΟΣΗΣ'             (,39,20)
+ !print 'ΕΓΓΥΗΤΙΚΗΣ'          (,74,20)
+
+
+end-procedure
+
+!*************************************************************************
+
+begin-heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print 'Εγγυητικές Επιστολές' (5,1,60) center
+end-heading   
+
+! *******************************************************************************
+
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+! *******************************************************************************
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{EG	9	1	5145	egg	rs	X	01},TITLE{Eγγυητικές Επιστολές}
+!	PARCOUNT{10}
+!	PAR1{AA Μητρώου	aa	2	BETWEEN	integer		}
+!	PAR2{Ημ/νια Κατάθεσης	hm_kataueshs	2	BETWEEN	datetime		}
+!	PAR3{Πελάτης	a.synal	2	BETWEEN	char		}
+!	PAR4{Ημ/νια Λήξης	hm_lhjhs	2	BETWEEN	datetime		X}
+!	PAR5{Ποσό	poso	2	BETWEEN	integer		}
+!	PAR6{Τράπεζα	trapeza	2	BETWEEN	char		}
+!	PAR7{Eνδ. Εκχωρητέας(Ν/Ο)	DUMP1	1	=	character		X}
+!	PAR8{Eνεργές(Ν/Ο)	DUMP2	1	=	character		X}
+!	PAR9{Χείρας/Εκχωρ./Όλες	DUMP3	1	=	character		X}
+!	PAR10{Αναλυτικά(Ν/Ο)	DUMP4	1	=	character		X}
+!</pcalib>
+

@@ -1,0 +1,558 @@
+! ***********************************************************************
+! ***** REPORT      : genuhmer.sqr                                   ****
+! ***** DATE WRITTEN: 07/08/98                 LAST UPDATE: 07/08/98 ****
+! ***** APPLICATION : ΓΕΝΙΚΗ ΛΟΓΙΣΤΙΚΗ                               ****
+! ***** AUTHOR      : adr                                            ****
+! ***** NOTE        : --- ΗΜΕΡΟΛΟΓΙΟ ΟΜΑΔΑΣ    ---                   ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y                 65
+#DEFINE   PAGE-X                152  ! prepei na einai megalitero h ison me to 132
+#DEFINE   HEAD-SIZE               7
+#DEFINE   FOOT-SIZE               1
+#DEFINE   HEAD-LINE               4
+
+#DEFINE   DATEMASK         DD/MM/YY
+#DEFINE   MASK1              000000
+#DEFINE   MASK19             999999
+#DEFINE   MASK2      99999999999.99c
+#DEFINE   MASK20     99999999999.9Bc
+#DEFINE   MASK3        999999999.99c
+
+#DEFINE	  dp_prev	1
+#DEFINE	  ta_prev       2
+#DEFINE	  dp_total	3
+#DEFINE	  ta_total	4
+#DEFINE	  dp_date_total	5
+#DEFINE	  ta_date_total	6
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ CREATE-ARRAY NAME=totals
+  	      SIZE= 7 
+              FIELD=xre:number=0
+	      FIELD=pis:number=0
+
+! dim1 : DP previus totals
+! dim2 : TA previus totals
+! dim3 : DP totals
+! dim4 : TA totals
+! dim5 : DP date totals
+! dim6 : TA date totals
+
+End-Setup
+
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $apohmnia  'Από Ημερομηνία  : '
+ input $evshmnia  'Eως Ημερομηνία  : '
+ input $omhm      'Ομαδα Ημερολογ. : '
+ input $ueor      'Θεωρημένο(N/O)'
+ input $pageperday   'Αλλαγή Σελίδα ανα ημερομηνία(Ν/Ο)'
+ input $like_logar   'Ευρος λογαριασμού'
+
+ unstring $omhm       by '"' into $filler1 $omada $filler1
+ unstring $ueor       by '"' into $filler1 $ueor $filler1
+ unstring $pageperday by '"' into $filler1 $pageperday $filler1
+ unstring $like_logar by '"' into $filler1 $like_logar $filler1
+ execute app_datecnv   $apohmnia, $apohm output, $apohmpr output
+ execute app_datecnv   $evshmnia, $evshm output, $evshmpr output
+
+ move $L_CID to $cid
+ if $ueor = 'Ν' or $ueor='ν' or $ueor='N'
+    move '1' to $ueor
+ else
+    move '2' to $ueor
+ end-if
+
+ if $pageperday ='N' or $pageperday ='n' or $pageperday ='ν' or $pageperday ='Ν' 
+    move 'YES' to $pageperday
+ else
+    move 'NO' to $pageperday
+ end-if
+
+
+ let #aitia_adapt = {PAGE-X} - 132
+ display 'AITIA_ADAPT : ' noline
+ display #aitia_adapt
+
+ do loadall
+ do main
+End-Report
+
+! ****************************************************************************
+
+begin-procedure main
+
+if $ueor='1' 
+   move 'and   a.mhxar is not null' to $SQLCMD1
+   move 'order by a.mhxar'          to $SQLORD1
+else
+   move ' '                                 to $SQLCMD1
+   move 'order by a.hmer_e,a.mhxar,a.aa' to $SQLORD1
+   !move 'order by a.hmer_e,a.mhxar,a.parid,a.aa' to $SQLORD1
+end-if
+
+move 'F' to $pageflag
+move 0 to #ln
+
+if $flag_prev_totals ='T'
+	do print_totals('GEN','FROM','', #aitia_adapt)
+end-if
+
+begin-select -C1
+convert(datetime,a.hmer_e) &a.hmer_e () 	on-break print=never
+                                     		before=hmerbreak save=$hmer level=1
+                                     		after =totalbreak 
+a.mhxar                     () NOP
+	if &a.mhxar > 0 
+		print &a.mhxar (,01,06) edit {MASK1}
+	else
+		print &a.mhxar (,01,06) edit {MASK19}
+	end-if
+a.parid                     (,+1,11)
+a.kat                       () NOP
+a.logar                     () NOP
+a.synal                     () NOP
+b.perigrafh                 () NOP
+b.frm_logar                 () NOP
+
+   if length(&b.frm_logar) > 14
+      move &a.logar to $logarpr
+   else
+      move &b.frm_logar to $logarpr
+   end-if
+
+   if &a.synal>''
+	do  getsynal1(&a.synal, $epvnymia)
+        ! let $tmp=$logarpr||' '||&a.synal
+   	! print $tmp               (,+1,19)
+        print $logarpr           (,+1,14)
+        print &a.synal           (,+1,6)
+   	print $epvnymia          (,+1,28) 
+   else
+   	print $logarpr           (,+1,19)
+   	print &b.perigrafh       (,+1,30) 
+   end-if
+a.aitia                          () NOP
+  let #sz = 30 + #aitia_adapt
+  print &a.aitia                 (,+1, #sz )   ! wrap 30 2
+a.xrevsh		    () NOP
+a.pistvsh		    () NOP
+
+   move 'F' to $flag_tam
+   do printxp(&a.xrevsh,&a.pistvsh,$flag_tam,'T',#aitia_adapt)
+   next-listing need=3
+
+   let #ln = #ln + 1
+   !if #ln > 45
+   if #current-line > 55
+       do changepage($pageperday,'TRUE','TO','TO','FROM','FROM',&a.hmer_e, #aitia_adapt)
+       move 0 to #ln
+   end-if
+
+from  gl_kin a, gl_logar b, gl_hmerandomada ss
+where a.cid=$cid
+and   a.logar=b.logar
+and   a.logar like $like_logar
+and   a.cid=b.cid
+and   b.xrhsh=#xrhsh
+and   a.hmer_e between $apohm and $evshm
+and   a.hmerologio = ss.hmerologio
+and   ss.omada = $omada 
+and   ss.cid = a.cid
+and   ss.cid = b.cid
+[$SQLCMD]
+[$SQLCMD1]
+[$SQLORD1]
+end-select
+
+next-listing
+
+do print_line
+do print_totals('DATE','FINAL','', #aitia_adapt)
+do print_totals('GEN','FINAL','', #aitia_adapt)
+do print_totals('TOTALDAY','FINAL','', #aitia_adapt)
+do print_line
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure printxp(#xrevsh,#pistvsh,$flag_tam,$flag_add, #aitia_adapt)
+
+   let #sz = 99 + #aitia_adapt
+   position ( , #sz)
+
+!   if $flag_tam = 'T'
+!	position (,+31)
+!   	print #xrevsh	    (,+1,14)	edit {MASK20}
+!	print #pistvsh      (,+1,14)	edit {MASK20}
+!   else
+   	print #xrevsh	    (,+1,14)	edit {MASK20}
+	print #pistvsh      (,+1,14)	edit {MASK20}
+!   end-if
+
+   if $flag_add = 'T'
+      do addtotals(#xrevsh,#pistvsh,$flag_tam)
+   end-if
+
+ !  if $flag_tam = 'T' 
+ !     get #xre #pis from totals({ta_total}) xre pis
+ !     let #tmp = #xre - #pis
+ !     print #tmp    (,+1,12)	edit {MASK3}
+ !  end-if
+
+end-procedure
+
+
+! ****************************************************************************
+
+begin-procedure  addtotals(#xrevsh,#pistvsh,$flag_tam)
+
+ !if $flag_tam = 'T'
+ !    array-add #xrevsh #pistvsh to totals({ta_total}) xre pis
+ !    array-add #xrevsh #pistvsh to totals({ta_date_total}) xre pis
+ !else
+     array-add #xrevsh #pistvsh to totals({dp_total}) xre pis
+     array-add #xrevsh #pistvsh to totals({dp_date_total}) xre pis
+ !end-if
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure totalbreak
+
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure print_line
+
+ print $L_X2  (,1,{PAGE-X}) fill
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure changepage($pageperday,$newpage,$t1,$t2,$t3,$t4,$dt, #aitia_adapt)
+	
+	next-listing
+	do print_line
+	do print_totals('DATE',$t1,'', #aitia_adapt)
+	do print_totals('GEN',$t2,'',  #aitia_adapt)
+	if $t1='FINAL'
+		do print_totals('TOTALDAY',$t1,'', #aitia_adapt)
+	end-if
+	do print_line
+
+	if $pageperday='YES'
+           new-page
+        else
+		if $newpage='TRUE' ! (<) allagh gia oikonomia sto xarti 14/3/2002
+		   new-page 
+	        else	
+	           next-listing need=4
+	        end-if
+        end-if
+
+        if $t3 <> 'NO'
+	   do print_totals('DATE',$t3,$dt, #aitia_adapt)
+        end-if
+	do print_totals('GEN',$t4,'', #aitia_adapt)
+        next-listing
+
+end-procedure
+
+
+! ****************************************************************************
+
+begin-procedure hmerbreak
+  
+  if $pageflag='T' 
+     do changepage($pageperday,'FALSE','FINAL','TO','NO','FROM','', #aitia_adapt)
+     move 0 to #ln
+  else 
+     next-listing
+  end-if
+
+  print 'Ημερομηνία : '  (1) center
+  print &a.hmer_e        (,+2) edit {DATEMASK}
+  next-listing
+  next-listing
+  move 'T' to $pageflag
+
+  put 0 0 into totals({dp_date_total}) xre pis
+  put 0 0 into totals({ta_date_total}) xre pis
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure print_totals($tot_type,$tot_subtype,$extra1, #aitia_adapt)
+
+  move 0 to #ta_type
+  move 0 to #dp_type
+  move 'F' to $flag_dayend
+  EVALUATE  $tot_type
+      WHEN  = 'DATE'
+	    move 'ΗΜΕΡΗΣΙΑ ΣΥΝΟΛΑ ' to $msg
+	    if $extra1 > '' 
+	    	move $extra1 to $msg1 DD/MM/YY
+	    	let $msg = $msg || $msg1 || ' '
+	    end-if
+
+	    move {dp_date_total} to #dp_type
+            move {ta_date_total} to #ta_type
+            break
+      WHEN  = 'TOTALDAY'
+	    move ' ' to $msg
+	    move {dp_total} to #dp_type
+            move {ta_total} to #ta_type
+            move 'T' to $flag_dayend
+            break
+
+      WHEN  = 'GEN'
+	    move 'ΓΕΝΙΚΑ ΣΥΝΟΛΑ   ' to $msg
+	    move {dp_total} to #dp_type
+            move {ta_total} to #ta_type
+            break
+  END-EVALUATE
+
+  EVALUATE  $tot_subtype
+      WHEN  = 'TO'
+	    let $msg=$msg || 'ΣΕ  ΜΕΤΑΦΟΡΑ :'
+            break
+      WHEN  = 'FROM'
+	    let $msg=$msg || 'ΑΠΟ ΜΕΤΑΦΟΡΑ :'
+            break
+      WHEN  = 'FINAL'
+	    let $msg=$msg || ':'
+	    let $flag_dayend=$flag_dayend||'T'
+            break
+  END-EVALUATE
+
+  print $msg   (,1)
+
+  if $flag_dayend='TT'
+
+     get #xre #pis from totals(#dp_type) xre pis
+     get #txre #tpis from totals(#ta_type) xre pis
+     let #xre = #xre + #txre
+     let #pis = #pis + #tpis
+     do printxp(#xre,#pis,'F','F', #aitia_adapt)
+
+  else
+
+     get #xre #pis from totals(#dp_type) xre pis
+     do printxp(#xre,#pis,'F','F', #aitia_adapt)
+
+     !get #xre #pis from totals(#ta_type) xre pis
+     !do printxp(#xre,#pis,'T','F', #aitia_adapt)
+
+  end-if
+
+  next-listing
+
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure makelogform($cid, #xrhsh, $inlogar, :$outlogar, $kat,:$flag_tam)
+  
+  move 'F' to $flag_tam
+
+  execute -C2 glp_logfrm @cid       = $cid,
+                         @xrhsh     = #xrhsh, 
+                         @in_logar  = $inlogar, 
+                         @out_logar = $outlogar output
+begin-select -C2
+'T'   &dum1  () NOP
+     move &dum1 to $flag_tam
+from ap_katasthma
+where cid=$cid
+  and kat=$kat
+  and log_tam=$inlogar
+end-select
+
+end-procedure
+
+begin-procedure getsynal1($synal, :$epvnymia)
+
+begin-select -C2
+a.epvnymia     () NOP
+     move &a.epvnymia to $epvnymia
+from sy_synal a
+where a.synal=$synal
+end-select
+
+end-procedure
+
+
+! ****************************************************************************
+
+begin-procedure loadall
+
+  put 0 0 into totals({dp_prev}) xre pis
+  put 0 0 into totals({ta_prev}) xre pis
+  put 0 0 into totals({dp_total}) xre pis
+  put 0 0 into totals({ta_total}) xre pis
+  put 0 0 into totals({dp_date_total}) xre pis
+  put 0 0 into totals({ta_date_total}) xre pis
+
+begin-select -C1
+xrhsh		() NOP
+convert(datetime, xrhsh_arxh)	&xrhsh_arxh () NOP
+	move &xrhsh      to #xrhsh
+        move &xrhsh_arxh to $datestart
+from ap_xrhsh
+where cid = $cid
+  and $apohm between xrhsh_arxh and xrhsh_telos
+end-select
+
+begin-select -C1
+dateadd(dd,-1,$apohm) &evshmeromhnia
+end-select
+ 
+  move 0 to #dp_xre
+  move 0 to #dp_pis
+  move 0 to #ta_xre
+  move 0 to #ta_pis
+
+  execute -C1 
+          do=loadall2 glp_hmomadatot 
+          @hmer_apo=$datestart, @hmer_evs=&evshmeromhnia, 
+          @omada=$omada,
+          @logar_like = $like_logar
+     into &hmerologio    char(03),
+          &perigrafh     char(30),
+          &xrevsh        float,
+          &pistvsh       float,
+          &seira         int
+
+begin-select distinct -C1
+log_tam	() nop
+ 	!do loadall3
+from ap_katasthma
+where cid=$cid
+end-select 
+
+ let #dp_xre = #dp_xre - #ta_xre
+ let #dp_pis = #dp_pis - #ta_pis
+
+ put #dp_xre #dp_pis into totals({dp_prev}) xre pis
+ put #ta_xre #ta_pis into totals({ta_prev}) xre pis
+
+ put #dp_xre #dp_pis into totals({dp_total}) xre pis
+ put #ta_xre #ta_pis into totals({ta_total}) xre pis
+
+
+ let #tmp=#dp_xre + #dp_pis + #ta_xre + #ta_pis
+ if #tmp > 0 
+    move 'T' to $flag_prev_totals
+ else
+    move 'F' to $flag_prev_totals
+ end-if
+
+ display 'DP: ' noline
+ display #dp_xre noline
+ display ' , ' noline
+ display #dp_pis 
+
+ display 'TA: ' noline
+ display #ta_xre noline
+ display ' , ' noline
+ display #ta_pis 
+
+
+end-procedure
+
+begin-procedure loadall2
+   let #dp_xre= #dp_xre + &xrevsh
+   let #dp_pis= #dp_pis + &pistvsh
+end-procedure
+
+begin-procedure loadall3
+ if $omada = 'ΓΕΝ' or $omada = 'ΓΕ'
+     do loadall33
+ end-if
+end-procedure
+
+begin-procedure loadall33
+   execute -C2 glp_getypol 
+           @cid = $cid,
+	   @logar=&log_tam,
+	   @hmer_apo=$datestart,
+           @hmer_evs=&evshmeromhnia,
+	   @xrevsh=#xrevsh output,
+           @pistvsh=#pistvsh output,
+	   @diafora=0
+   let #ta_xre= #ta_xre + #xrevsh
+   let #ta_pis= #ta_pis + #pistvsh
+end-procedure
+
+
+! ****************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+! #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ !print $select12cpi (,1) code
+
+ if $ueor='2'
+    #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ else
+    #INCLUDE "{$L_GDATA}/sqr/HEAD03.inc"
+ end-if
+
+ if $ueor='2'
+    print 'ΠΡΟΧΕΙΡΟ ΓΕΝΙΚΟ ΗΜΕΡΟΛΟΓΙΟ' (2,+1) center
+    let $msg='ΠΕΡΙΟΔΟΥ '||$apohmpr||' - '||$evshmpr
+    print $msg (3,+1) center
+ end-if
+
+ print 'Αυτ/τη'          (5,01,06)
+ print 'Παραστατικό'      (,+1,11)
+ print ' Λογαριασμός'     (,+0,12)
+ print 'Περιγραφή'        (,+2,25) 
+ print 'Αιτιολογία'       (,+14,30)
+
+ !position ( , 87 )
+ !print '       ΔΙΑΦΟΡΕΣ ΠΡΑΞΕΙΣ     '  (,+1,28)
+ !print '              ΤΑΜΕΙΟ        '  (,+0,28)
+
+ print 'αρ/σή'           (6,01,06)
+
+ let #sz = 99 + #aitia_adapt
+ position (6, #sz )
+
+ print '        Χρέωση'  (,+1,14)
+ print '       Πίστωση'  (,+1,14)
+
+! print '        Χρέωση'  (,+0,14)
+! print '       Πίστωση'  (,+1,14)
+! print   '    Υπόλοιπο'  (,+0,12)
+
+End-Heading
+
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{GL	3	10	551	genuhmer	rs	X	01},TITLE{Ημερολόγιο  Ταμείου & Διαφόρων Πράξεων}
+!	PARCOUNT{4}
+!	PAR1{Ημερομηνίες	DUMP1	2	ΑΠΟ-ΕΩΣ	datetime		X}
+!	PAR2{Ομάδα Ημερολογίου	DUMP2	1	ΕΠΙΛΟΓΗ	varchar(4)		X}
+!	PAR3{1=Θεωρ.,2=Πρόχειρο	DUMP3	1	ΕΠΙΛΟΓΗ	varchar(1)		X}
+!	PAR4{1 Σελ.ανά ημέρα(Ν/Ο)	DUMP4	1	ΕΠΙΛΟΓΗ	varchar(1)		X}
+!REPORTHELP{T},RNHELP{Θεωρημένο Ημερολόγιο - Να προστεθεί η ευρεση των προδευτικών.},RNDESC{(Ελαιουργική). Είναι ίδιο με το 550},RNVER{2},RNCREDT{1998-08-31},RNMODDT{2002-03-14},
+!</pcalib>
+

@@ -1,0 +1,220 @@
+!***********************************************************************
+!***** REPORT      : katal.sqr                                      ****
+!***** DATE        : 19/06/1998                                     ****
+!***** APPLICATION : AÎÉÏÃÑÁÖÁ                                      ****
+!***** AUTHOR      : ÔÑÉĞÅÑÉÍÁ ÃÅÙÑÃÉÁ                              ****
+!***** NOTE        : --- ÊáôÜóôáóç Áîéüãñáöùí   ----                ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    62
+#DEFINE   PAGE-X    140
+#DEFINE   HEAD-SIZE  8
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  5
+
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK2     99
+#DEFINE   MASK12    99,999,999,999c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+  
+ input $eidos	' Åßäïò áîéüãñáöïõ '
+ unstring $eidos by '"' into $filler $eidos  $filler
+
+  !input $apohmnia1  'Áğü Çìåñïìçíßá  : '
+  !input $evshmnia1  'Eùò Çìåñïìçíßá  : '
+
+ !execute app_datecnv   $apohmnia1, $apohm1 output, $apohmpr1 output
+ !execute app_datecnv   $evshmnia1, $evshm1 output, $evshmpr1 output
+
+
+
+                                          
+           		   
+  do get_eidos
+  move 0 to #lines
+  do main
+
+End-Report
+
+! *******************************************************************************
+begin-procedure get_eidos
+begin-select
+k.eidos_ajiogr
+k.perigrafh
+
+from aj_eidh k
+where k.eidos_ajiogr=$eidos
+end-select
+end-procedure
+! *******************************************************************************
+
+begin-procedure main
+begin-select
+a.aa_ajiogr       
+a.eidos_ajiogr     
+a.aa_ref           
+a.cid              
+a.ypok             
+a.ypok_trap      
+a.trapeza          
+!a.hm_lhjhs          
+convert(varchar(11),a.hm_lhjhs ,103) &hm_lhjhs
+convert(varchar(11),a.hm_ekdoshs ,103) &hm_ekdoshs
+convert(varchar(11),a.hm_paral,103) &hm_paral
+!a.hm_ekdoshs 
+!a.hm_paral
+a.ekdoths
+a.apodekths
+a.synal
+a.ajia
+a.aitia
+a.ariumos
+a.topos_plhr
+a.logar
+a.seira
+a.arith_pin
+a.ajia_j_n
+a.eidos_j_nom
+ show &a.ariumos
+  add &a.ajia to #s_ajia  
+  do get_trapeza
+  do get_apodekths
+  do get_last
+  do ektyp
+  NEXT-LISTING
+  add 1 to #lines
+  if #lines > 50
+          do totse
+         move 0 to #lines
+       end-if   
+from aj_mas a
+where a.eidos_ajiogr=$eidos
+order by &a.ypok
+[$SQLCMD]
+end-select
+  print 'ÃÅÍÉÊÏ ÓÕÍÏËÏ:'  (,5,)
+  do printtotse
+end-procedure
+! *******************************************************************************
+begin-procedure get_trapeza
+begin-select
+c.synal
+c.epvnymia
+
+from sy_synal c
+where c.synal=&a.trapeza
+end-select
+end-procedure
+! *******************************************************************************
+begin-procedure get_apodekths
+begin-select
+d.synal
+d.epvnymia
+
+from sy_synal d
+where d.synal=&a.apodekths
+end-select
+end-procedure
+! *******************************************************************************
+begin-procedure get_last
+begin-select
+e.synal
+e.epvnymia
+
+from sy_synal e
+where e.synal=&a.synal
+end-select
+end-procedure
+! *****************************************************************************
+begin-procedure totse
+	    next-listing
+	    print 'ÓÕÍÏËÏ ÓÅ ÌÅÔÁÖÏÑÁ' (,5)
+            do printtotse
+            next-listing
+	    new-page
+             
+	    next-listing
+	    print 'ÓÕÍÏËÏ ÁĞÏ ÌÅÔÁÖÏÑÁ' (,5)
+            do printtotse
+            next-listing
+         
+end-procedure 
+
+! ******************************************************************************
+begin-procedure printtotse
+	    print #s_ajia  (,120) edit 99999999999
+end-procedure
+! *******************************************************************************
+begin-procedure ektyp
+print &a.ariumos           (,1,12)    edit 999999999999999
+print &a.ypok              (,+1,2) 
+print &c.epvnymia          (,+1,10) 
+print &hm_lhjhs            (,+1,12)
+print &hm_ekdoshs          (,+1,12)
+print &hm_paral            (,+1,12)
+print &a.ekdoths           (,+1,10)
+print &d.epvnymia          (,+1,10)      
+print &a.logar             (,+1,10)     
+print &a.seira             (,+1,2)
+print &a.arith_pin            (,+1,2) edit 99
+print &a.topos_plhr        (,+1,10)
+print &e.epvnymia          (,+1,10)
+print &a.ajia              (,+1,) edit 999999999999  
+
+print &a.aitia              (+1,1) 
+
+
+!print &a.eidos_j_nom
+end-procedure
+! *******************************************************************************
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ print $L_X2 (1,1,3) Fill
+ print '9xxx' ()
+End-Footing
+
+! ****************************************************************************
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ 
+  print ' ÊÁÔÁÓÔÁÓÇ ÁÎÉÏÃÑÁÖÙÍ' (3,+1) center
+  print 'ÅÉÄÏÓ ÁÎÉÏÃÑÁÖÏÕ:'     (4,1)
+  print &k.perigrafh (,+1)
+   
+ 
+print 'ÁÑÉÈ'            (6,1,12)    
+print 'ÕĞ'              (,+1,2) 
+print 'ÔÑÁĞÅÆÁ'         (,+1,10) 
+print 'ÇÌ.ËÇÎÇÓ'        (,+1,12)
+print 'ÇÌ.ÅÊÄÏÓÇÓ'      (,+1,12)
+print 'ÇÌ.ĞÁÑÁËÁÂ'      (,+1,12)
+print 'ÅÊÄÏÔÇÓ'         (,+1,10)
+print 'ÁĞÏÄÅÊÔÇÓ'       (,+1,10)      
+print 'ËÏÃÁÑ/ÓÌÏÓ'      (,+1,10) 
+print 'ÓÅÉÑÁ'           (,+1,5)    
+print 'ÔÏĞÏÓ ĞËÇÑ'      (,+1,10)
+print 'ÔÅË.ÏĞÉÓÈ'       (,+1,10)
+print 'ÁÎÉÁ'            (,+1,) edit 9999999999999  
+PRINT '/ ÁÉÔÉÏËÏÃÉÁ'    (7,1)
+print 'ĞÉÍÁÊÉÏÕ'        (,92,)
+
+End-Heading
+
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{AJ	1	11	5147	katal	rs	X	01},TITLE{ÊáôÜëïãïò Áîéüãñáöùí}
+!	PARCOUNT{6}
+!	PAR1{Eßäïò  Áîéüãñáöïõ	eidos	1	=	varchar(10)		X}
+!	PAR2{Çì.Åêäïóçò	a.hm_ekdoshs	2	BETWEEN	datetime		}
+!	PAR3{Hì.ËŞîçò	a.hm_lhjhs	2	BETWEEN	datetime		}
+!	PAR4{Tåëåõôáßïò Ïğéóè/öïò	a.synal	1	=	varchar(10)		}
+!	PAR5{TñÜğåæá	a.trapeza	1	=	varchar(10)		}
+!	PAR6{TñÜğåæá	a.trapeza	1	=	varchar(10)		}
+!</pcalib>

@@ -1,0 +1,263 @@
+
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 7/1/97                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    146
+#DEFINE   HEAD-SIZE   4
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2   9,999.9999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK6      999999
+
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql
+end-sql
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+    input $icid        'Εταιρεία      '
+    input $iapo_hm      'Από Ημερόμηνια'
+    input $ievs_hm      'Εως Ημερόμηνια'
+
+    unstring $icid        by '"' into $fill1 $cid        $fill1
+
+    execute app_datecnv $iapo_hm  , $apo_hm   output, $apohmpr output
+    execute app_datecnv $ievs_hm  , $evs_hm   output, $evshmpr output
+
+
+
+!    do main
+
+    do main02
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select 
+a.eidos                                        &eidos () NOP
+a.synal                                        &synal () NOP
+datename(mm,convert(smalldatetime,hmeromhnia)) &month () NOP
+datepart(yy,convert(smalldatetime,hmeromhnia)) &year  () NOP
+
+       let $eidos = &eidos
+       let $synal = &synal
+       let $month = &month
+       let $year  = &year 
+
+       do find_pos2
+
+       do find_kint3
+
+     if  #pvl_p <> #posothta or #pvl_a <> #ajia
+       print $synal     (, 1,15)
+       print $eidos     (,+1,15)
+       print $eom       (,+1, 8) EDIT {DATEMASK}
+       print #posothta  (,42,11) EDIT {MASK3}
+       print #pvl_p     (,+1,11) EDIT {MASK3}
+       print #ajia      (,+1,11) EDIT {MASK3}
+       print #pvl_a     (,+1,11) EDIT {MASK3}
+
+       next-listing
+     end-if
+
+from wh_kin a,wh_eidh01 b
+where  a.cid = $cid
+and    a.eidos = b.eidos
+and    a.hmeromhnia between $apo_hm and $evs_hm
+and    a.synal is not null
+[$SQLCMD]
+group by a.eidos,a.synal,datename(mm,convert(smalldatetime,hmeromhnia)),datepart(yy,convert(smalldatetime,hmeromhnia)) 
+end-select
+ new-page
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main02
+
+begin-select 
+
+a.eidos                                        &t1_eidos () NOP
+datename(mm,convert(smalldatetime,hmeromhnia)) &t1_month () NOP
+datepart(yy,convert(smalldatetime,hmeromhnia)) &t1_year  () NOP
+ 
+       let $t1_eidos = &t1_eidos
+       let $t1_month = &t1_month
+       let $t1_year  = &t1_year 
+
+       do find_pos3
+
+       do find_kint1
+
+     if  #t1_pvl_p <> #t1_posothta or #t1_pvl_a <> #t1_ajia
+       print $t1_eidos     (,16,15)
+       print $t1_eom       (,+1, 8) EDIT {DATEMASK}
+       print #t1_posothta  (,42,11) EDIT {MASK3}
+       print #t1_pvl_p     (,+1,11) EDIT {MASK3}
+       print #t1_ajia      (,+1,11) EDIT {MASK3}
+       print #t1_pvl_a     (,+1,11) EDIT {MASK3}
+
+       next-listing
+     end-if
+
+from wh_kin a,wh_eidh01 b
+where  a.cid   = $cid
+and    a.eidos = b.eidos
+and    a.hmeromhnia between $apo_hm and $evs_hm
+AND    a.synal is not null
+[$SQLCMD]
+group by a.eidos,datename(mm,convert(smalldatetime,hmeromhnia)),datepart(yy,convert(smalldatetime,hmeromhnia)) 
+end-select
+ new-page
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_kint3
+begin-select
+a.pvl_p    &pvl_p  () NOP
+a.pvl_a    &pvl_a  () NOP
+
+       let #pvl_p = &pvl_p
+       let #pvl_a = &pvl_a
+
+from wh_kint3 a
+where  a.cid        =       $cid
+and    a.eidos      =       $eidos
+and    a.synal      =       $synal
+and    hmeromhnia   between $som and $eom
+end-select
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_kint1
+
+begin-select
+sum(a.pvl_p)    &t1_pvl_p  () NOP
+sum(a.pvl_a)    &t1_pvl_a  () NOP
+
+       let #t1_pvl_p = &t1_pvl_p
+       let #t1_pvl_a = &t1_pvl_a
+
+from wh_kint1 a
+where  a.cid        =       $cid
+and    a.eidos      =       $t1_eidos
+and    hmeromhnia   between $t1_som and $t1_eom
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure find_pos2
+
+  move $year to $year2 9999
+
+begin-select 
+convert(varchar,"1 "+$month+" "+substring(convert(varchar,$year2),1,14)) &hm1 () NOP
+    let $hm1 = &hm1
+end-select
+begin-select
+convert(varchar,convert(smalldatetime,$hm1)) &som   () NOP
+   let $som = &som
+end-select
+ execute app_geteom $som,$eom output  
+
+   !   display $synal noline
+   !   display ' '    noline
+   !   display $eidos noline
+   !   display ' '    noline
+   !   display $eom   
+  
+
+  let #posothta = 0
+  let #ajia     = 0
+   execute syp_getpvl    @cid      = $cid,
+                         @hm_apo   = $som,
+                         @hm_evs   = $eom,
+                         @synal    = $synal,
+                         @eidos    = $eidos,
+                         @posothta = #posothta output,
+                         @ajia     = #ajia     output 
+               
+end-procedure
+
+! *************************************************************************
+begin-procedure find_pos3
+
+  move $t1_year to $t1_year2 9999
+
+begin-select 
+convert(varchar,"1 "+$t1_month+" "+substring(convert(varchar,$t1_year2),1,14)) &t1_hm1 () NOP
+    let $t1_hm1 = &t1_hm1
+end-select
+begin-select
+convert(varchar,convert(smalldatetime,$t1_hm1)) &t1_som   () NOP
+   let $t1_som = &t1_som
+end-select
+ execute app_geteom $t1_som,$t1_eom output  
+
+  let #t1_posothta = 0
+  let #t1_ajia     = 0
+
+   execute whp_getpvl4   @cid      = $cid,
+                         @hm_apo   = $t1_som,
+                         @hm_evs   = $t1_eom,
+                         @eidos    = $t1_eidos,
+                         @posothta = #t1_posothta output,
+                         @ajia     = #t1_ajia     output 
+               
+end-procedure
+
+! *************************************************************************
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = ' '
+  let   $msg2 = ' '
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  ! print 'Είδος'      (5, 1,15) 
+  ! print 'Περιγραφή'  ( ,17,40) 
+  ! print 'Λογαριασμος'( ,60,20) 
+  ! print 'Περιγραφή'  ( ,81,40) 
+    print 'Συν/νος'    (, 1,15)
+    print 'Είδος'      (,+1,15)
+    print 'Μήνας'      (,+1, 8) 
+    print 'Ποσ. kin  ' (,42,11) 
+    print 'Ποσ. kint 1/3' (,+1,11) 
+    print 'Αξία kin  ' (,+1,11) 
+    print 'Αξία kint 1/3' (,+1,11) 
+
+
+End-Heading              

@@ -1,0 +1,73 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : labels.sqr                                     ****
+!***** DATE        : 01/11/95                                       ****
+!***** APPLICATION : synalages                                      ****
+!***** AUTHOR      : ΘΕΟΤΟΚΑΣ ΙΩΑΝΝΗΣ                               ****
+!***** NOTE        : Ετικέτες Συναλλασσομένων                       ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     6
+#DEFINE   PAGE-X     80
+#DEFINE   HEAD-SIZE  5
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   SMALLDATE DD/MM
+#DEFINE   DATEMASK  DD/MM/YY
+#DEFINE   MASK1     99999
+#DEFINE   MASK2     9,999,999,999c
+#DEFINE   MASK3     99
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ no-formfeed
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+columns 1 29 57   
+move 0 to #total
+
+begin-select
+a.epvnymia               	(1,1,24)
+a.dieyuynsh              	(2,1,24)
+a.polh                   	(3,1,16)
+a.taxkvd                 	(0,+1,6)
+
+  position (+3,1,0)   ! Leave two blank lines between labels.
+
+  next-column  at-end=newpage	
+  add 1 to #total
+
+from sy_synal00 a
+where 1=1
+[$SQLCMD]
+order by
+[$SQLORD]
+end-select
+
+!  Put out summary of run:
+!
+! use-column 0   ! Disable column printing
+! print 'Labels Printed on ' (+6,10,0)
+! date-time ()
+! print 'Total Labels Printed = ' (+1,10,0)
+! print #total () edit 999,999,999
+
+End-procedure
+
+! ******************************************************************

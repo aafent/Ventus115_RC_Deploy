@@ -1,0 +1,362 @@
+! ******************************************************************************
+! **** PROLOGIC S.A.                                                        ****
+! **** REPORT      : stat02.sqr                                             ****
+! **** DATE        : 07/10/93 - 2/1/96                                      ****
+! **** APPLICATION : ΣΥΝΑΛΛΑΣΟΜΕΝΟΙ                                         ****
+! **** AUTHOR      : ΜΠΟΚΙΑΣ ΝΙΚΟΣ                                          ****
+! **** NOTE        : ΚΙΝΗΣΕΙΣ ΚΑΤΑ ΠΟΛΗ                                     ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y     58
+#DEFINE   PAGE-X    136 
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1    999,999,999,999
+#DEFINE   MASK2                999
+#DEFINE   DATEMASK        DD/MM/YY
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+! - (v) Πίνακας μνήμης με τα σύνολα της κάθε περιόδου                         -
+! -     και με την ημερομηνίακη περιόδο στην οποία αυτό το σύνολο αναφέρεται  -
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ create-array name=summaries size=120 field=poso:number
+                                      field=hmstart:char
+                                      field=hmend:char
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+! - (v) Πίνακας μνήμης με τα στοιχεία του γραφήματος                          -
+! -     (Γεμίζει με χαρακτήρες τις κατάληλλες θέσεις κάθε ράβδου)             -
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ create-array name=chart size=50 field=shmeio:char:120
+ 
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+! input $omadapar   'Ομάδα Παραστατικών       [PVLHSEIS] : '
+
+  input $apohmnia   'Από Ημερομηνία                      : '
+  input $evshmnia   'Eως Ημερομηνία                      : '
+  input $xronmon    'Χρονική Μονάδα         [Ημ/Εβ/Μη/Χ] : ' 
+  input $xronmonnum 'Πλήθος Χρονικών Μονάδων ανα Περίοδο : '
+ 
+  execute app_datecnv   $apohmnia, $apo_hmnia output, $apo-hmnia_pr output
+  execute app_datecnv   $evshmnia, $evs_hmnia output, $evs_hmnia_pr output
+ 
+  move     'PVLHSEIS'           to          $omada_par
+! unstring $omadapar   by '"' into $filler1 $omada_par    $filler1
+  unstring $xronmon    by '"' into $filler1 $xron_mon     $filler1
+  unstring $xronmonnum by '"' into $filler1 $xron_mon_num $filler1
+ 
+  move '' to $SQLOMAD
+  move '' to $SQLXRON
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+! - (v) Χ : Το Γράφιμα αφορά τις Χρεώσεις  Πελατών - Τζίρος   Πελατών         -
+! -     Π : Το Γράφιμα αγορά τις Πιστώσεις Πελατών - Πληρωμές Πελατών         -
+! -     Υ : Το Γράφιμα αφορά το  Υπόλοιπο  Πελατών - Υπόλοιπο Πελατών         -
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+  let $SQLOMAD = 'and c.omada = "PVLHSEIS"' 
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+! - (v) Η : Η Περίοδος αναφέρεται σε Ημέρες                                   -
+! -     Ε : Η Περίοδος αναφέρεται σε Εβδομάδες                                -
+! -     Μ : Η Περίοδος αναφέρεται σε Μήνες                                    -
+! -     Χ : Η Περίοδος αναφέρεται σε Χρόνια                                   -
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ if $xron_mon = 'Η'
+   let $SQLXRON = 'dd'
+ else 
+   if $xron_mon = 'Ε'
+     let $SQLXRON = 'wk'
+   else
+     if $xron_mon = 'Μ'
+       let $SQLXRON = 'mm'
+     else
+       if $xron_mon = 'Χ'
+         let $SQLXRON = 'yy'
+       else
+         let $SQLXRON = 'dd'
+       end-if
+     end-if
+   end-if
+ end-if
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+! - (v) Υπολογίζεται το σύνολο των ραβδογραμάτων (#ravdoi)                    -
+! -     Εάν το σύνολο είναι μεγαλύτερο από το σταθερό που χωράει η σελίδα 120 -
+! -     μένει σταθερή η Ημ/νιακή περίοδος και αναπροσαρμόζεται το εύρος των   -
+! -     ραβδογραμμάτων (το πλήθος των χρονικών μονάδων ανα περίοδο).          -
+! -   ? Ισως θα πρέπει να αλλάξουμε μόνο την περίοδο της τελευταίας ράβδου. ? -
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+ let #ravdoi = 0
+ move $xron_mon_num to #xron_mon_num
+ if #xron_mon_num < 0
+   let #xron_mon_num = 1
+ end-if
+ let #diafora = 0
+ do get_diafora ($SQLXRON, $apo_hmnia, $evs_hmnia, #diafora)
+ let #ravdoi = round ((#diafora / #xron_mon_num), 0)
+ if #ravdoi > 120
+   let #xron_mon_num = round (((#diafora / 120) - 0.5), 0)
+   let #ravdoi       = round ((#diafora / #xron_mon_num), 0)
+ end-if
+
+! - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+ 
+ do exec_proc ($apo_hmnia, $evs_hmnia)
+
+ display $apo_hmnia
+ display $evs_hmnia
+
+ do make_summaries ($apo_hmnia, $evs_hmnia, #xron_mon_sum, #ravdoi, $SQLCMD, $SQLOMAD, $SQLXRON)
+
+ let #max_poso_sthlhs = 0
+ do find_max_poso (#ravdoi, #max_poso_sthlhs)
+
+ if $max_poso = 'M'
+ or $max_poso = 'Μ'
+   let #max_poso = #max_poso_sthlhs
+ else 
+   move $max_poso to #max_poso
+   if #max_poso < #max_poso_sthlhs
+     let #max_poso = #max_poso_sthlhs
+   end-if
+ end-if
+
+ let $xarakt = '|'
+
+ do make_chart (#ravdoi, #max_poso, $xarakt)
+
+ do print_chart (#ravdoi, #max_poso)
+
+ do print_details (#ravdoi)
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure  make_summaries ($apo_hmnia, $evs_hmnia, #xron_mon_sum, #ravdoi, $SQLCMD, $SQLOMAD, $SQLXRON)
+
+ display $apo_hmnia
+ display $evs_hmnia
+
+  let #i = 0
+  let $tmp_hmstart = $apo_hmnia
+
+  while #i < #ravdoi
+
+  put $tmp_hmstart into summaries(#i) hmstart
+
+begin-select
+
+dateadd ($SQLXRON, #xron_mon_sum, $tmp_hmstart) &tmp_hmend () NOP
+
+  let $tmphmend   = &tmp_hmend
+
+end-select
+
+begin-select
+
+dateadd ($SQLXRON, 1, $tmphmend) &tmp_hmstart () NOP
+
+  let $tmphmstart = &tmp_hmstart
+
+end-select
+    
+    
+    do find_summaries ($tmp_hmstart, $tmphmend, $SQLCMD, $SQLOMAD, #summary)
+
+    put $tmphmend  into summaries(#i) hmend
+    put #summary   into summaries(#i) poso
+
+    let #i = #i + 1
+    let $tmp_hmstart = $tmphmstart
+
+  end-while
+
+end-procedure
+
+! ******************************************************************************
+
+begin-procedure find_summaries ($hmstart, $hmend, $SQLCMD, $SQLOMAD, :#summary)
+begin-select
+
+sum (a.ajia * c.syntel_xp) &poso () NOP
+
+  let #summary = &poso
+
+from cu_kintot01 a, ap_par c, ap_omadapar d, cu_kat e
+where a.hmeromhnia between $hmstart and $hmend
+and   e.kvdikos = a.katasthma
+and   a.parast  = c.parast
+and   c.parast  = d.parast
+[$SQLOMAD]
+[$SQLCMD]
+
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure get_diafora ($SQLXRON, $apo_hm, $evs_hm, :#diafora)
+
+
+begin-select
+
+datediff ($SQLXRON, $apo_hm, $evs_hm) &diafora
+  
+  let #diafora = &diafora
+
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_max_poso (#ravdoi, :#max_poso_sthlhs)
+
+  let #i = 0
+  let #max_poso_sthlhs = 0
+
+  while #i < #ravdoi
+
+    get #tmp_poso from summaries(#i) poso
+
+    if #tmp_poso > #max_poso_sthlhs
+      let #max_poso_sthlhs = #tmp_poso
+    end-if
+
+  end-while
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure make_chart (#ravdoi, #max_poso, $xarakt)
+
+  let #step = round ((#max_poso / 50), 0)
+  let #i    = 0
+
+  while #i < #ravdoi
+  
+    get #tmp_poso from summaries(#i) poso
+    
+    let #hight = round ((#tmp_poso / #step), 0)
+
+    let #j = 0
+
+    while #j < #hight     
+   
+      put $xarakt into chart(#i) shmeio(#j)
+
+      let #j = #j + 1
+    
+    end-while
+
+    let #i = #i + 1
+
+  end-while
+    
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+ 
+begin-procedure exec_proc ($apo_hm, $evs_hm)
+
+  execute cup_kintot01 @hm_apo = $apo_hm,
+                       @hm_evs = $evs_hm
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+ 
+begin-procedure print_chart (#ravdoi, #max_poso)
+
+  let #i    = 50 - 1
+  let #step = round ((#max_poso / 50), 0)
+ 
+  while #i >= 0
+
+    let #tmp_poso = (50 - #i) * #step
+    
+    print #tmp_poso (+1,1,15) edit {MASK1}
+
+    let #j = 120 - 1
+
+    while #j >= 0
+
+      get $xar from chart(#i) shmeio(#j)
+      print $xar (,+1,1)
+
+      let #j = #j - 1
+
+    end-while
+    
+  let #i = #i - 1
+  
+  end-while
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+ 
+begin-procedure print_details (#ravdoi)
+
+  new-page
+
+  let #i = 0
+
+  while #i < #ravdoi
+
+    get $h_a  from summaries(#i) hmstart
+    get $h_e  from summaries(#i) hmend
+    get #p    from summaries(#i) poso
+
+    next-listing
+    
+    let #ii = #i - 1
+
+    print 'Περίοδος Νο'        (, 1,20)
+    print #ii                  (,+1,03) edit {MASK2}
+    print 'Από : '             (,+5,10)
+    print $h_a                 (,+1,08) edit {DATEMASK}
+    print 'Εώς : '             (,+5,10) 
+    print $h_e                 (,+1,08) edit {DATEMASK}   
+
+    let #i = #i + 1
+
+  end-while
+
+end-procedure
+
+! ==============================================================================
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+ print 'ΣΤΑΤΙΣΤΙΚΑ ΚΙΝΗΣΕΩΝ ΠΕΛΑΤΩΝ' (2,+1) center
+
+ let $msg='ΑΠΟ : ' || $apohmpr || ' ΕΩΣ : ' || $evshmpr
+
+ print $msg (3,+1) center
+
+end-Heading

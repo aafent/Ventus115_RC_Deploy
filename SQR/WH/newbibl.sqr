@@ -1,0 +1,689 @@
+!*************************************************************************
+!***** PROLOGIC S.A.                                                  ****
+!***** REPORT      : newbiblio.sqr                                    ****
+!***** DATE        : 22/06/94                                         ****
+!***** APPLICATION : Application environment                          ****
+!***** AUTHOR      : ΘΕΟΤΟΚΑΣ ΙΩΑΝΝΗΣ                                 ****
+!***** NOTE        : Εκτύπωση Καρτελας ειδων κατα Αποθηκη (θεωρημενο) ****
+!*************************************************************************
+
+#DEFINE   PAGE-Y    60
+#DEFINE   PAGE-X    133
+#DEFINE   HEAD-SIZE  9
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YYYY
+#DEFINE   DATEM    DD/MM
+#DEFINE   MASK4    9999
+#DEFINE   MASK5    99999
+#DEFINE   MASK6    9999,999.99c
+#DEFINE   MASKQ    999999999.99c
+#DEFINE   MASKA1   99999999.99c
+#DEFINE   MASKQ1   99999999.99c
+#DEFINE   MASKA    999999999.99c
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID    to $cid
+ move $L_XRHSH  to #xrhsh
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+ 
+ input $ieidos_apo  'apo eidos '
+ input $ieidos_evs  'evs eidos '
+ unstring $ieidos_apo by '"' into $filler $eidos_apo $filler
+ unstring $ieidos_evs by '"' into $filler $eidos_evs $filler
+
+ do init
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure init
+begin-select 
+xrhsh		() NOP
+xrhsh_arxh      () NOP
+xrhsh_telos     () NOP
+   	! move &xrhsh to #xrhsh
+        move &xrhsh_arxh to $startdate
+	
+	if &xrhsh_telos = $evshm
+	   move 'T' to $f_xrhsh
+	   move &xrhsh_telos to $xrh_msg 	{DATEMASK}
+	   let $xrh_msg = 'Απογραφή ' || $xrh_msg
+        else
+	   move 'F' to $f_xrhsh
+        end-if
+
+from ap_xrhsh
+where cid = $cid
+!and $apohm between xrhsh_arxh and xrhsh_telos
+and   xrhsh = #xrhsh
+end-select
+end-procedure
+
+! ****************************************************************************
+
+begin-procedure main
+begin-select distinct
+a.cid                                           () NOP
+a.ypok					        () 
+            On-Break print = Never 
+		  Level    = 1
+		  After    = tot_apou
+   move &a.ypok to $ypok
+a.perigrafh                                     () NOP
+   let $per_apouhkh = '[' || &a.ypok || '] ' || &a.perigrafh
+a.kostos          &f_kostos                     () NOP
+b.eidos                                         () NOP
+   move &b.eidos to $eidos
+c.perigrafh
+   move &c.perigrafh to $perigrafh
+
+   display $ypok
+   display &f_kostos
+   display '-------'
+   do print_details
+
+from wh_biblio a, wh_kint1 b, wh_eidh c
+where a.cid        = $cid				
+  and b.cid        = $cid
+  and a.cid        = b.cid
+  and a.apouhkh    = b.apouhkh
+  and b.hmeromhnia between $startdate and $evshm
+  and b.eidos      between $eidos_apo and $eidos_evs
+  and b.eidos      = c.kvdikos
+[$SQLCMD]
+order by a.ypok, b.eidos
+end-select
+
+  do gen_totals
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getsynal($synal, :$epvnymia)
+   move '' to $epvnymia
+   if $synal = '' 
+      move ' ' to $synal
+   end-if
+begin-select
+a.epvnymia                 () NOP
+   move &a.epvnymia to $epvnymia
+from sy_synal a
+where a.synal = $synal
+end-select
+end-procedure
+
+! ******************************************************************
+
+begin-procedure prev_totals
+begin-select
+sum(pvl_p) &pvl_qt       () NOP
+sum(pvl_a) &pvl_aj       () NOP
+sum(ago_p) &ago_qt       () NOP
+sum(ago_a) &ago_aj       () NOP
+sum(dia_p) &dia_qt       () NOP
+sum(gen_p) &gen_qt       () NOP
+sum(apo_p) &apo_qt       () NOP
+sum(apo_a) &apo_aj       () NOP
+
+  move &pvl_qt to #s_pvl_qt 
+  move &pvl_aj to #s_pvl_aj 
+  move &ago_qt to #s_ago_qt     
+  move &ago_aj to #s_ago_aj
+  move &dia_qt to #s_dia_qt
+  move &apo_qt to #apo_qt
+  move &apo_aj to #apo_aj
+
+  let  #s_dia_qt = #s_dia_qt + &gen_qt
+  let  #ypol = #apo_qt + #s_ago_qt - #s_pvl_qt + #s_dia_qt
+
+from wh_kint1 a, wh_biblio b
+where a.cid      = $cid
+  and b.cid      = $cid
+  and a.apouhkh  = b.apouhkh
+  and b.ypok     = $ypok
+  and eidos      = $eidos
+  and hmeromhnia >= $startdate   
+  and hmeromhnia <= $apohm   
+end-select
+
+  if $f_xrhsh = 'F'
+     execute whp_getymsk @cid=$cid, @eidos=$eidos, @hmer=$evshm, @ymsk=#msk out
+  else
+     do get-apografh ($cid, #xrhsh, $ypok, $eidos, #apografh, #msk, #ap_kostos)
+  end-if
+
+  if isnull(&f_kostos)
+     move 0 to #msk
+  end-if
+
+  print $eidos            (, 01,06) edit {MASK4}
+  print $perigrafh        (,+01,30)
+  print 'Μ.Σ.Κ'           (,+02,06)
+  print #msk              (,+01,11) edit {MASK6}
+  print 'Απογραφή'        (,+41,08)
+  print #apo_aj           (,+01,12) edit {MASKA}
+  print #apo_qt           (,+01,12) edit {MASKQ}
+    next-listing
+  print '-'               (, 01,132) fill
+    next-listing
+  print 'Από μεταφορά'    ( ,28,20)
+  ! print $L_X3             ( ,54,01)
+  print #s_ago_qt         (, 56,12) edit {MASKQ}
+  print #s_ago_aj         (,+01,12) edit {MASKA}
+  print #s_pvl_qt         (,+01,12) edit {MASKQ}
+  print #s_pvl_aj         (,+01,12) edit {MASKA}
+  print #s_dia_qt         (,+01,12) edit {MASKQ}
+  print #ypol             (,+01,12) edit {MASKQ}
+    next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_details
+  
+  do prev_totals
+
+begin-select
+convert(char(8),a.hmeromhnia,3) &a.hmeromhnia   () NOP
+  print &a.hmeromhnia                           ( ,01,05)
+a.aa                                            () NOP
+ltrim(rtrim(a.parkvd)) &a.parkvd                (,+01,02)
+b.syntmhsh                                      (,+01,04)
+a.seira                                         (,+01,02)
+a.parno                                         (,+01,05) edit {MASK5}
+a.apouhkh                                       (,+01,02)
+a.synal                                         (,+01,05)
+a.aitia                                         () NOP   
+  if &a.synal = ''
+     print &a.aitia                             (,+01,14)
+  else
+     do getsynal(&a.synal, $epvnymia)
+     print $epvnymia                            (,+01,14)
+  end-if
+
+  do getsxet(&a.aa, $sx_seira, $sx_parno)
+  print $sx_seira                               (,+01,2)
+  print $sx_parno                               (,   ,5) edit {MASK5}
+
+a.posothta                                      () NOP
+a.ajia                                          () NOP
+  do find_ajies_eidoys
+  print #ago_qt                                 (,+01,12) edit {MASKQ}
+  print #ago_aj        		                (,+01,12) edit {MASKA}
+  print #pvl_qt                                 (,+01,12) edit {MASKQ}
+  print #pvl_aj                                 (,+01,12) edit {MASKA}
+  print #dia_qt                                 (,+01,12) edit {MASKQ}
+  print #ypol                                   (,+01,12) edit {MASKQ}
+  next-listing
+
+from wh_kin a, ap_par b, wh_biblio c
+where a.cid = $cid
+  and c.cid = $cid
+  and a.eidos = $eidos
+  and a.apouhkh = c.apouhkh
+  and c.ypok    = $ypok
+  and a.hmeromhnia between $apohm and $evshm
+  and a.parkvd = b.parkvd
+  and a.parkvd in (select parkvd from ap_omadapar 
+                   where omada in ('AGORES', 'PVLHSEIS', 'DIAK-AP','APOGRAFH'))
+order by a.hmeromhnia, a.parkvd, a.seira, a.parno
+end-select 
+
+  do synola_eidoys
+
+end-procedure
+					
+! ******************************************************************
+begin-procedure get-apografh ($cid, #xrhsh, $ypok, $eidos, 
+			      :#apografh, :#msk, :#kostos)
+  move 0.0 to #apografh
+  move 0.0 to #msk
+  move 0.0 to #kostos
+
+ display 'GET APOGRAFH' 
+
+begin-select
+max(a.y_msk)		&msk		() NOP
+sum(a.posothta)		&apografh	() NOP
+sum(a.kostos)		&kostos 	() NOP
+
+  move &apografh	to #apografh
+  move &msk		to #msk
+  move &kostos		to #kostos
+
+  ! (!) buf &msk is always null.  I do not know wy
+  if #msk = 0
+     if #apografh = 0 
+        move 0 to #msk
+     else
+        let #msk = round( #kostos / #apografh , 3)
+     end-if
+  end-if
+
+
+  display 'YPOK : ' noline
+  display $ypok
+
+  display 'EIDOS : ' noline
+  display $eidos
+
+ 
+  display 'APOGRAFH : ' noline
+  display &apografh
+  
+  display 'MSK : ' noline
+  display #msk
+
+  display 'KOSTOS : ' noline
+  display #kostos
+
+
+from wh_apografh a, wh_biblio b
+where a.cid = $cid
+  and b.cid = $cid
+  and a.xrhsh = #xrhsh
+  and a.eidos = $eidos
+  and b.ypok    = $ypok
+  and a.apouhkh = b.apouhkh
+end-select
+end-procedure
+! ******************************************************************
+begin-procedure synola_eidoys
+    print 'Σύνολα Είδους' 		   ( ,27,20)
+    print #s_ago_qt                        (, 56,12) edit {MASKQ}
+    print #s_ago_aj                        (,+01,12) edit {MASKA}
+    print #s_pvl_qt                        (,+01,12) edit {MASKQ}
+    print #s_pvl_aj                        (,+01,12) edit {MASKA}
+    print #s_dia_qt                        (,+01,12) edit {MASKQ}
+    print #ypol                            (,+01,12) edit {MASKQ}
+    next-listing
+
+    if $f_xrhsh = 'T'
+       print $xrh_msg        		   ( ,27,20)
+       print #apografh                     (, 56,12) edit {MASKQ}
+       print #ap_kostos                    (,+01,12) edit {MASKA}
+       next-listing
+
+       let #s2_ap_apo_qt = #s2_ap_apo_qt + #apografh
+       let #s2_ap_apo_aj = #s2_ap_apo_aj + #ap_kostos
+
+       let #ap_diaf_qt = #apografh - #ypol 
+       let #ap_diaf_aj = #ap_diaf_qt * #msk
+
+       move #ap_diaf_aj to $tmp		99999999999
+       move $tmp to #ap_diaf_aj
+
+       if #ap_diaf_qt > 0
+          print 'Πλεονασμ. Απογραφής'      (, 27,20)
+	  print #ap_diaf_qt                (, 56,12) edit {MASKQ}
+	  print #ap_diaf_aj                (,+01,12) edit {MASKA}
+	  next-listing
+          let #s2_ap_ple_qt = #s2_ap_ple_qt + #ap_diaf_qt
+          let #s2_ap_ple_aj = #s2_ap_ple_aj + #ap_diaf_aj
+       else
+       if #ap_diaf_qt < 0
+          print 'Ελλείματα Απογραφής'      (, 27,20)
+	  print #ap_diaf_qt                (, 56,12) edit {MASKQ}
+	  print #ap_diaf_aj                (,+01,12) edit {MASKA}
+	  next-listing
+          let #s2_ap_ell_qt = #s2_ap_ell_qt + #ap_diaf_qt
+          let #s2_ap_ell_aj = #s2_ap_ell_aj + #ap_diaf_aj
+       end-if
+       end-if
+
+    end-if
+
+    print 'Ποσότητα Ελλειμάτων'            (, 01,20)
+    print #s_ell_qt                        (,+01,12) edit {MASKQ}
+    print 'Κόστος Ελλειμάτων'              (,+01,20)
+    let   #s_ell_ks = #s_ell_qt * #msk
+    print #s_ell_ks                        (,+01,12) edit {MASKA}
+    print 'Κόστος Πωληθέντων'              (,+01,20)
+    let   #s_pvl_ks = #s_pvl_mq * #msk
+    print #s_pvl_ks                        (,+01,12) edit {MASKA}
+    next-listing
+    print 'Ποσότητα Πλεονασμάτων'          (, 01,20)
+    print #s_ple_qt                        (,+01,12) edit {MASKQ}
+    print 'Κόστος Πλεονασμάτων'            (,+01,20)
+    let   #s_ple_ks = #s_ple_qt * #msk
+    print #s_ple_ks                        (,+01,12) edit {MASKA}
+    print 'Κόστος Διακινήσεων'             (,+01,20)
+    let   #s_dia_ks = #s_dia_mq * #msk
+    print #s_dia_ks                        (,+01,12) edit {MASKA}
+    print 'Κόστος Υπολοίπου'               (,+01,17)
+    let   #ypo_ks   = #ypol * #msk
+    print #ypo_ks                          (,+01,12) edit {MASKA}
+    next-listing
+
+    print '='                              ( ,01,132) fill
+    next-listing
+    let #s2_ago_qt = #s2_ago_qt + #s_ago_qt
+    let #s2_ago_aj = #s2_ago_aj + #s_ago_aj
+    let #s2_pvl_qt = #s2_pvl_qt + #s_pvl_qt
+    let #s2_pvl_aj = #s2_pvl_aj + #s_pvl_aj
+    let #s2_dia_qt = #s2_dia_qt + #s_dia_qt
+    let #s2_apo_qt = #s2_apo_qt + #apo_qt
+    let #s2_apo_aj = #s2_apo_aj + #apo_aj
+    let #s2_ypol   = #s2_ypol   + #ypol
+
+    let #s2_ell_qt = #s2_ell_qt + #s_ell_qt
+    let #s2_ell_ks = #s2_ell_ks + #s_ell_ks
+    let #s2_ple_qt = #s2_ple_qt + #s_ple_qt
+    let #s2_ple_ks = #s2_ple_ks + #s_ple_ks
+    let #s2_pvl_ks = #s2_pvl_ks + #s_pvl_ks
+    let #s2_dia_ks = #s2_dia_ks + #s_dia_ks
+    let #s2_ypo_ks = #s2_ypo_ks + #ypo_ks
+
+    move 0 to #s_ago_qt
+    move 0 to #s_ago_aj
+    move 0 to #s_pvl_qt
+    move 0 to #s_pvl_aj
+    move 0 to #s_dia_qt
+    move 0 to #ypol
+    move 0 to #s_ell_qt
+    move 0 to #s_ell_ks
+    move 0 to #s_ple_qt
+    move 0 to #s_ple_ks
+    move 0 to #s_pvl_mq
+    move 0 to #s_dia_mq
+    move 0 to #s_pvl_ks
+    move 0 to #s_dia_ks
+    move 0 to #ypo_ks
+end-procedure
+
+! ******************************************************************
+
+begin-procedure find_ajies_eidoys
+
+begin-select
+c.syntel_a                                      () NOP
+c.syntel_p                                      () NOP
+c.f_eis                                         () NOP
+c.f_eja                                         () NOP
+d.omada                                         () NOP
+     move &d.omada to $omada
+from ap_par c, ap_omadapar d
+where c.parkvd = &a.parkvd
+  and d.parkvd = &a.parkvd
+  and d.omada in ('PVLHSEIS', 'AGORES', 'DIAK-AP','APOGRAFH')
+end-select
+
+     move 0 to #pvl_qt
+     move 0 to #pvl_aj
+     move 0 to #ago_qt
+     move 0 to #ago_aj
+     move 0 to #dia_qt
+  
+ evaluate $omada
+   when = 'APOGRAFH'
+     let #ago_qt  = &a.posothta * &c.syntel_p
+     let #ago_aj  = &a.ajia * &c.syntel_a
+     break
+
+   when = 'PVLHSEIS'
+     let #pvl_qt  = &a.posothta * &c.syntel_p
+     let #pvl_aj  = &a.ajia * &c.syntel_a
+     break
+   when = 'AGORES'
+     let #ago_qt  = &a.posothta * &c.syntel_p
+     let #ago_aj  = &a.ajia * &c.syntel_a
+     break
+   when = 'DIAK-AP'
+     if &c.f_eis != ''
+        let #dia_qt = &a.posothta * &c.syntel_p
+     else
+        let #dia_qt = &a.posothta * &c.syntel_p * -1
+     end-if
+     let #ypol   = #ypol + #dkqt
+     let #dk_qt  = #dk_qt + #dkqt
+     break
+ end-evaluate
+
+    let #s_ago_qt  = #s_ago_qt + #ago_qt
+    let #s_ago_aj  = #s_ago_aj + #ago_aj
+    let #s_pvl_qt  = #s_pvl_qt + #pvl_qt
+    let #s_pvl_aj  = #s_pvl_aj + #pvl_aj
+    let #s_dia_qt  = #s_dia_qt + #dia_qt
+    let #ypol = #ypol + #ago_qt - #pvl_qt + #dia_qt
+
+    
+  
+    if &a.parkvd = '15'
+       let #s_ell_qt = #s_ell_qt + &a.posothta         ! Ελλέιματα Μήνα
+    else
+    if &a.parkvd = '16'
+       let #s_ple_qt = #s_ple_qt + &a.posothta         ! Πλεονάσματα Μήνα
+       display &a.parkvd
+       display &a.posothta 
+       display #s_ple_qt
+    end-if
+    end-if
+    let #s_pvl_mq = #s_pvl_mq + #pvl_qt                ! Ποσότητα Μήνα
+    let #s_dia_mq = #s_dia_mq + #dia_qt                ! Ποσότητα Μήνα
+
+end-procedure
+
+! ******************************************************************
+begin-procedure tot_apou
+    print 'ΑΠΟΓΡΑΦΗ:'                      ( ,01,09)
+    print #s2_apo_qt                       ( ,+1,11) edit {MASKQ1}
+    print #s2_apo_aj                       ( ,+1,11) edit {MASKA1}
+    print 'ΣΥΝΟΛΑ ΑΠΟΘΗΚΗΣ ['              ( ,+1,17)
+    print $ypok                            ( ,  ,  )
+    print ']'                              ( ,  ,01)
+    print #s2_ago_qt                       (, 56,12) edit {MASKQ}
+    print #s2_ago_aj                       (,+01,12) edit {MASKA}
+    print #s2_pvl_qt                       (,+01,12) edit {MASKQ}
+    print #s2_pvl_aj                       (,+01,12) edit {MASKA}
+    print #s2_dia_qt                       (,+01,12) edit {MASKQ}
+
+    let #s2_ypol = #s2_apo_qt + #s2_ago_qt - #s2_pvl_qt + #s2_dia_qt
+
+    print #s2_ypol                         (,+01,12) edit {MASKQ}
+
+    ! let #s2_pvl_ks = #s2_apo_aj + #s2_ago_aj + #s2_dia_ks - #s2_ypo_ks
+    ! let #s2_pvl_ks = #s2_pvl_ks + #s2_ell_ks + #s2_ple_ks 
+
+    next-listing
+
+    if $f_xrhsh = 'T'
+
+       print $xrh_msg        		   ( ,27,20)
+       print #s2_ap_apo_qt                 (, 56,12) edit {MASKQ}
+       print #s2_ap_apo_aj                 (,+01,12) edit {MASKA}
+       next-listing
+       print 'Πλεονασμ. Απογραφής'         (, 27,20)
+       print #s2_ap_ple_qt                 (, 56,12) edit {MASKQ}
+       print #s2_ap_ple_aj                 (,+01,12) edit {MASKA}
+       next-listing
+       print 'Ελλείματα Απογραφής'         (, 27,20)
+       print #s2_ap_ell_qt                 (, 56,12) edit {MASKQ}
+       print #s2_ap_ell_aj                 (,+01,12) edit {MASKA}
+       next-listing
+
+       let #s3_ap_apo_qt = #s3_ap_apo_qt + #s2_ap_apo_qt
+       let #s3_ap_apo_aj = #s3_ap_apo_aj + #s2_ap_apo_aj
+       let #s3_ap_ple_qt = #s3_ap_ple_qt + #s2_ap_ple_qt
+       let #s3_ap_ple_aj = #s3_ap_ple_aj + #s2_ap_ple_aj
+       let #s3_ap_ell_qt = #s3_ap_ell_qt + #s2_ap_ell_qt
+       let #s3_ap_ell_aj = #s3_ap_ell_aj + #s2_ap_ell_aj
+
+       move 0 to #s2_ap_apo_qt
+       move 0 to #s2_ap_apo_aj
+       move 0 to #s2_ap_ple_qt
+       move 0 to #s2_ap_ple_aj
+       move 0 to #s2_ap_ell_qt
+       move 0 to #s2_ap_ell_aj
+
+    end-if
+
+    print 'Ποσότητα Ελλειμάτων'            (, 01,20)
+    print #s2_ell_qt                       (,+01,12) edit {MASKQ}
+    print 'Κόστος Ελλειμάτων'              (,+01,20)
+    print #s2_ell_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Πωληθέντων'              (,+01,20)
+    print #s2_pvl_ks                       (,+01,12) edit {MASKA}
+    next-listing
+    print 'Ποσότητα Πλεονασμάτων'          (, 01,20)
+    print #s2_ple_qt                       (,+01,12) edit {MASKQ}
+    print 'Κόστος Πλεονασμάτων'            (,+01,20)
+    print #s2_ple_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Διακινήσεων'             (,+01,20)
+    print #s2_dia_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Υπολοίπου'               (,+01,17)
+    print #s2_ypo_ks                       (,+01,12) edit {MASKA}
+
+
+    let #s3_ago_qt = #s3_ago_qt + #s2_ago_qt
+    let #s3_ago_aj = #s3_ago_aj + #s2_ago_aj
+    let #s3_pvl_qt = #s3_pvl_qt + #s2_pvl_qt
+    let #s3_pvl_aj = #s3_pvl_aj + #s2_pvl_aj
+    let #s3_dia_qt = #s3_dia_qt + #s2_dia_qt
+    let #s3_apo_qt = #s3_apo_qt + #s2_apo_qt
+    let #s3_apo_aj = #s3_apo_aj + #s2_apo_aj
+    let #s3_ypol   = #s3_ypol   + #s2_ypol
+
+    let #s3_ell_qt = #s3_ell_qt + #s2_ell_qt
+    let #s3_ell_ks = #s3_ell_ks + #s2_ell_ks
+    let #s3_ple_qt = #s3_ple_qt + #s2_ple_qt
+    let #s3_ple_ks = #s3_ple_ks + #s2_ple_ks
+    let #s3_pvl_ks = #s3_pvl_ks + #s2_pvl_ks
+    let #s3_dia_ks = #s3_dia_ks + #s2_dia_ks
+    let #s3_ypo_ks = #s3_ypo_ks + #s2_ypo_ks
+
+    move 0 to #s2_ago_qt
+    move 0 to #s2_ago_aj
+    move 0 to #s2_pvl_qt
+    move 0 to #s2_pvl_aj
+    move 0 to #s2_dia_qt
+    move 0 to #s2_apo_qt
+    move 0 to #s2_apo_aj
+    move 0 to #s2_ypol
+
+    move 0 to #s2_ell_qt
+    move 0 to #s2_ell_ks
+    move 0 to #s2_ple_qt
+    move 0 to #s2_ple_ks
+    move 0 to #s2_pvl_ks
+    move 0 to #s2_dia_ks
+    move 0 to #s2_ypo_ks
+    new-page
+end-procedure 
+! ******************************************************************
+begin-procedure gen_totals
+    next-listing
+    print 'ΑΠΟΓΡΑΦΗ:'                      ( ,01,09)
+    print #s3_apo_qt                       ( ,+1,11) edit {MASKQ1}
+    print #s3_apo_aj                       ( ,+1,11) edit {MASKA1}
+    print 'ΓΕΝΙΚΑ ΣΥΝΟΛΑ '                 ( ,+2,17)
+    print #s3_ago_qt                       (, 56,12) edit {MASKQ}
+    print #s3_ago_aj                       (,+01,12) edit {MASKA}
+    print #s3_pvl_qt                       (,+01,12) edit {MASKQ}
+    print #s3_pvl_aj                       (,+01,12) edit {MASKA}
+    print #s3_dia_qt                       (,+01,12) edit {MASKQ}
+    print #s3_ypol                         (,+01,12) edit {MASKQ}
+
+    next-listing
+
+    if $f_xrhsh = 'T'
+
+       print $xrh_msg        		   ( ,27,20)
+       print #s3_ap_apo_qt                 (, 56,12) edit {MASKQ}
+       print #s3_ap_apo_aj                 (,+01,12) edit {MASKA}
+       next-listing
+       print 'Πλεονασμ. Απογραφής'         (, 27,20)
+       print #s3_ap_ple_qt                 (, 56,12) edit {MASKQ}
+       print #s3_ap_ple_aj                 (,+01,12) edit {MASKA}
+       next-listing
+       print 'Ελλείματα Απογραφής'         (, 27,20)
+       print #s3_ap_ell_qt                 (, 56,12) edit {MASKQ}
+       print #s3_ap_ell_aj                 (,+01,12) edit {MASKA}
+       next-listing
+
+    end-if
+
+    print 'Ποσότητα Ελλειμάτων'            (, 01,20)
+    print #s3_ell_qt                       (,+01,12) edit {MASKQ}
+    print 'Κόστος Ελλειμάτων'              (,+01,20)
+    print #s3_ell_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Πωληθέντων'              (,+01,20)
+    print #s3_pvl_ks                       (,+01,12) edit {MASKA}
+    next-listing
+    print 'Ποσότητα Πλεονασμάτων'          (, 01,20)
+    print #s3_ple_qt                       (,+01,12) edit {MASKQ}
+    print 'Κόστος Πλεονασμάτων'            (,+01,20)
+    print #s3_ple_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Διακινήσεων'             (,+01,20)
+    print #s3_dia_ks                       (,+01,12) edit {MASKA}
+    print 'Κόστος Υπολοίπου'               (,+01,17)
+    print #s3_ypo_ks                       (,+01,12) edit {MASKA}
+
+end-procedure 
+! ******************************************************************
+begin-procedure getsxet(#aa, :$sx_seira, :$sx_parno)
+  move '' to $sx_seira
+  move '' to $sx_parno
+begin-select
+tim_seira                   () NOP
+tim_parno                   () NOP
+    move &tim_seira to $sx_seira 
+    move &tim_parno to $sx_parno 99999
+from sy_parmas 
+where aa = #aa
+end-select
+end-procedure
+! ******************************************************************
+
+!begin-footing {FOOT-SIZE}
+!#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+!end-footing
+
+begin-heading {HEAD-SIZE}
+!#INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  print 'Αποθήκη :'                   (5,01,10)
+  print $per_apouhkh                  (,+01,50)
+  print 'Από :'                       (,+35,05)
+  print $apohmpr                      (,+01,10)
+  print 'Εως :'                       (,+04,05)
+  print $evshmpr                      (,+01,10)
+  print '-'                           (6,1,132) Fill
+  print 'Ημερ.'                       (7,01,05)
+  print 'Παραστατικό '                (,+01,16)
+  print 'ΑΠ'                          (,+01,02)
+  print 'Συναλλασόμενος'              (,+01,20)
+  print 'Αιτία'                       (,+01,09)
+  ! print $L_X3                         (,+03,01)
+  print '       Α  Γ  Ο  Ρ  Ε  Σ'     (,+01,24)
+  print '  Π  Ω  Λ  H  Σ  Ε  Ι  Σ'    (,+01,25)
+  print '  Διακίνηση'                 (,+01,11)
+  print '   Υπόλοιπο'                 (,+01,12)
+
+  print 'Εγγρ.'                       (8,01,05)
+  print 'Kδ Σρ Αριθμο'                (,+01,19)
+  print 'Κωδικ Επωνυμία'              (,+01,20)
+  print 'Εγγραφης  '                  (,+01,09)
+  ! print $L_X3                         (,+03,01)
+  print '   Ποσότητα     Α ξ ί α'     (,+01,24)
+  print '   Ποσότητα     Α ξ ί α'     (,+01,25)
+  print '   Ποσότητα'                 (,+01,11)
+  print '   Ποσότητα'                 (,+01,12)
+  print $L_X1                         (9,01,132) Fill
+end-heading

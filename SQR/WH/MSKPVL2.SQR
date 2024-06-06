@@ -1,0 +1,130 @@
+
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : mskpvl.sqr                                       ****
+! ***** DATE        : 20/06/95                                         ****
+! ***** APPLICATION :                                                  ****
+! ***** AUTHOR      :                                                  ****
+! ***** NOTE        :                                                  ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X     80
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK      DD/MM/YY
+#DEFINE   DATEM         DD/MM
+
+#DEFINE   MASK1             999,999,999
+#DEFINE   MASK2               9,999,999.9999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID  to $cid
+
+ input $icid     '≈Ù·ÈÒÂÈ·'
+ 
+ unstring $icid   by '"' into $filler1 $cid   $filler1
+
+ if $cid = '='
+    execute app_getdefcid $cid, $cid output
+ end-if
+
+ do main
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+ move 0 to #cnt
+
+begin-select  distinct
+f.synal                &synal           () NOP
+a.pvlomada             &pvlomada        () NOP
+a.perigrafh            &perigr          () NOP
+
+  move &pvlomada to $pvlomada
+  move &perigr   to $perigr
+  move &synal    to $synal 
+
+  do print_mtp
+
+from wh_pvlomades a,wh_eidh b,wh_kint3 f
+where  a.pvlomada = b.pvlomada
+and    f.cid      = $cid
+and    b.kvdikos  = f.eidos
+and    exists     (select d.eidos
+                   from wh_eidhmore d
+                   where b.kvdikos = d.eidos
+                   and   d.cid = $cid 
+                   and   d.energo is not null)
+and    not exists (select c.eidos
+                   from sy_spceidh c
+                   where b.kvdikos = c.eidos)
+[$SQLCMD]
+group by f.synal,a.pvlomada,a.perigrafh
+order by a.pvlomada
+end-select
+  display #ss
+end-procedure
+
+! ******************************************************************
+
+begin-procedure print_mtp
+  let #s = 0
+  let #pvl_a = 0
+  let #pvl_p = 0
+begin-select
+b.pvlomada           () NOP
+sum(pvl_a)    &pvl_a () NOP
+sum(pvl_p)    &pvl_p () NOP
+
+  let #pvl_a = &pvl_a
+  let #pvl_p = &pvl_p
+
+from wh_kint3 a,wh_eidh b
+where a.eidos    = b.kvdikos
+and   a.synal    = $synal
+and   b.pvlomada = $pvlomada
+and   a.cid      = $cid
+group by b.pvlomada
+end-select
+   if #pvl_p != 0
+        let  #mtp = round ( #pvl_a / #pvl_p , 0 )
+   else
+        let #mtp = #pvl_a
+   end-if 
+
+    print $pvlomada         (, 01,15)
+    print $perigr           (,+01,30)
+    print #mtp              (,+01,15) edit {MASK1}
+
+    next-listing
+
+end-procedure
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+#INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let $msg='Ã≈”« ‘…Ã« –ŸÀ«”«” ¡Õ¡ œÃ¡ƒ¡ –ŸÀ«”«”'
+  print $msg                         (3,   ,  )       center
+  print ' ˘‰ÈÍ¸Ú'                    (5, 01,15)
+  print '–ÂÒÈ„Ò·ˆﬁ'                  ( ,+01,30)
+  print 'Ã›ÛÁ ‘ÈÏﬁ –˛ÎÁÛÁÚ'          ( ,+01,) 
+end-heading

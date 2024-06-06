@@ -1,0 +1,14 @@
+/** PCA*LIB AdHoc-Reports **/
+/** Saved : 2012-01-05 **/
+select d.eidos,e.perigrafh,e.c981,e.c982,
+sum(d.posothta*p.syntel_p) as posothta, max(d.timh) as timh, min(a.hmer_e) as min_hm, max(a.hmer_e) as max_hm,count(distinct a.aa) as cnt
+from sy_parmas a, sy_pardet d, ap_par p, wh_eidh e
+where a.synal='0010'
+and a.hmer_e between '1 jan 2011' and '31 dec 2011'
+and a.apouhkh='10'
+and a.parkvd in ('221','220')
+and a.aa=d.aa
+and a.parkvd=p.parkvd
+and d.eidos = e.kvdikos
+group by d.eidos,e.perigrafh, e.c981,e.c982
+order by e.c981,e.c982, e.perigrafh

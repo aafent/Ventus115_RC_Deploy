@@ -1,0 +1,164 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : L_115102.sqr                                   ****
+!***** DATE        : 21/10/98                                       ****
+!***** APPLICATION : WH                                             ****
+!***** AUTHOR      : фыг воятатоу                                   ****
+!***** NOTE        : пИМэЙИО ЕПИТАЦЧМ                               ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y     66
+#DEFINE   PAGE-X     132
+#DEFINE   HEAD-SIZE  7
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+
+#DEFINE   MASK2     999,999,999,999.99c
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+End-Setup
+
+#INCLUDE "{$L_GDATA}/sqr/PCAFUN1.inc"
+
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID to $cid 
+
+input $ypok
+input $eidos_ajiog
+ 
+unstring $ypok by '"' into $filler $ypok $filler
+unstring $eidos_ajiog by '"' into $filler $eidos_ajiog $filler
+
+
+show $SQLCMD
+
+
+ do main
+
+End-Report
+
+
+! *************************************************************************
+
+begin-procedure main
+ do pca_printcover
+ 
+ let #a = 0
+
+
+begin-select
+ 
+a.aa_eterias
+a.synal
+a.ariumos
+a.hm_lhjhs
+a.ajia
+b.epvnymia
+c.epvnymia
+a.logariasmos
+a.trapeza
+a.status_end
+
+ let #sum = &a.ajia
+ let #total = #total +#sum
+ let #a=#a+1
+ move &b.epvnymia to $perigrafh
+ let $perig1=substr($perigrafh,1,10)
+ let $perig2=substr($perigrafh,11,20)
+  
+ print &a.aa_eterias 	(+1,1,8)
+ print '|' 		(,,1)
+ print &a.synal 	(,,8)
+ print &a.ariumos    	(,,9)
+ print '|'     		(,,1)
+ print &b.epvnymia 	(,,20) wrap 10 2
+ print '|'  		(,,1)
+ print &a.logariasmos 	(,,25)
+ print '|' 		(,,1)
+ print &a.hm_lhjhs  	(,,8) edit dd-mm-yy
+ print '|' 		(,,1)
+ print &a.ajia  	(,,16)
+ print '|' 		(,,1)
+ print &c.epvnymia 	(,,13) wrap 13 3
+ print '|' 		(,+2,1)
+ print &a.status_end	(,,5)
+ print '|' 		(,,1)
+
+ 
+from aj_mas a, sy_synal b, sy_synal c
+where  a.ypok=$ypok and a.eidos_ajiogr=$eidos_ajiog
+and a.synal=b.synal and  a.trapeza = c.synal
+[$SQLCMD]
+end-select
+
+
+print '-'      (+2,1,100) fill
+ print 'цемийа сумока телавиа' 	(+2,25,30)
+ print #a     			(,45)  edit B999
+ print          'аниас' 	(,50)
+ print #total			(,57)    edit 999999999
+End-procedure
+! *******************************************************************
+
+
+begin-heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+
+print 'пимайио епитацым кгнеыс'                  (3) center bold
+print 'паяаст'		   (5,1,8)
+print '|'                  (,,1) 
+print 'йыдийос'	           (,,8)
+print 'аяихлос' 	   (,,9)
+print  '|'                 (,,1)
+print 'епымулиа'	   (,+5,15)
+print '|'                  (,,1)
+print 'коцаяиаслос'        (,+5,20)
+print  '|'                 (,,1)
+print 'гл/миа '   	   (,,8)
+print '|'                  (,,1)
+print 'посо '              (,+5,11)
+print '|'                  (,,1)
+print 'ейдоуса '   	   (,+1,14)
+print '|'                  (,,1)
+print 'тувг'               (,,5)
+print '|'                  (,,1)
+!-----------
+print '|'                  (+1,9,1)
+print 'пекатг'             (,,8)
+
+print 'епитацгс'           (,,8)
+print  '|'                 (,+1,1)
+print '|'                  (,+20,1) 
+print 'тяапефас'           (,+5,15)
+print  '|'                 (,+5,1)  
+print 'кгнгс'              (,,8)
+print  '|'                 (,,1) 
+print 'епитацгс'           (,+5,11)
+print  '|'                 (,,2)  
+print 'тяапефа'            (,,14)
+print '|'                  (,,1)
+print '|'                  (,+5,1)
+
+
+end-heading   
+
+! *******************************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{AJ	1	10	617	pinak	rs	X	01},TITLE{пИМэЙИО ЕПИТАЦЧМ}
+!	PARCOUNT{4}
+!	PAR1{уПОЙАТэСТГЛА	ypok	1	=	char(2)		X}
+!	PAR2{еъДОР_АНИОЦ.	eidos_ajiog	1	=	char(3)		X}
+!	PAR3{аПЭ-еЫР гЛЕЯ/МИА кчН	hm_lhjhs	2	BETWEEN	smalldatetime		X}
+!	PAR4{аПЭ-еЫР гЛЕЯ/МИА кчН	hm_lhjhs	2	BETWEEN	smalldatetime		X}
+!</pcalib>

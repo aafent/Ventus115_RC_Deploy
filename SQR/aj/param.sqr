@@ -1,0 +1,166 @@
+!***********************************************************************
+!***** PROLOGIC S.A.                                                ****
+!***** REPORT      : param.sqr                                      ****
+!***** DATE        : 09/06/93                                       ****
+!***** APPLICATION : Application environment                        ****
+!***** AUTHOR      : ¡÷≈Õ‘¡ «” ¡Õƒ—≈¡”                              ****
+!***** NOTE        : –·Ò·ÏÂÙÒÔÈ ÛıÌ‰ÂÛÁÚ ÎÔ„·ÒÈ·ÛÏ˘Ì                ****
+!***********************************************************************
+
+#DEFINE   PAGE-Y    58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE  6
+#DEFINE   FOOT-SIZE  1
+#DEFINE   HEAD-LINE  4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    999,999,999c
+#DEFINE   MASK2    99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+! input $ieidos 'eidos ajiogr'
+! unstring $ieidos by '"' into $filler $eidos $filler
+
+ do main
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+begin-select 
+a.cid                                          () NOP
+a.logarx                                       () NOP
+a.logarp                                       () NOP
+a.en_x                                         () NOP
+a.en_p                                         () NOP
+a.kvdikos                                      () NOP
+a.typ_ajio                                     () NOP
+
+        do find_logar
+        do find_metab
+
+     if &a.en_x != ''
+        move &a.en_x to $parkvd
+        do find_parastatiko
+        move $kinhsh to $parast_x
+     end-if
+
+     if &a.en_p != ''
+        move &a.en_p to $parkvd
+        do find_parastatiko
+        move $kinhsh to $parast_p
+     end-if
+  print &a.cid                                  (, 01,01)
+  print &a.typ_ajio                             (,+01,01)
+  print &a.kvdikos                              (,+01,03)
+  print $perigrafh                              (,+01,23)
+  print $L_X3                                   (,+01,01)
+  print &a.logarx                               (,+01,12)
+  print $L_X3                                   (,+01,01)
+  print &a.en_x                                 (,+01,02)
+  print $parast_x                               (,+01,04)
+  print $L_X3                                   (,+01,01)
+  print $logarx_per                             (,+01,22)
+  print $L_X3                                   (,+01,01)
+  print &a.logarp                               (,+01,12)
+  print $L_X3                                   (,+01,01)
+  print &a.en_p                                 (,+01,02)
+  print $parast_p                               (,+01,04)
+  print $L_X3                                   (,+01,01)
+  print $logarp_per                             (,+01,22)
+  move '' to $parast_x
+  move '' to $parast_p
+  next-listing
+ 
+from aj_logar a
+where 1=1
+order by a.cid,a.typ_ajio,a.kvdikos
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure find_metab
+
+begin-select
+a4.perigrafh         () NOP
+  move &a4.perigrafh  to $perigrafh
+from aj_metab a4
+where a4.cid      = $cid        and
+      a4.typ_ajio = &a.typ_ajio and
+      a4.kvdikos  = &a.kvdikos
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure find_logar
+
+begin-select
+a1.perigrafh         () NOP
+  move &a1.perigrafh  to $logarx_per
+from gl_logar a1
+where a1.logar = &a.logarx
+  and a1.cid = $cid
+end-select
+
+begin-select
+a2.perigrafh         () NOP
+  move &a2.perigrafh  to $logarp_per
+from gl_logar a2
+where a2.logar = &a.logarp
+  and a2.cid = $cid
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure find_parastatiko
+begin-select
+a3.perigrafh         () NOP
+a3.f_xrevsh          () NOP
+a3.f_pistvsh         () NOP
+from ap_par a3
+where a3.parkvd = $parkvd
+end-select
+ if &a3.f_xrevsh = 'X' 
+    move '◊—≈Ÿ' to $kinhsh
+ end-if
+ if &a3.f_pistvsh = 'X' 
+    move '–…”‘' to $kinhsh
+ end-if
+end-procedure
+
+! ******************************************************************
+begin-footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  let $ep1 = '”’Õƒ≈”≈…” Àœ√¡—…¡”ÃŸÕ ¡Œ…œ√—¡÷ŸÕ'
+  print $ep1                   (2,)Center
+  print 'T'                    (5,03,01)
+  print ' Ÿƒ'                  ( ,+1,03)
+  print '–≈—…√—¡÷«'            ( ,+1,23)
+  print $l_X3                  ( ,+1,01)
+  print 'Àœ√.◊—≈Ÿ”«”'          ( ,+1,12)
+  print $l_X3                  ( ,+1,01)
+  print '–¡—.”’Õ'              ( ,+1,07)
+  print $l_X3                  ( ,+1,01)
+  print '–≈—…√—¡÷«'            ( ,+1,22)
+  print $l_X3                  ( ,+1,01)
+  print 'Àœ√.–…”‘Ÿ”«”'         ( ,+1,12)
+  print $l_X3                  ( ,+1,01)
+  print '–¡—.”’Õ'              ( ,+1,07)
+  print $l_X3                  ( ,+1,01)
+  print '–≈—…√—¡÷«'            ( ,+1,22)
+end-heading

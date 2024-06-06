@@ -1,0 +1,8 @@
+.textsmaller {  font-family: Arial, Helvetica, sans-serif; font-size: 9px; font-weight: bold}
+.titles {  font-family: Arial, Helvetica, sans-serif; font-size: 16px; font-weight: bold; letter-spacing: 0.4em}
+.text { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: normal; text-align: left}
+.titlesSmaller { font-family: Arial, Helvetica, sans-serif; font-size: 14px; font-weight: bold}
+.textBig { font-family: Arial, Helvetica, sans-serif; font-size: 13px; font-weight: normal }
+.titlesNospace { font-family: Arial, Helvetica, sans-serif; font-size: 17px; font-weight: bold}
+.titlesSmallerSpace { font-family: Arial, Helvetica, sans-serif; font-size: 15px; letter-spacing: 0.1em}
+.textnotalign { font-family: Arial, Helvetica, sans-serif; font-size: 12px; font-weight: normal}

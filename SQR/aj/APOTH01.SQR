@@ -1,0 +1,204 @@
+! ***********************************************************************
+! ***** COMPANIES   : PROLOGIC S.A. - SOFLOLENS S.A.                 ****
+! ***** REPORT      : apoth01.sqr                                    ****
+! ***** DATE        : 29/10/96                                       ****
+! ***** APPLICATION : Αξιόγραφα                                      ****
+! ***** AUTHOR      : ΑΦΕΝΤΑΚΗΣ ΑΝΔΡΕΑΣ  - ΜΠΟΚΙΑΣ ΝΙΚΟΣ             ****
+! ***** NOTE        : Καταλογος Αξιογραφων κατα Λογαριασμό           ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     58
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   7
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   MASK1    9999,999.99
+#DEFINE   MASK2          99999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ 
+ input $icid     'company ID     '
+ input $ieidos   'eidos ajiogr   '
+
+ unstring $ieidos by '"' into $filler $eidos $filler
+ unstring $icid   by '"' into $filler $cid   $filler
+
+ if $cid = '='
+    execute app_retdefcid $cid, $cid out
+ end-if
+ 
+ if $eidos = 'Ε' or
+    $eidos = 'E'
+     move '01'               to $typ_ajio
+     move 'Επιταγών'        to $typos
+     move '33%'             to $xartofylakio
+ end-if
+ if $eidos = 'Σ' or
+    $eidos = 'S'
+     move '1'               to $typ_ajio
+     move 'Συναλλαγματικών' to $typos
+     move '310000%'         to $xartofylakio
+ end-if
+
+ if $typ_ajio = ''
+    show clear-screen (24,1) 'Λάθος Είδος Αξιογράφου' beep
+    stop
+ end-if
+
+ do main
+
+End-Report
+
+! ==============================================================================
+
+begin-procedure main
+
+   let #total = 0
+
+begin-select 
+convert( datetime, a.hm_lhjhs) &a.hm_lhjh        ()        NOP
+a.cid                                           ()        NOP
+a.aa_ajiogr                                       (, 01,05) edit {MASK2}
+a.synal                                         (, +1,05)
+b.epvnymia                                      (,+01,24)
+a.trapeza                                       ()        NOP
+  
+   let                       $trap = ''
+
+   do find_synal (&a.trapeza,$trap)
+
+   if                        $trap = ''
+   print                &a.trapeza              (,+01,20)
+   else
+   print                     $trap              (,+01,20)
+   end-if
+
+a.aa_eterias                                   (,+01,12)
+convert( datetime, a.hm_ekdoshs)  &a.hm_ekd         (,+01,08) edit {DATEMASK}
+
+  print &a.hm_lhjh                              (,+01,08) edit {DATEMASK}
+  print ''                                      (,+01,11)
+
+a.aitia                                        (,+01,30)
+
+  next-listing
+
+a.ekdoths                                       (, 13,24)
+a.ariumos                                    (,+01,20)
+a.topos_plhr                                     (,+01,12) 
+
+  print ''                                      (,+01,17)
+
+a.ajia                                          (,+01,11) edit {MASK1}
+		show $r
+  let #daytot = #daytot + &a.ajia
+  let #total  = #total  + &a.ajia
+
+  next-listing
+
+from  aj_mas a,  sy_synal b
+where a.synal    =       b.synal
+  and a.eidos_ajiogr =       $typ_ajio
+  and a.cid      =       $cid
+  and a.xrhsh=2001
+!  and a.hm_lhjhs >'1 jan 2001'
+  and a.logar_end   like    $xartofylakio
+! and a.aa_ajiogr between 340 and 569
+[$SQLCMD]
+[$SQLORD]
+end-select
+
+  do totals
+
+end-procedure
+
+! ==============================================================================
+
+begin-procedure subtotals
+
+   next-listing
+
+   print 'Σύνολο Ημέρας  ['               (,54,16)
+   print $day                             (,+1,08) edit {DATEMASK}
+   print ']'                              (,+1,01)
+   print #daytot                          (,+9,12) edit {MASK1}
+
+   next-listing
+
+   let #total = #total + #daytot
+   move 0 to #daytot
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure totals
+
+   next-listing
+
+   print 'ΓΕΝΙΚΟ ΣΥΝΟΛΟ ΠΕΡΙΟΔΟΥ  ['      (,34,25)
+   print $apohm                           (,+1,08) edit {DATEMASK}
+   print '-'                              (,+1,01)
+   print $evshm                           (,+1,08) edit {DATEMASK}
+   print ']'                              (,+1,01)
+   print #total                           (,+9,12) edit {MASK1}
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_synal($synal,:$epvnymo)
+
+begin-select
+a2.epvnymia         () NOP
+
+from  sy_synal a2
+where a2.synal = $synal
+end-select
+
+move &a2.epvnymia     to $epvnymo
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-footing {FOOT-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+end-footing
+
+begin-heading {HEAD-SIZE}
+!  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let $msg = 'Λ Η Ξ Ι Α Ρ Ι Ο   Α Ξ Ι Ο Γ Ρ Α Φ Ω Ν  ['   ||$typos|| ']   31/12/2000 '
+  print $msg                   (3,) Center
+
+  print 'Αριθμ'                (5,01, 5)
+  print 'Ονοματεπωνυμο Συναλλ' ( ,+1,30)
+  print 'Τ ρ α π έ ζ α'        ( ,+1,20)
+  print 'Αρ.Επιταγής'          ( ,+1,12)
+  print '  Εκδοση'             ( ,+1,08)
+  print '    Λήξη'             ( ,+1,08)
+  print '           '          ( ,+1,11)
+  print 'Παρατηρήσεις'         ( ,+1,30)
+
+  print  $typos                (6,01,05)
+  print '    =//=      εκδότη' ( ,+1,30)
+  print 'Αριθμός Λογαριασμού'  ( ,+1,20)
+  print 'Τόπος Πληρωμής'       ( ,+1,12)
+  print '        '             ( ,+1,08)
+  print '        '             ( ,+1,08)
+  print '    Π ο σ ό'          ( ,+1,11)
+  print '     '                ( ,+1,05)
+  print '        '             ( ,+1,20)
+
+end-heading

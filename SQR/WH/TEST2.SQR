@@ -1,0 +1,309 @@
+! ***********************************************************************
+! ***** PROLOGIC S.A.                                                ****
+! ***** REPORT      :                                                ****
+! ***** DATE        : 8/8/95                                         ****
+! ***** APPLICATION :                                                ****
+! ***** AUTHOR      :                                                ****
+! ***** NOTE        :                                                ****
+! ***********************************************************************
+
+#DEFINE   PAGE-Y     64
+#DEFINE   PAGE-X    146
+#DEFINE   HEAD-SIZE   6
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1        9,999
+#DEFINE   MASK2   9,999.9999
+#DEFINE   MASK3  999,999,999
+#DEFINE   MASK4      999,999.999999
+#DEFINE   MASK6      999999
+#DEFINE   DATEMASK  DD/MM/YY
+
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+#INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+#INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+move $L_CID to $cid
+
+ input $icid      'еТАИЯЕъА'
+ input $iapouhkh  'оЛАДА пЧКГСГР'
+
+ unstring $icid     by '"' into $filler1 $cid     $filler2
+
+  let $SQLAPOUHKH = ' and a.apouhkh = ' || $iapouhkh
+
+ if $cid = '='
+    execute app_retdefcid $cid , $cid output
+ end-if
+ if $cid = '3'
+    let $apohm = '1 Jan 1996'
+ else
+    let $apohm = '1 Jul 1995'
+ end-if
+
+  let $SQLHMER = 'and   a.hmeromhnia between ' || $apohm ||' and "30 Nov 1996"'
+
+  !  do chk_kint1_kint2
+
+ if $cid = '1'
+  !  do parag
+ end-if
+
+    show clear-screen (24,1) 'кэХОР еъДОР аНИОЦЯэЖОУ' beep
+
+  ! do synalprog
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure chk_kint1_kint2
+
+begin-select
+b.kvdikos    &eidos    ()  NOP  
+b.perigrafh            ()  NOP  
+
+    let $eidos = &eidos 
+     do kin
+     do kint1
+     do kint2
+
+     if    #t0 != #t1
+        or #t0 != #t2
+        or #t1 != #t2
+
+        print $eidos       (, 1,15) 
+        print &b.perigrafh (,+1,40) 
+     
+     if $err_t0 = 'дем упаявеи'
+        print $err_t0 (,+1,7)
+     else
+        print #t0          (,+1,10) edit {MASK2}
+     end-if
+
+     if $err_t1 = 'дем упаявеи'
+        print $err_t1 (,+1,7)
+     else
+        print #t1          (,+1,10) edit {MASK2}
+     end-if
+
+     if $err_t2 = 'дем упаявеи'
+        print $err_t2  (,+1,7)
+     else
+        print #t2          (,+1,10) edit {MASK2}
+     end-if
+
+     if  $do_upd  = 'YES'
+     and $err_t0 != 'дем упаявеи'
+     and $err_t1 != 'дем упаявеи'
+     and $err_t2 != 'дем упаявеи'
+      !  do upd1
+     end-if
+
+     next-listing
+     end-if
+
+from  wh_eidh b ,wh_eidhmore c
+where b.kvdikos = c.eidos
+and   c.cid     = $cid
+and   c.energo is not null
+  !  and   b.kvdikos = '2STARTER KIT'
+order by b.kvdikos
+end-select
+  new-page
+end-procedure
+
+! *************************************************************************
+
+begin-procedure upd1
+begin-sql
+update wh_kint2 set ypoloipo = #t1
+where  cid = $cid and  eidos = $eidos
+end-sql
+end-procedure
+
+! *************************************************************************
+
+begin-procedure upd2
+begin-sql
+update wh_kint2 set desmeysh = #desmeysh
+where  cid = $cid and  eidos = $eidos
+end-sql
+end-procedure
+
+! *************************************************************************
+
+begin-procedure kin
+
+    let #t0 = 0
+    let $err_t0 = ' '          
+
+begin-select
+sum(isnull(a.posothta,0)*syntel_p) &eis () NOP
+
+  let #t0 = &eis
+  let $err_t0 = 'упаявеи'
+
+from wh_kin a,ap_par b
+where a.eidos = $eidos
+and   a.cid   = $cid 
+and   a.parkvd = b.parkvd
+and   b.f_eis is not null
+[$SQLHMER]
+ ! [$SQLAPOUHKH]
+end-select
+
+begin-select
+sum(isnull(a.posothta,0)*syntel_p) &eja () NOP
+
+  let #t0 = #t0 - &eja
+  let $err_t0 = 'упаявеи'
+
+from wh_kin a,ap_par b
+where a.eidos = $eidos
+and   a.cid   = $cid 
+and   a.parkvd = b.parkvd
+and   b.f_eja is not null
+[$SQLHMER]
+ ! [$SQLAPOUHKH]
+end-select
+
+  if $err_t0 != 'упаявеи'
+     let $err_t0 = 'дем упаявеи'
+  end-if
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure kint1
+
+    let #t1 = 0     
+    let $err_t1 = ' '          
+
+begin-select
+sum(a.apo_p)+sum(a.ago_p)+sum(a.dia_p)+sum(a.gen_p)-sum(a.pvl_p) &t1 () NOP
+
+  let #t1 = &t1
+  let $err_t1 = 'упаявеи'
+
+from wh_kint1 a
+where a.eidos = $eidos
+and   a.cid   = $cid 
+[$SQLHMER]
+ ! [$SQLAPOUHKH]
+end-select
+
+  if $err_t1 != 'упаявеи'
+     let $err_t1 = 'дем упаявеи'
+  end-if
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure kint2
+
+    let #t2 = 0     
+    let $err_t2 = ' '          
+
+begin-select
+a.ypoloipo    &t2   () NOP
+a.desmeysh    &desm () NOP
+
+  let #t2   = &t2
+  let #desm = &desm
+  let $err_t2 = 'упаявеи'
+
+from wh_kint2 a
+where a.eidos = $eidos
+and   a.cid   = $cid 
+ ! [$SQLAPOUHKH]
+end-select
+
+  if $err_t2 != 'упаявеи'
+     let $err_t2 = 'дем упаявеи'
+  end-if
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure parag
+  let $epikefalida = '2'
+begin-select
+b.eidos    &parag_eidos () NOP
+sum(b.posothta_parag - b.paral_posothta) &diafora () NOP
+
+  let #desmeysh = &diafora
+  let $eidos    = &parag_eidos
+
+  print  &parag_eidos  ( ,1,15)
+  print  #desmeysh     (,+1,14) edit {MASK4}
+  print  #desm         (,+1,14) edit {MASK4}
+
+  do kint2
+
+  if $upd = 'YES'
+  !  do upd2
+  end-if
+  next-listing
+
+from sy_parag a,sy_paragdet b
+where a.aa = b.aa
+and   a.status <> 9
+and   a.cid = $cid
+group by b.eidos
+having  sum( b.posothta_parag - b.paral_posothta) <> 0
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure synalprog
+! begin-select
+! a.synal    (,1,10)
+! a.epvnymia (,+1,30)
+! from sy_synal a
+! where not exists ( select b.synal from sy_synal
+! end-select
+end-procedure
+
+! *************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+  #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+
+  let   $msg1 = ' '
+  let   $msg2 = ' '
+
+  print $msg1                   (2,) Center
+  print $msg2                   (3,) Center
+
+  if $epikefalida = '1'
+     print 'еъДОР'      (5, 1,15) 
+     print 'пЕЯИЦЯАЖч'  ( ,+1,40) 
+     print 'kin  '      ( ,+1,10) 
+     print 'kint1'      ( ,+1,10) 
+     print 'kint2'      ( ,+1,10) 
+  end-if
+
+  if $epikefalida = '2'
+     print  'еъДОР'       (5,1,15)
+     print  'дЕСЛЕУЛщМА'  (,+1,14)
+     print  'дЕСЛ. kint2' (,+1,14)
+  end-if
+
+
+End-Heading              

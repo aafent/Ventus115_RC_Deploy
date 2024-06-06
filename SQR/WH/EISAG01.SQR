@@ -1,0 +1,142 @@
+! **********************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                     ****
+! **** REPORT      : eisag01.sqr                                    ****
+! **** DATE        : 10/08/95                                       ****
+! **** APPLICATION : WH                                             ****
+! **** AUTHOR      : Mal Nick                                       ****
+! **** NOTE        :                                                ****
+! **********************************************************************
+
+#DEFINE   PAGE-Y          62 
+#DEFINE   PAGE-X         136
+#DEFINE   HEAD-SIZE        8
+#DEFINE   FOOT-SIZE        1
+#DEFINE   HEAD-LINE        5
+
+#DEFINE   MASK1       999999    !     999,999     size  6
+#DEFINE   MASK2    999999999    ! 999,999,999     size  9
+#DEFINE   MASK21    99999999    !  99,999,999     size  8
+#DEFINE   MASK3         9999.9  !       9,999.9   size  6
+#DEFINE   MASK4       999999    !     999,999     size  6
+#DEFINE   MASK5          999.9  !         999.9   size  5
+#DEFINE   MASK6        99999    !     999,999     size  5
+
+#DEFINE   MASK1-0                     999,999   ! size  7
+#DEFINE   MASK2-0                 999,999,999   ! size 11
+#DEFINE   MASK21-0                 99,999,999   ! size 10
+#DEFINE   MASK3-0                       9,999.9 ! size  7
+#DEFINE   MASK4-0                     999,999   ! size  7
+#DEFINE   MASK5-0                         999.9 ! size  5
+#DEFINE   MASK6-0                     999,999   ! size  7
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ input $apohmeromhnia 'ΑΠΟ Ημερομηνια'
+ input $evshmeromhnia 'Εως Ημερομηνια'
+
+ execute app_datecnv  $apohmeromhnia, $apohm out, $apohmp out
+ execute app_datecnv  $evshmeromhnia, $evshm out, $evshmp out
+
+ do main0($apohm,$evshm)
+
+End-Report
+
+! ******************************************************************************
+
+begin-procedure main0($apohm,$evshm)
+
+begin-select
+a.cid              &cid            () NOP
+a.aa               &aa             () NOP
+a.hmeromhnia       &hmer           () NOP
+a.apouhkh          &apou           () NOP
+a.eidos            &eidos          () NOP
+a.parkvd           &parkvd         () NOP
+a.aitia            &aitia          () NOP
+a.seira            &seira          () NOP
+a.parno            &parno          () NOP
+a.ajia             &ajia           () NOP
+a.posothta         &pos            () NOP
+
+  if &parno = '13'
+     let #13 = #13 + &pos 
+  end-if
+
+  if &parno = '14'
+     let #14 = #14 + &ajia
+  end-if
+ 
+   let $SQLEP = ' and  a.parkvd = "75"   '
+   do e_p(&cid,&parno,$SQLEP)
+
+   let $SQLEP = ' and  a.parkvd = "85"   '
+   do e_p(&cid,&parno,$SQLEP,#pos,#ajia)
+
+from wh_kin a
+where a.hmeromhnia between $apohm and $evshm
+and   a.parno  in ("13","14")
+order by a.cid,a.apouhkh,a.hmeromhnia,a.aa,a.parno
+end-select 
+
+end-procedure
+! ******************************************************************************
+begin-procedure e_p($cid,$parno,$SQLEP,:#pos,:#ajia)
+
+begin-select
+a.cid              &cid            () NOP
+a.aa               &aa             () NOP
+a.hmeromhnia       &hmer           () NOP
+a.apouhkh          &apou           () NOP
+a.eidos            &eidos          () NOP
+a.parkvd           &parkvd         () NOP
+a.aitia            &aitia          () NOP
+a.seira            &seira          () NOP
+a.parno            &parno          () NOP
+a.ajia             &ajia           () NOP
+a.posothta         &pos            () NOP
+
+   if &parno = '85'
+      let #syn = -1
+   end-if
+   if &parno = '75'
+      let #syn =  1
+   end-if
+  let #pos  = &pos  * #syn
+  let #ajia = &ajia * #syn
+
+from wh_kin a
+where a.cid   = $cid
+and   a.parno = $parno
+[$SQLEP]
+end-select
+end-procedure
+! ******************************************************************************
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ let $mmm = 'ΑΠΟ : ' || $apohmp || '  ΕΩΣ : ' || $evshmp 
+ print 'ΕΙΣΑΓΩΓΕΣ'                                         (3,)      Center
+ print $mmm                                                (4,)      Center
+ print ' '                                                 (6, 1,40) fill
+ print '    εναρξης'                          (6,+1,)
+ print '|---------------------------- περιοδου ---------------------------------|' (6,+1,)
+ print 'Τμήμα'                 (7,1,40)
+ print '    κοσ-υπο'           (,+1,11) 
+ print '     αγορες'           (,+2,11) 
+ print '    κοσ-υπο'           (,+2,11) 
+ print '   πωλησεις'           (,+2,11) 
+ print '    κοσ-πωλ'           (,+2,11) 
+ print '    μικ-κερ'           (,+2,11) 
+ print '  ποσ %'               (,+2,07)  
+End-Heading

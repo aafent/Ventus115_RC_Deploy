@@ -1,0 +1,422 @@
+! *************************************************************************
+! ***** COMPANIES   : SOFLOLENS SA - PROLOGIC SA                       ****
+! ***** REPORT      : ypolapogr.sqr                                    ****
+! ***** DATE        : 11/07/96                                         ****
+! ***** APPLICATION : WH                                               ****
+! ***** AUTHOR      : Mal Nick                                         ****
+! ***** NOTE        :                                                  ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X    132
+#DEFINE   HEAD-SIZE   8
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   4
+
+#DEFINE   MASK1          999,999,999
+#DEFINE   MASK2      999,999,999,999
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+begin-sql -C1
+create table ##tmp_ypolapogr (cid       char(3),
+                              apouhkh   char(2),
+                              perigrafh varchar(50),
+                              pvlomada  char(15))
+end-sql
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ move $L_CID  to $cid
+ 
+ let $cid='3'
+
+!input $icid     'company        '
+ input $ihm_evs  'evs hmeromhnia '
+ input $iapouhkh 'apouhkh'
+
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+!unstring $icid         by '"' into $filler1 $cid   $filler2 
+ unstring $iapouhkh     by '"' into $filler1 $iapou $filler2 
+
+ move $iapou to $ia
+ move 'T' to $firstpage
+
+ if $cid = '='
+    execute app_retdefcid $cid, $cid out
+ end-if
+
+ if $ia != '*'
+    let $SQLCMD1 = ' and a.apouhkh = ' ||  $iapouhkh
+ else
+    let $SQLCMD1 = ''
+ end-if
+
+ do getxrhsh
+  
+ do main
+ do main2
+
+End-Report
+
+! *************************************************************************
+
+begin-procedure main
+
+begin-select 
+a.cid          &cd          () NOP
+a.apouhkh      &apouhkh     () NOP
+c.perigrafh    &perigrafh   () NOP
+b.pvlomada     &pvlomada    () NOP
+
+  let $cd        = &cd 
+  let $apouhkh   = &apouhkh
+  let $perigrafh = &perigrafh
+  let $pvlomada  = &pvlomada
+
+  do insert_now
+
+from wh_kint1 a, wh_eidh b, wh_pvlomades c
+
+where a.cid        = $cid			
+and   b.pvlomada   = c.pvlomada
+and   a.hmeromhnia   between $startdate and $evshm
+and   a.eidos      = b.kvdikos
+and                not exists ( select d.eidos
+                                from sy_spceidh d
+                                where b.kvdikos   = d.eidos)
+and  b.pvlomada not in ('¬¡À…‘”≈”','41404056','41404125','41404149','41404150')
+[$SQLCMD1]
+[$SQLCMD]
+end-select
+
+end-procedure
+
+! *************************************************************************
+
+begin-procedure main2
+
+!begin-procedure main2($cid,$startdate,$evshm,$ia,$SQLCMD1)
+
+  let #tot_ypo  = 0
+  let #tot_kos  = 0
+  let #s_k_ypol = 0                     
+
+  move  0  to #cnt1
+  move 'T' to $firstpage
+
+begin-select distinct -C1
+a.cid                                          () NOP
+a.apouhkh               &ap                    () 
+                                                  On-Break print = Never 
+                                         	  Level    = 1
+                                  		  After    = tot_apou
+                                                  Save     = $lala
+
+a.pvlomada              &pvl                    () NOP
+a.perigrafh             &pvlp                   () NOP
+
+
+  let $apouhkh = &ap 
+  do find_apouhkh
+
+
+  move &pvl  to $pvl
+  move &pvlp to $pvlp
+
+  do getmsk
+
+  let #s_k_ypol = #s_k_ypol +  #k_ypol 
+  
+from  ##tmp_ypolapogr a
+where 1=1
+order by a.cid, a.apouhkh, a.pvlomada
+end-select
+
+   next-listing need=5
+   next-listing
+   next-listing
+
+   print ' '                    (, 1,15)
+   print ' '                    (,+1,50)
+   print ' '                    (,+1,14)
+   print ' '                    (,+1,12)               
+   print '='                    (,+2,15) fill            
+
+   next-listing
+
+   print ' '                    (, 1,15)
+   print '”’ÕœÀ¡ ¡–œ»« ŸÕ : '   (,+1,50)
+   print ' '                    (,+1,14)
+   print ' '                    (,+1,12)
+   print #s_k_ypol              (,+2,19) EDIT {MASK2}
+
+end-procedure
+
+! ******************************************************************
+
+begin-procedure getmsk
+
+! begin-procedure getmsk($cid,$apouhkh,$pvl,$startdate,$evshm,$ia,$pvlp,$per_apouhkh)
+
+   move 0 to #msk
+   move 0 to #ypoloipo
+   move 0 to #k_ypol
+
+   execute whp_getmsk5 @cid      = $cid, 
+                       @eidos    = $pvl, 
+                       @hmer     = $evshm, 
+                       @msk      = #msk      out, 
+                       @ypoloipo = #ypoloipo out, 
+                       @apouhkh  = $apouhkh 
+
+ if #ypoloipo != 0
+    let #cnt1 = #cnt1 + 1 
+    display $pvl
+
+! CONDITIONS          
+ 
+ if $pvl     = 'K882' 
+    let #msk = 2850
+ end-if
+ 
+ if $pvl     = 'K506FLE' 
+    let #msk = 2700
+ end-if
+ 
+ if $pvl     = 'DENIS-PH' 
+    let #msk = 3262
+ end-if
+ 
+ if $pvl     = 'VIAL CAPS' 
+    let #msk = 10  
+ end-if
+ 
+ if $pvl     = 'ACHIM-PB' 
+ or $pvl     = 'SAMOA-PB'
+    let #msk = 1166
+ end-if
+ 
+ if $pvl= 'ƒ’' or $pvl = '2MGP'     or $pvl = '2SEM'     or $pvl = '40223-PR'
+               or $pvl ='41124054'  or $pvl = '41221059' or $pvl = '41221065'
+               or $pvl = '41223096' or $pvl = '8018-B'   or $pvl = '8020-B'
+               or $pvl = 'AGATHA-D' or $pvl = 'CAIRO-B'  or $pvl = 'CARSON-PD'
+               or $pvl = 'L.CASES-FREE'                  or $pvl = ' ¡”≈‘…Õ≈”'
+    let #msk = 1
+ end-if
+ 
+ if round(#msk,0) = 0
+    let #msk = 0
+ end-if
+
+ if  #current-line <   9
+     move  9 to #current-line
+ end-if
+
+ if  #current-line =  9 
+ and $firstpage    = 'F'
+
+     print ' '                ( 1, 1,15)
+     print '¡–œ Ã≈‘¡÷œ—¡ : '  (  ,+1,50)
+     print #tot_ypo           (  ,+1,12) EDIT {MASK1}
+     print ' '                (  ,+1,12)
+     print #tot_kos           (  ,+4,19) EDIT {MASK2}
+
+     next-listing
+     
+     let #k_ypol  = round(#msk,0)     * #ypoloipo
+     let #tot_ypo = #tot_ypo          + #ypoloipo
+     let #tot_kos = #tot_kos          + #k_ypol
+
+     print $pvl               (+1, 1,15)
+     print $pvlp              (  ,+1,50)
+     print #ypoloipo          (  ,+1,12) EDIT {MASK1}
+     print #msk               (  ,+1,12) EDIT {MASK1}
+     print #k_ypol            (  ,+4,19) EDIT {MASK2}
+
+     next-listing
+
+ else
+
+     if  #current-line =  9 
+     and $firstpage    = 'T'
+     and #cnt1         =  1
+
+          let  #k_ypol  = round(#msk,0)     * #ypoloipo
+          let  #tot_ypo = #tot_ypo          + #ypoloipo
+          let  #tot_kos = #tot_kos          + #k_ypol
+
+          let  $firstpage = 'F'
+
+          print $pvl          (  1,1,15)
+          print $pvlp         (  ,+1,50)
+          print #ypoloipo     (  ,+1,12) EDIT {MASK1}
+          print #msk          (  ,+1,12) EDIT {MASK1}
+          print #k_ypol       (  ,+4,19) EDIT {MASK2}
+
+          move 10 to #current-line
+
+          next-listing
+
+      end-if
+
+      if #cnt1 > 1
+
+          let #k_ypol  = round(#msk,0)     * #ypoloipo
+          let #tot_ypo = #tot_ypo          + #ypoloipo
+          let #tot_kos = #tot_kos          + #k_ypol
+
+          let $firstpage = 'F'
+
+          print $pvl          (  , 1,15)
+          print $pvlp         (  ,+1,50)
+          print #ypoloipo     (  ,+1,12) EDIT {MASK1}
+          print #msk          (  ,+1,12) EDIT {MASK1}
+          print #k_ypol       (  ,+4,19) EDIT {MASK2}
+
+          next-listing
+
+      end-if
+
+ end-if
+
+
+  if  #current-line = {PAGE-Y} - 2
+
+      next-listing
+
+      print ' '               (  , 1,15)
+      print '”≈  Ã≈‘¡÷œ—¡ : ' (  ,+1,50)
+      print #tot_ypo          (  ,+1,12) EDIT {MASK1}
+      print ' '               (  ,+1,12)
+      print #tot_kos          (  ,+4,19) EDIT {MASK2}
+
+      next-listing
+
+  end-if
+   
+ end-if 
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure getxrhsh
+
+begin-select 
+convert(datetime,xrhsh_arxh)  &xrhsh_arxh () NOP
+
+   move &xrhsh_arxh to $startdate
+
+from  ap_xrhsh
+where cid = $cid
+and   $evshm between xrhsh_arxh and xrhsh_telos
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_apouhkh
+
+begin-select
+a.perigrafh                 () NOP
+
+   move &a.perigrafh to $per_apouhkh
+   let $per_apouhkh = '['||$lala||'] '||$per_apouhkh
+
+from  wh_apouhk a
+where a.kvdikos = $lala
+  and a.cid     = $cid
+end-select
+
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure find_pvlp($pvl,:$pvlp)
+
+begin-select
+a.perigrafh  &pvlp () NOP
+
+ let $pvlp = &pvlp
+
+from  wh_pvlomades a
+where a.pvlomada = $pvl
+end-select 
+
+end-procedure 
+
+! ------------------------------------------------------------------------------
+
+begin-procedure insert_now
+
+begin-sql -C1
+insert into ##tmp_ypolapogr(cid, apouhkh, perigrafh, pvlomada)
+values                     ($cd,$apouhkh,$perigrafh,$pvlomada)
+end-sql
+
+end-procedure 
+
+! ------------------------------------------------------------------------------
+
+begin-procedure tot_apou
+
+   next-listing
+
+   print ' '                  (  , 1,15)
+   print ' '                  (  ,+1,50)
+   print '='                  (  ,+1,11) fill           
+   print ' '                  (  ,+2,12)               
+   print '='                  (  ,+4,15) fill            
+
+   next-listing
+
+   print ' '                  (  , 1,15)
+   print '”’ÕœÀ¡ : '          (  ,+1,50)
+   print #tot_ypo             (  ,+1,12) EDIT {MASK1}
+   print ' '                  (  ,+1,12) fill            
+   print #tot_kos             (  ,+4,19) EDIT {MASK2}
+
+   next-listing
+  
+   if $apouhkh != '◊'  
+      new-page  
+   end-if
+
+   move 'F' to $pageflag
+   move 'T' to $firstpage
+   move  0  to #cnt1
+
+   let #tot_ypo = 0
+   let #tot_kos = 0
+
+end-procedure 
+
+! ******************************************************************************
+
+begin-footing {FOOT-SIZE}
+
+end-footing
+
+begin-heading {HEAD-SIZE}
+
+  print '¡ÔËﬁÍÁ :'                   (5, 1, 10)
+  print $per_apouhkh                  ( ,+1, 40)
+  print '≈˘Ú :'                       ( ,+4,  5)
+  print $evshmpr                      ( ,+1,  8)
+  print '-'                           (6, 1,132) Fill
+  print '≈ﬂ‰ÔÚ          '             (7, 1, 15)
+  print '–ÂÒÈ„Ò·ˆﬁ      '             (7,+1, 50)
+  print '    –ÔÛ¸ÙÁÙ·'                ( ,+1, 12)
+  print '‘ÈÏﬁ  ¸ÛÙÔıÚ'                ( ,+1, 12)
+  print ' ¸ÛÙÔÚ ’ÔÎÔﬂÔı'            ( ,+3, 16)
+  print '-'                           (8, 1,132) Fill
+
+end-heading

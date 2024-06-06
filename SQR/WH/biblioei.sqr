@@ -1,0 +1,474 @@
+! *************************************************************************
+! ***** PROLOGIC S.A.                                                  ****
+! ***** REPORT      : biblioei.sqr                                     ****
+! ***** DATE        : 22/06/94                                         ****
+! ***** APPLICATION : Application environment                          ****
+! ***** AUTHOR      : ажемтайгс амдяеас                                ****
+! ***** NOTE        : еЙТЩПЫСГ бИБКъО аПОХчЙГР пЯОИЭМТЫМ               ****
+! *************************************************************************
+
+#DEFINE   PAGE-Y     62
+#DEFINE   PAGE-X      229  !229
+#DEFINE   HEAD-SIZE   5
+#DEFINE   FOOT-SIZE   1
+#DEFINE   HEAD-LINE   5
+
+#DEFINE   DATEMASK DD/MM/YY
+#DEFINE   DATEM    DD/MM
+#DEFINE   MASK3            999c
+#DEFINE   MASK6         999999c
+#DEFINE   MASK9      9,999,999c
+#DEFINE   MASK11   99999999.99c
+#DEFINE   MASK12  9,999,999.99c
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+ move $L_CID  to $cid
+ move $L_XRHSH  to #xrhsh
+
+ input $iapou1 'apouhkh apo'
+ unstring $iapou1 by '"' into $filler $apou1 $filler
+
+ input $ihm_apo  'apo hmeromhnia '
+ input $ihm_evs  'evs hmeromhnia '
+ execute app_datecnv    $ihm_apo, $apohm output, $apohmpr output
+ execute app_datecnv    $ihm_evs, $evshm output, $evshmpr output
+
+ input $uevr 'kathgoria '
+ unstring $uevr by '"' into $filler $uevr $filler
+
+ input $kathgoria 'kathgoria '
+ unstring $kathgoria by '"' into $filler $kathgoria $filler
+
+ do get_kathgoria_title($kathgoria,$kathgoria_title)
+
+ if $uevr='Y' or $uevr='м' or $uevr='М' or $uevr='N' or $uevr='n'
+    move 'у' to $uevr
+ else
+    move 'N' to $uevr
+ end-if
+
+ display 'KATHGORIA : ' noline
+ display $kathgoria noline
+ display ' ' noline
+ display $kathgoria_title
+
+ do title 
+ do getxrhsh
+ do get_apouhkh($cid,$apou1,$apou1_perigrafh) 
+ do  find_eidos
+ 
+End-Report
+
+! *************************************************************************
+begin-procedure find_eidos
+ move 0 to #aa
+begin-select distinct
+g.eidos                    () NOP
+k.perigrafh                () NOP
+k.monada_pvl		   () NOP
+   
+  display #current-line
+  if #current-line > 55  ! 15 gia test
+      do allagh_selidas
+  end-if   
+
+
+  display $eidos
+
+  move &g.eidos to $eidos
+  move &k.perigrafh to $eidosper
+  move &k.monada_pvl to $monada
+  
+  do trexousa
+  do proigoumenh
+  do apografh
+  let #aa = #aa + 1
+  do detail
+   
+from wh_kint1 g,wh_kint2 s,wh_eidh k
+where g.eidos=s.eidos 
+  and k.kvdikos=s.eidos
+  and g.cid=s.cid 
+  and s.cid=$cid
+  and s.xrhsh=#xrhsh  
+  and s.apouhkh in (select s1.logapou from wh_apouhkes s1 where s1.cid=$cid)
+  and g.apouhkh =$apou1
+  and k.kathgoria = $kathgoria
+[$SQLCMD]
+order by g.eidos
+end-select
+ move 'ц е м и й а  с у м о к а' to $txt
+ do synola
+end-procedure
+
+! ******************************************************************
+begin-procedure trexousa
+   move 0 to #cnt
+begin-select -C2
+isnull(sum(a.eis_pos),0)                   &eis_pos () NOP 
+isnull(sum(a.eja_pos),0)                   &eja_pos () NOP
+isnull(sum(a.eis_aji),0)                   &eis_aji () NOP
+isnull(sum(a.eja_aji),0)                   &eja_aji () NOP
+
+  let #cnt = #cnt + 1
+
+from wh_kinv1 a
+where  a.cid        = $cid				
+   and a.hmeromhnia between $apohm and $evshm
+   and a.apouhkh    =$apou1
+   and a.eidos      =$eidos 
+   and a.parkvd not in (select parkvd from ap_omadapar where omada='APOGRAFH')
+end-select
+
+end-procedure
+
+! ******************************************************************
+begin-procedure proigoumenh
+
+begin-select -C2
+isnull(sum(g1.eis_pos),0)   &prev_eis_pos       () NOP
+isnull(sum(g1.eja_pos),0)   &prev_eja_pos       () NOP
+isnull(sum(g1.eis_aji),0)   &prev_eis_aji       () NOP
+isnull(sum(g1.eja_aji),0)   &prev_eja_aji       () NOP
+from wh_kinv1 g1
+where g1.cid     =  $cid
+  and g1.apouhkh =  $apou1 
+  and g1.eidos   =  $eidos
+  and g1.hmeromhnia>= $hmarxrhsh
+  and g1.hmeromhnia < $apohm
+  and g1.parkvd not in (select parkvd from ap_omadapar where omada='APOGRAFH')
+end-select
+
+
+end-procedure
+					
+! ******************************************************************
+begin-procedure apografh
+
+begin-select -C2
+isnull(sum(g1.eis_pos),0)   &apog_eis_pos       () NOP
+isnull(sum(g1.eja_pos),0)   &apog_eja_pos       () NOP
+isnull(sum(g1.eis_aji),0)   &apog_eis_aji       () NOP
+isnull(sum(g1.eja_aji),0)   &apog_eja_aji       () NOP
+
+  let #apog_pos=(&apog_eis_pos + &apog_eja_pos)
+  let #apog_aji=(&apog_eis_aji + &apog_eja_aji) 
+
+  let #total_pos_eis= (#apog_pos + &prev_eis_pos + &eis_pos)
+  let #total_aji_eis= (#apog_aji + &prev_eis_aji + &eis_aji)
+  let #total_pos_eja= (&prev_eja_pos + &eja_pos)              
+  let #total_aji_eja= (&prev_eja_aji + &eja_aji)   
+  
+  let #ypol_pos=#total_pos_eis-#total_pos_eja
+
+from wh_kinv1 g1
+where g1.cid     =  $cid
+  and g1.apouhkh =  $apou1 
+  and g1.eidos   =  $eidos
+  and g1.hmeromhnia between $hmarxrhsh and $hmtexrhsh
+  and g1.parkvd in (select parkvd from ap_omadapar where omada='APOGRAFH')
+end-select
+
+
+end-procedure
+					
+! ******************************************************************
+begin-procedure get_apouhkh($cid, $apouhkh,:$perigrafh)
+   move '' to $perigrafh
+begin-select 
+a.perigrafh                 () NOP
+   move &a.perigrafh to $perigrafh
+from wh_apouhk a
+where a.kvdikos = $apouhkh
+  and a.cid     = $cid
+end-select
+end-procedure
+
+! ******************************************************************
+begin-procedure getxrhsh
+begin-select
+d.xrhsh_arxh   () NOP
+d.xrhsh_telos  () NOP 
+  move &d.xrhsh_arxh to $hmarxrhsh
+  move &d.xrhsh_telos to $hmtexrhsh
+from  ap_xrhsh d
+where cid = $cid and xrhsh=#xrhsh
+end-select
+end-procedure
+
+! ******************************************************************
+
+
+begin-procedure allagh_selidas
+ move 'с е  л е т а ж о я а'  to $txt
+ do synola
+ new-page
+ do title
+ move 'а п о  л е т а ж о я а'  to $txt
+ do metafora
+end-procedure
+
+
+! ******************************************************************
+begin-procedure synola
+  print '='                           (,01,229) Fill
+  print $L_X3                         (,01,01)
+  print #aa                           (,,03)    edit {MASK3}
+  print $L_X3                         (,,01)
+  print '999999'                      (,,07)
+  print $L_X3                         (,,01)
+  print $txt                          (,,30)
+  print $L_X3                         (,,01)
+  print ' '      	              (,,08)
+  print $L_X3                         (,,01)
+  print ' '                           (,54,9)   edit {MASK9}
+  print #sumap_eis_aji                (,,12)    edit {MASK12} 
+  print $L_X3                         (,,01)
+  print ' '                           (,77,9)   edit {MASK9}
+  print ' '                           (,+02,9)  edit {MASK9}
+  print $L_X3                         (,,01) 
+  print #sumpr_eis_aji                (,,12)    edit {MASK12}
+  print #sumpr_eja_aji                (,,12)    edit {MASK12}
+  print $L_X3                         (,,01)
+  print ' '                           (,,9)     edit {MASK9}
+  print ' '                           (,+02,9)  edit {MASK9}
+  print $L_X3                         (,,01) 
+  print #sum_eis_aji                  (,,12)    edit {MASK12}
+  print #sum_eja_aji                  (,,12)    edit {MASK12}
+  print $L_X3                         (,,01)
+  print ' '                           (,,9)     edit {MASK9}
+  print ' '                           (,+02,9)  edit {MASK9}
+  print '*'                           (,+01,01) 
+  print ' '                           (,+01,9)  edit {MASK9}
+  print $L_X3                         (,,01)
+  print #sumall_eis_aji               (,,12)    edit {MASK12}
+  print #sumall_eja_aji               (,,12)    edit {MASK12}
+  print $L_X3                         (,+02,01)
+  next-listing
+  print '='                           (,01,229) Fill
+
+end-procedure
+
+! ******************************************************************
+begin-procedure metafora
+  print $L_X3                         (,01,01)
+  print #aa                           (,,03)   edit {MASK3}
+  print $L_X3                         (,,01)
+  print '999999'                      (,,07)
+  print $L_X3                         (,,01)
+  print $txt                          (,,30)
+  print $L_X3                         (,,01)
+  print ' '      	              (,,08)
+  print $L_X3                         (,,01)
+  print ' '                           (,54,9)  edit {MASK9}
+  print #sumap_eis_aji                (,,12)   edit {MASK12} 
+  print $L_X3                         (,,01)
+  print ' '                           (,77,9)  edit {MASK9}
+  print ' '                           (,+02,9) edit {MASK9}
+  print $L_X3                         (,,01) 
+  print #sumpr_eis_aji                (,,12)   edit {MASK12}
+  print #sumpr_eja_aji                (,,12)   edit {MASK12}
+  print $L_X3                         (,,01)
+  print ' '                           (,,9)    edit {MASK9}
+  print ' '                           (,+02,9) edit {MASK9}
+  print $L_X3                         (,,01) 
+  print #sum_eis_aji                  (,,12)   edit {MASK12}
+  print #sum_eja_aji                  (,,12)   edit {MASK12}
+  print $L_X3                         (,,01)
+  print ' '                           (,,9)    edit {MASK9}
+  print ' '                           (,+02,9) edit {MASK9}
+  print '*'                           (,+01,01) 
+  print ' '                           (,+01,9) edit {MASK9}
+  print $L_X3                         (,,01)
+  print #sumall_eis_aji               (,,12)   edit {MASK12}
+  print #sumall_eja_aji               (,,12)   edit {MASK12}
+  print $L_X3                         (,+02,01)
+  next-listing
+end-procedure
+
+! *****************************************************************
+
+begin-procedure title
+  print $L_X3                         (1,01,01)
+  print $L_X3                         (1,05,01)
+  print ' '	                      (,,07)
+  print $L_X3                         (,,01)
+  print $L_X3                         (,+30,01)
+  print $L_X3                         (1,53,01)
+  print 'апоцяажг емаянеыс'	      (1,54,21) 
+  print $L_X3                         (,,01)  
+  print 'йимгсг пяогц/мгс пеяиодоу '  (,,44) 
+  print $L_X3                         (,+02,01)
+  print 'йимгсг тяевоусас пеяиодоу'   (,,44) 
+  print $L_X3                         (,+01,01)
+  print 'цемийо сумоко йимгсеым'      (,+01,54)
+  print $L_X3                         (,+04,01)
+ 
+  print $L_X3                         (2,01,01)
+  print $L_X3                         (2,05,01)
+  print 'йыдийос'	              (,,07)
+  print $L_X3                         (,,01)
+  print $L_X3                         (,+30,01)
+  print 'ломада'	              (,,8)
+  print $L_X3                         (,,01)
+  print '-'                           (,+01,179) Fill
+
+  print $L_X3                         (3,01,01)
+  print 'а/а'                         (,,03)
+  print $L_X3                         (,,01)
+  print 'еидос'	                      (,,07)
+  print $L_X3                         (,,01)
+  print 'пеяицяажг еидоус'	      (,,30)
+  print $L_X3                         (,,01)
+  print 'летягсгс'	              (,,08)
+  print $L_X3                         (,,01)
+  print $L_X3                         (,75,01)
+  print '  п о с о т г т а'           (3,77,20) 
+  print $L_X3                         (,,01)
+  print '        а н и а'             (,,24)
+  print $L_X3                         (,,01)
+  print '  п о с о т г т а'           (,,20) 
+  print $L_X3                         (,,01)
+  print '        а н и а'             (,,24)
+  print $L_X3                         (,,01)
+  print '  п о с о т г т а'           (,+01,20)
+  print '*  упокоипо'                 (,,11)
+  print $L_X3                         (,,01)
+  print '        а н и а'             (,,24) 
+  print $L_X3                         (,+02,01)
+  
+  print $L_X3                         (4,01,01)
+  print $L_X3                         (,+03,01)
+  print $L_X3                         (,+07,01)
+  print $L_X3                         (,+30,01)
+  print $L_X3                         (,+8,01)
+  print ' посотгта        аниа'       (4,54,21)
+  print $L_X3                         (,,01)
+  print 'еисацыцес   енацыцес'        (4,77,20)
+  print $L_X3                         (,,01)
+  print '   еисацыцес    енацыцес'    (4,,24)
+  print $L_X3                         (,,01)
+  print 'еисацыцес   енацыцес'        (4,,20)
+  print $L_X3                         (,,01)
+  print '   еисацыцес    енацыцес'     (4,,24)
+  print $L_X3                         (,,01)
+  print 'еисацыцес   енацыцес'        (4,,20)
+  print '*  посотгта'                 (,+01,11)
+  print $L_X3                         (,,01)
+  print '   еисацыцес    енацыцес'    (4,,24)
+  print $L_X3                         (,+02,01)
+  print '='                           (5,01,229) Fill
+
+end-procedure
+
+! ******************************************************************
+begin-procedure detail
+  print $L_X3                         (,01,01)
+  print #aa                           (,,03)    edit {MASK3}
+  print $L_X3                         (,,01)
+  print $eidos	                      (,,07)
+  print $L_X3                         (,,01)
+  print $eidosper        	      (,+1,29) !51
+  !print $eidosper        	      (,,30)
+  print $L_X3                         (,,01)
+  print $monada 	              (,,08)
+  print $L_X3                         (,,01)
+  print #apog_pos                     (,+0,9)   edit {MASK9}     ! 54
+  print #apog_aji                     (,,12)    edit {MASK12} 
+  print $L_X3                         (,,01)
+  print &prev_eis_pos                 (,+1,9)   edit {MASK9}     ! 77
+  print &prev_eja_pos                 (,+02,9)  edit {MASK9}
+  print $L_X3                         (,,01) 
+  print &prev_eis_aji                 (,,12)    edit {MASK12}
+  print &prev_eja_aji                 (,,12)    edit {MASK12}
+  print $L_X3                         (,,01)
+  print &eis_pos                      (,,9)     edit {MASK9}
+  print &eja_pos                      (,+02,9)  edit {MASK9}
+  print $L_X3                         (,,01) 
+  print &eis_aji                      (,,12)    edit {MASK12}
+  print &eja_aji                      (,,12)    edit {MASK12}
+  print $L_X3                         (,,01)
+  print #total_pos_eis                (,,9)     edit {MASK9}
+  print #total_pos_eja                (,+02,9)  edit {MASK9}
+  print '*'                           (,+01,01) 
+  print #ypol_pos                     (,+01,9)  edit {MASK9}
+  print $L_X3                         (,,01)
+  print #total_aji_eis                (,,12)    edit {MASK12}
+  print #total_aji_eja                (,,12)    edit {MASK12}
+  print $L_X3                         (,+02,01)
+  display 'aaa: ' noline
+  display #current-column
+  next-listing
+  
+  add &eis_aji to #sum_eis_aji
+  add &eja_aji to #sum_eja_aji
+  add &prev_eis_aji to #sumpr_eis_aji
+  add &prev_eja_aji to #sumpr_eja_aji
+  add &apog_eis_aji to #sumap_eis_aji
+  add &apog_eja_aji to #sumap_eis_aji
+  add #total_aji_eis to #sumall_eis_aji
+  add #total_aji_eja to #sumall_eja_aji
+  
+end-procedure
+
+! ******************************************************************
+
+begin-procedure get_kathgoria_title($kathgoria,:$kathgoria_title)
+
+move '' to $kathgoria_title
+
+begin-select
+perigrafh () NOP
+	move &perigrafh to $kathgoria_title
+from wh_fkeidhinf 
+where kvdinf = 1 and inf = $kathgoria
+end-select
+
+end-procedure
+
+
+! ******************************************************************
+
+begin-footing {FOOT-SIZE}
+ if $uevr='N'
+  #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+ end-if
+end-footing
+
+begin-heading {HEAD-SIZE}
+  if $uevr='N'
+    #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+  else
+    #INCLUDE "{$L_GDATA}/sqr/HEAD05.inc"
+  end-if
+
+  let $tmp='лгмиаиа йатастасг бибкиоу апохгйгс ['||$kathgoria_title||']'
+  print $tmp                          (03,01,90) Center
+  print 'апохгйг:'                    ( 4,01,10)
+  print $apou1_perigrafh              (,+01,30)
+  !print 'апо :'                       (,+37,05)
+  !print $apohmpr                      (,+01,08)
+  !print 'еыс :'                       (,+04,05)
+  !print $evshmpr                      (,+01,08)
+
+  let $msg='аПЭ :' || $apohmpr || ' ЕЫР : ' || $evshmpr
+  print $msg                              (,+07,90) Center
+  
+end-heading
+!<pcalib>
+!Warning DO NOT modify this lines, are used internaly from PCA*LIBs
+!	REP{WH	2	7	452	kartela	rs		01},TITLE{йАЯТщКА еИДЧМ ЙАТэ гЛЕЯ/МъА}
+!	PARCOUNT{3}
+!	PAR1{йЫД.аПОХчЙГР	apouhkh	2	BETWEEN	char		X}
+!	PAR2{йЫД. еъДОУР	eidos	2	BETWEEN	varchar(15)	X	}
+!	PAR3{гЛЕЯОЛГМъА еЦЦЯАЖЧМ	hmeromhnia	2	BETWEEN	datetime		X}
+!REPORTHELP{F}
+!</pcalib>
+
+

@@ -1,0 +1,165 @@
+! ******************************************************************************
+! **** COMPANY     : PROLOGIC SA - SOFLOLENS SA                             ****
+! **** REPORT      : check_parast.sqr                                       ****
+! **** DATE        : 11/09/95  (  ·Î¸ ◊ÂÈÏ˛Ì· )                             ****
+! **** APPLICATION : ¡–œ»« ≈”                                               ****
+! **** AUTHOR      : Mal Nick                                               ****
+! **** NOTE        :  ¡‘¡”‘¡”« ≈À≈√◊œ’ –¡—¡”‘¡‘… ŸÕ                         ****
+! ******************************************************************************
+
+#DEFINE   PAGE-Y             62
+#DEFINE   PAGE-X            132
+#DEFINE   HEAD-SIZE           6
+#DEFINE   FOOT-SIZE           1
+#DEFINE   HEAD-LINE           4
+
+#DEFINE   DATEMASK     DD/MM/YY
+#DEFINE   MASK1     999,999,999.99
+#DEFINE   MASK2         999,999.99
+#DEFINE   MASK3      9999999999    
+#DEFINE   MASKAA        9999999    
+
+Begin-Setup
+ ASK    $L_GDATA   'GDATA '
+ #INCLUDE "{$L_GDATA}/sqr/SETUP01.inc"
+
+ load-lookup  name         = apouhkes
+              rows         = 100
+              table        = wh_apouhk
+              key          = kvdikos
+              return_value = perigrafh
+
+ begin-sql -C1
+  set char_convert 'iso_1'
+ end-sql
+
+End-Setup
+
+Begin-Report
+ #INCLUDE "{$L_GDATA}/sqr/REPORT01.inc"
+
+ do main
+
+End-Report
+
+! ***************************************************************** [main]
+
+begin-procedure main
+
+begin-select -C1 distinct
+'«Ï/Ìﬂ·'                     &t1           (, 1, 8)
+' '                          &f3           (,+3, 2)
+'– · Ò · Û Ù · Ù È Í ¸'      &t2           (,+1,40)
+'”ÂÈÒ‹'                      &t3           (,+1, 5)
+'/'                          &f1           (,  , 1)
+'   ¡ÒÈËÏ¸Ú'                 &t4           (,  ,10)
+' '                          &f4           (,+3, 2)
+'¡  Ô Ë ﬁ Í Â Ú'            &t5           (,+1,40)
+
+! next-listing
+! print '-'                                 (, 1,{PAGE-X}) fill
+ next-listing
+
+convert(datetime,a.hmeromhnia)             (, 1,08)     edit {DATEMASK}
+a.parkvd                                   (,+3, 2)
+b.perigrafh                                (,+1,40)
+a.seira                                    (,+1, 5)
+'/'                          &f2           (,  , 1)
+a.parno                                    (,  ,10)     edit {MASK3}
+a.apouhkh                                  (,+3, 2)
+  lookup apouhkes &a.apouhkh $perigrafh
+  print $perigrafh                         (,+1,20)
+','                          &t6           ()
+
+!a.apouhkh2                                 (,+1, 2)
+!  lookup apouhkes &a.apouhkh2 $perigrafh
+!  print $perigrafh                         (,+1,20)
+
+  next-listing
+  print '#'                                (, 1, 1)
+a.aa                                       (,+0, 7)     edit {MASKAA}
+a.aitia                                    (,+6,40)
+  
+
+  do rest($L_X1,$L_X2,$L_X3,&a.aa)
+  new-page
+
+
+from wh_kin a, ap_par b
+where a.parkvd=b.parkvd
+[$SQLCMD]
+order by a.hmeromhnia,a.parkvd,a.parno
+
+! from wh_parmas a, ap_par b
+! where a.parkvd=b.parkvd
+! [$SQLCMD]
+! order by a.hmer_e,a.parkvd,a.parno
+end-select
+
+end-procedure
+
+! ***************************************************************** [rest]
+
+begin-procedure rest2(#aa,:#ajia_t,:#posot_t)
+
+let #ajia_t  = 0
+let #posot_t = 0
+
+begin-select
+a.eidos                 (,01,15)
+b.perigrafh             (,+1,40)
+a.posothta              (,+1,10)    edit {MASK2}
+a.ajia                  (,+1,14)    edit {MASK1}
+  let #ajia_t  = #ajia_t  + &a.ajia
+  let #posot_t = #posot_t + &a.posothta
+  next-listing
+from wh_kin a, wh_eidh b
+where a.eidos=b.kvdikos
+  and a.aa=#aa
+end-select 
+end-procedure
+
+! ------------------------------------------------------------------------------
+
+begin-procedure rest($C1,$C2,$C3,#aa)
+   next-listing
+   print '- '                (,1,{PAGE-X}) fill
+   next-listing
+   print ' '                 (, 1,15)
+   print '≈ … ƒ œ ”'         (,+1,40)
+   print '  –ÔÛ¸ÙÁÙ·'        (,+1,10)
+   print '          ¡Óﬂ·'    (,+1,14)
+   next-listing
+   print '- '                (,1,{PAGE-X}) fill
+   next-listing
+
+!begin-select
+!count(aa)  &rowno            ()            NOP
+!from wh_kin
+!where aa=#aa
+!end-select
+!  if &rowno>0
+!     let #syn_ajia = 0
+     do rest2(#aa,#syn_ajia,#syn_pos)
+     print '='                       (,58,10) fill
+     print '='                       (,+1,14) fill
+     next-listing
+     print #syn_pos                  (,58,10)            edit {MASK2}
+     print #syn_ajia                 (,+1,14)            edit {MASK1}
+     next-listing
+     next-listing
+!  end-if
+ next-listing
+end-procedure
+
+! ***************************************************************** []
+
+Begin-Footing {FOOT-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/FOOT01.inc"
+End-Footing
+
+Begin-Heading {HEAD-SIZE}
+ #INCLUDE "{$L_GDATA}/sqr/HEAD01.inc"
+ print ' ¡‘¡”‘¡”« ≈À≈√◊œ’ –¡—¡”‘¡‘… ŸÕ ¡–œ»« ŸÕ' (5,) Center
+
+End-Heading
