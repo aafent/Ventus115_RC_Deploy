@@ -65,7 +65,8 @@ echo Ignore next "File Not Found" message (if appears)
 for /f "usebackq delims=|" %%f in (`dir /b "*.log"`) do (
 del /q "%%f"
 )
-if exist new_upgrade.cmd  del /q upgrade.cmd
+rem remove upgrade command (new_upgrade.cmd will remain)
+if exist upgrade.cmd  del /q upgrade.cmd
 popd
 
 rem ****
