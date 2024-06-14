@@ -1,6 +1,0 @@
-/** PCA*LIB AdHoc-Reports **/
-/** Saved : 2008-05-05 **/
-select eidos,kat ,parkvd,* from wh_casio_vkin
-where hmer_e between '1 mar 2008' and '10 mar 2008'
-and kat='11'
-and parkvd in ('มหะ','ะมั')

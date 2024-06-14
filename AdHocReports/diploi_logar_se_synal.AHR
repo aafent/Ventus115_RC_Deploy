@@ -1,7 +1,0 @@
-/** PCA*LIB AdHoc-Reports **/
-/** Saved : 2004-12-04 **/
-/* Λογαριασμοί Γ.Λ. δηλωμένοι σε περισσότερους από έναν συναλλασσόμενο
-*/
-select cid,logar,count(*)
-from sy_synaleidos
-group by cid, logar having count(*) > 1

@@ -1,8 +1,0 @@
-/** PCA*LIB AdHoc-Reports **/
-/** Saved : 2009-04-11 **/
-exec whp_wh414
-@FE              ='SQL',
-@cid             ='10',
-@hm_apo          ='15 feb 2009',
-@hm_evs          ='31 mar 2009',
-@prom_like       ='QUEST'

@@ -1,9 +1,0 @@
-/** PCA*LIB AdHoc-Reports **/
-/** Saved : 2009-01-19 **/
-select b.apouhkh,sum(ajia) from sy_partotals a,sy_parmas b
-where a.kvdikos=6
-and a.aa = b.aa
-and b.synal='QUEST'
-and b.parkvd='Á01'
-and b.hmer_e between '1 jan 2008' and '31 dec 2008'
-group by b.apouhkh

@@ -1,7 +1,0 @@
-/** PCA*LIB AdHoc-Reports **/
-/** Saved : 2005-01-04 **/
-select 'SY',sum(xrevsh),sum(pistvsh)
-from sy_kin where logar like '300001'
-union all
-select 'GL',sum(xrevsh),sum(pistvsh)
-from gl_kin where logar like '300001'
