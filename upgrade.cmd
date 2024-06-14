@@ -1,13 +1,19 @@
 @echo off
 set tit=Ventus - r115 - Upgrade Utility
 set upgradeFolder=ventus.auto.upgrade
+
+rem *** (v) retrieve the date into a variable
+for /f "skip=1" %%x in ('wmic os get localdatetime') do if not defined MyDate set MyDate=%%x
+set today=%MyDate:~0,4%-%MyDate:~4,2%-%MyDate:~6,2%
+
+
 rem
 title %tit%
 echo **************************************************
 echo %tit%
+echo Today is:%today%
 echo Please, wait
 echo **************************************************
-
 
 rem ****
 rem **** Change current directory to the directory of the upgrade.cmd command
@@ -15,6 +21,9 @@ rem ****
 cd /D "%~dp0"
 echo Working directrory is:
 cd
+
+rem ***
+echo Upgrade command ran on: %today% >> upgrades.log
 
 
 rem ****
