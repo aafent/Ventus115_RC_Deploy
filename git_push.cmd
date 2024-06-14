@@ -9,6 +9,7 @@ echo **************************************************
 echo %tit%
 echo **************************************************
 tar cvf executables.tar *.exe
+tar cvf dynamiclibraries.tar *.exe
 git add .
 git commit -a -m "Release of %today%"
 git push
